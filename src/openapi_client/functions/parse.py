@@ -2,7 +2,6 @@
 Module for extracting OpenAPI Operations from Python method ASTs.
 """
 
-from typing import Dict, Any
 import libcst as cst
 from openapi_client.models import OpenAPI, PathItem, Operation
 

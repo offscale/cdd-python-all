@@ -3,7 +3,7 @@ Module for extracting an OpenAPI specification from Python client code.
 """
 
 import libcst as cst
-from openapi_client.models import OpenAPI, Info, Paths, Components
+from openapi_client.models import OpenAPI, Info, Components
 from openapi_client.functions.parse import extract_functions_from_ast
 from openapi_client.classes.parse import extract_classes_from_ast
 

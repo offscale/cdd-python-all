@@ -1,6 +1,7 @@
+"""Command-line interface for the openapi-python-client."""
+
 import argparse
 import sys
-import json
 from pathlib import Path
 import libcst as cst
 
@@ -157,3 +158,7 @@ def main() -> None:
 
 if __name__ == "__main__":  # pragma: no cover
     main()
+
+"""
+Command-line interface for the openapi-python-client.
+"""

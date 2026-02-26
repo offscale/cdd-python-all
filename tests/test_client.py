@@ -109,7 +109,7 @@ def test_generate_code():
     assert "def get_pets" in code
     assert "class Pet(BaseModel):" in code
     assert "class Empty(BaseModel):" in code
-    assert "limit: Any" in code
+    assert "limit: int" in code
 
 
 def test_extract_code():

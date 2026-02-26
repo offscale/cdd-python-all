@@ -3,8 +3,7 @@ Module for extracting OpenAPI Schemas from Python class ASTs (Pydantic models).
 """
 
 import libcst as cst
-from typing import Dict, Any, Optional
-from openapi_client.models import OpenAPI, Schema, Components, SchemaOrReference
+from openapi_client.models import OpenAPI, Schema, Components
 
 
 class ClassExtractor(cst.CSTVisitor):

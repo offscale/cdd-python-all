@@ -2,7 +2,6 @@
 Module for extracting OpenAPI Operations from FastAPI mock server ASTs.
 """
 
-from typing import Dict, Any
 import libcst as cst
 from openapi_client.models import OpenAPI, PathItem, Operation
 
@@ -57,6 +56,44 @@ class MockServerExtractor(cst.CSTVisitor):
                                         operation.summary = summary
                                     if description:
                                         operation.description = description
+
+                                    # Extract responses
+                                    class ReturnExtractor(cst.CSTVisitor):
+                                        """Visitor to find event stream responses."""
+
+                                        def __init__(self):
+                                            self.has_event_stream = False
+
+                                        def visit_Return(
+                                            self, node: cst.Return
+                                        ) -> None:
+                                            """Check if the return is EventSourceResponse."""
+                                            if isinstance(node.value, cst.Call):
+                                                if isinstance(
+                                                    node.value.func, cst.Name
+                                                ):
+                                                    if (
+                                                        node.value.func.value
+                                                        == "EventSourceResponse"
+                                                    ):
+                                                        self.has_event_stream = True
+
+                                    ret_extractor = ReturnExtractor()
+                                    node.visit(ret_extractor)
+                                    if ret_extractor.has_event_stream:
+                                        from openapi_client.models import (
+                                            Response,
+                                            MediaType,
+                                        )
+
+                                        operation.responses = {
+                                            "200": Response(
+                                                description="Server-sent events stream",
+                                                content={
+                                                    "text/event-stream": MediaType(**{})
+                                                },
+                                            )
+                                        }
 
                                     if self.spec.paths is not None:
                                         setattr(

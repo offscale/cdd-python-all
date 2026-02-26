@@ -2,7 +2,7 @@
 Module for emitting Python classes (Pydantic models) from OpenAPI schemas.
 """
 
-from typing import Dict, List, Optional, Union
+from typing import Dict, List
 import libcst as cst
 from openapi_client.models import Schema, Reference, SchemaOrReference
 

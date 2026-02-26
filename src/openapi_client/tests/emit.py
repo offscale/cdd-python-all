@@ -2,9 +2,9 @@
 Module for emitting pytest tests from OpenAPI examples.
 """
 
-from typing import Dict, List, Optional
+from typing import List
 import libcst as cst
-from openapi_client.models import OpenAPI, PathItem, Operation
+from openapi_client.models import OpenAPI, Operation
 
 
 def emit_operation_test(

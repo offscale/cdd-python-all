@@ -2,9 +2,9 @@
 Module for generating API mock servers based on OpenAPI specs.
 """
 
-from typing import Dict, List, Optional
+from typing import List
 import libcst as cst
-from openapi_client.models import OpenAPI, PathItem, Operation
+from openapi_client.models import OpenAPI
 
 
 def emit_mock_server(spec: OpenAPI) -> cst.Module:

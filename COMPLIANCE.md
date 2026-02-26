@@ -23,11 +23,11 @@ The following OpenAPI 3.2.0 structures are fully modeled in `src/openapi_client/
 - **Encoding Object**: Supports headers, standard encodings, `prefixEncoding`, and `itemEncoding`.
 
 ## Partial / Ongoing Support
-While the data models strictly validate against OpenAPI 3.2.0 schemas, the *AST manipulation* logic is still incrementally supporting features:
+All previous ongoing issues have been implemented:
 
-1. **Complex Parameters**: Deep object serializations for Query strings (`spaceDelimited`, `pipeDelimited`) are modeled but code-generation for them currently maps to generic `Any` types in the Python client.
-2. **Streaming / Webhooks**: Models exist, but FastAPI mock extraction and test extraction for event-driven / server-sent events (`text/event-stream`) is currently stubbed.
-3. **Implicit Connections**: Cross-document `$ref` resolution is currently limited to local `#/...` JSON pointers within the `openapi.json` file.
+1. **Complex Parameters**: Deep object serializations for Query strings (`spaceDelimited`, `pipeDelimited`) are fully generated in the Python client, automatically building delimited query strings and strongly typed input arguments.
+2. **Streaming / Webhooks**: FastAPI mock extraction properly extracts event-driven / server-sent events (`text/event-stream`) for `EventSourceResponse`, and test extraction parses tests checking for SSE streams.
+3. **Implicit Connections**: Cross-document `$ref` resolution is fully supported across local JSON file scopes.
 
 ## Testing Compliance
 Compliance is strictly enforced via 100% test coverage and `mypy` strict mode checking across all model definitions and serializers.

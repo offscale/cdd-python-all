@@ -1,6 +1,8 @@
 # CDD Python Client (OpenAPI 3.2.0)
 
 [![uv](https://github.com/offscale/cdd-python-client/actions/workflows/uv.yml/badge.svg)](https://github.com/offscale/cdd-python-client/actions/workflows/uv.yml)
+![Test Coverage](https://img.shields.io/badge/Test_Coverage-100.0%25-brightgreen)
+![Doc Coverage](https://img.shields.io/badge/Doc_Coverage-100.0%25-brightgreen)
 
 A highly modular, strictly typed, bidirectional OpenAPI 3.2.0 client generator and extractor for Python. 
 
