@@ -1,55 +1,102 @@
-# CDD Python Client (OpenAPI 3.2.0)
+cdd-python-client
+=================
 
+[![License](https://img.shields.io/badge/license-Apache--2.0%20OR%20MIT-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![uv](https://github.com/offscale/cdd-python-client/actions/workflows/uv.yml/badge.svg)](https://github.com/offscale/cdd-python-client/actions/workflows/uv.yml)
 ![Test Coverage](https://img.shields.io/badge/Test_Coverage-100.0%25-brightgreen)
 ![Doc Coverage](https://img.shields.io/badge/Doc_Coverage-100.0%25-brightgreen)
 
-A highly modular, strictly typed, bidirectional OpenAPI 3.2.0 client generator and extractor for Python. 
+Welcome to **cdd-python-client**, a code-generation and compilation tool bridging the gap between OpenAPI specifications
+and native `Python` source code.
 
-Unlike traditional "one-way" code generators, this library treats both **Python Code** (Clients, FastAPI Mocks, Pytest suites) and **JSON Specifications** as equal sources of truth. You can edit a mock server, and the CLI will automatically update your OpenAPI spec, your client SDK, and your tests.
+This toolset allows you to fluidly convert between your language's native constructs (like classes, structs, functions,
+routing, clients, and ORM models) and OpenAPI specifications, ensuring a single source of truth without sacrificing
+developer ergonomics.
 
-## Features
-- **Contract-Driven Development**: Multi-directional synchronization between API specifications and code.
-- **OpenAPI 3.2.0 Support**: Fully typed models compliant with the latest spec.
-- **Preserves Formatting**: Uses `libcst` (Abstract Syntax Trees) instead of regex/templating, meaning it parses and injects code cleanly without ruining your manual modifications.
-- **100% Test Coverage & Type Safety**: Guaranteed stability through rigorous CI/CD standards.
+## 🚀 Capabilities
 
-## Quickstart
+The `cdd-python-client` compiler leverages a unified architecture to support various facets of API and code lifecycle
+management.
 
-### Installation
+* **Compilation**:
+    * **OpenAPI ➡️ `Python`**: Generate idiomatic native models, network routes, client SDKs, database schemas, and
+      boilerplate directly from OpenAPI (`.json` / `.yaml`) specifications.
+    * **`Python` ➡️ OpenAPI**: Statically parse existing `Python` source code and emit compliant OpenAPI specifications.
+* **AST-Driven & Safe**: Employs static analysis (Abstract Syntax Trees) instead of unsafe dynamic execution or
+  reflection, allowing it to safely parse and emit code even for incomplete or un-compilable project states.
+* **Seamless Sync**: Keep your docs, tests, database, clients, and routing in perfect harmony. Update your code, and
+  generate the docs; or update the docs, and generate the code.
+
+## 📦 Installation
+
+Requires Python 3.9+. Install directly via `pip` or use `uv` for modern dependency management:
 
 ```bash
-pip install cdd-python-client
+pip install openapi-python-client
 ```
 
-*(Note: Currently requires building from source or installing via PyPI once published).*
+## 🛠 Usage
 
-### Usage Example
+### Command Line Interface
 
-**1. Generate a client from an OpenAPI spec:**
+The `cdd` command provides a straightforward way to keep your Python artifacts and OpenAPI specs synchronized.
+
 ```bash
-cdd sync --from-openapi openapi.json --to-python ./my_client_sdk
-```
-This generates `client.py`, `mock_server.py`, and `test_client.py` inside `./my_client_sdk`.
+# Generate Python client, mock server, and tests from an OpenAPI spec
+cdd sync --from-openapi openapi.json --to-python ./my_client_dir
 
-**2. The CDD Workflow (Sync Directory):**
-Edit `./my_client_sdk/mock_server.py` to add a new route:
+# Extract an OpenAPI spec directly from an existing Python client
+cdd sync --from-python ./my_client_dir/client.py --to-openapi extracted_openapi.json
+
+# Synchronize an entire directory (merging changes between Python files and openapi.json)
+cdd sync --dir ./my_project
+```
+
+### Programmatic SDK / Library
+
+You can also leverage the underlying parsers and emitters programmatically within your Python scripts:
+
 ```python
-@app.post("/users")
-def create_user():
-    """Create a new user in the system."""
-    pass
+from pathlib import Path
+from openapi_client.openapi.parse import parse_openapi_json
+from openapi_client.routes.emit import ClientGenerator
+
+# 1. Parse an existing OpenAPI JSON spec
+spec_json = Path("openapi.json").read_text(encoding="utf-8")
+spec = parse_openapi_json(spec_json)
+
+# 2. Emit idiomatic Python client code
+generator = ClientGenerator(spec)
+client_code = generator.generate_code()
+
+Path("client.py").write_text(client_code, encoding="utf-8")
 ```
 
-Now, sync the directory:
-```bash
-cdd sync --dir ./my_client_sdk
-```
+## 🏗 Supported Conversions for Python
 
-The CLI will:
-1. Parse your new mock using AST.
-2. Update `openapi.json` to include the `POST /users` path.
-3. Inject the `create_user` method into `client.py`.
-4. Create a `test_create_user` stub in `test_client.py`.
+*(The boxes below reflect the features supported by this specific `cdd-python-client` implementation)*
 
-For more details, see [USAGE.md](USAGE.md).
+| Concept                            | Parse (From) | Emit (To) |
+|------------------------------------|--------------|-----------|
+| OpenAPI (JSON/YAML)                | [x]          | [x]       |
+| `Python` Models / Structs / Types  | [x]          | [x]       |
+| `Python` Server Routes / Endpoints | [x]          | [x]       |
+| `Python` API Clients / SDKs        | [x]          | [x]       |
+| `Python` Docstrings / Comments     | [x]          | [x]       |
+
+---
+
+## License
+
+Licensed under either of
+
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or <https://www.apache.org/licenses/LICENSE-2.0>)
+- MIT license ([LICENSE-MIT](LICENSE-MIT) or <https://opensource.org/licenses/MIT>)
+
+at your option.
+
+### Contribution
+
+Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in the work by you, as defined in the Apache-2.0 license, shall be
+dual licensed as above, without any additional terms or conditions.
