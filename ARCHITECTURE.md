@@ -9,7 +9,7 @@
 
 The **cdd-python-client** tool acts as a dedicated compiler and transpiler. Its fundamental architecture follows standard compiler design principles, divided into three distinct phases: **Frontend (Parsing)**, **Intermediate Representation (IR)**, and **Backend (Emitting)**.
 
-This decoupled design ensures that any format capable of being parsed into the IR can subsequently be emitted into any supported output format, whether that is a server-side route, a client-side SDK, a database ORM, or an OpenAPI specification.
+This decoupled design ensures that any format capable of being parsed into the IR can subsequently be emitted into any supported output format, whether that is a server-side route, a client-side SDK, a database ORM, or an OpenAPI specification. As a `Client-only` focussed project, its emitters are heavily optimized for generating Python API SDKs and Client Wrappers using LibCST and Pydantic.
 
 ## 🏗 High-Level Overview
 
@@ -23,7 +23,7 @@ graph TD
 
     subgraph Frontend [Parsers]
         A[OpenAPI .yaml/.json]:::endpoint --> P1(OpenAPI Parser):::frontend
-        B[`Python` Models / Source]:::endpoint --> P2(`Python` Parser):::frontend
+        B[Python Models / Source]:::endpoint --> P2(Python Parser):::frontend
         C[Server Routes / Frameworks]:::endpoint --> P3(Framework Parser):::frontend
         D[Client SDKs / ORMs]:::endpoint --> P4(Ext Parser):::frontend
     end
@@ -34,10 +34,9 @@ graph TD
 
     subgraph Backend [Emitters]
         E1(OpenAPI Emitter):::backend --> X[OpenAPI .yaml/.json]:::endpoint
-        E2(`Python` Emitter):::backend --> Y[`Python` Models / Structs]:::endpoint
+        E2(Python Emitter):::backend --> Y[Python Models / Structs]:::endpoint
         E3(Server Emitter):::backend --> Z[Server Routes / Controllers]:::endpoint
         E4(Client Emitter):::backend --> W[Client SDKs / API Calls]:::endpoint
-        E5(Data Emitter):::backend --> V[ORM Models / CLI Parsers]:::endpoint
     end
 
     P1 --> IR
@@ -49,7 +48,6 @@ graph TD
     IR --> E2
     IR --> E3
     IR --> E4
-    IR --> E5
 ```
 
 ## 🧩 Core Components
@@ -58,7 +56,7 @@ graph TD
 
 The Frontend's responsibility is to read an input source and translate it into the universal CDD Intermediate Representation (IR).
 
-* **Static Analysis (AST-Driven)**: For `Python` source code, the tool **does not** use dynamic reflection or execute the code. Instead, it reads the source files, generates an Abstract Syntax Tree (AST), and navigates the tree to extract classes, structs, functions, type signatures, API client definitions, server routes (like FastAPI mocks), and docstrings.
+* **Static Analysis (AST-Driven)**: For `Python` source code, the tool **does not** use dynamic reflection or execute the code. Instead, it reads the source files using LibCST, generates an Abstract Syntax Tree (AST), and navigates the tree to extract classes, structs, functions, type signatures, API client definitions, server routes, and docstrings.
 * **OpenAPI Parsing**: For OpenAPI and JSON Schema inputs, the parser normalizes the structure, resolving internal `$ref`s and extracting properties, endpoints (client or server perspectives), and metadata into the IR.
 
 ### 2. Intermediate Representation (IR)
@@ -75,9 +73,8 @@ By standardizing on a single IR (heavily inspired by OpenAPI / JSON Schema primi
 The Backend's responsibility is to take the universal IR and generate valid target output. Emitters can be written to support various environments (e.g., Client vs Server, Web vs CLI).
 
 * **Code Generation**: Emitters iterate over the IR and generate idiomatic `Python` source code. 
-  * A **Server Emitter** creates routing controllers and request-validation logic (for example, generating local test-mock servers).
-  * A **Client Emitter** creates API wrappers, fetch functions, and response-parsing logic.
-* **Database & CLI Generation**: Emitters can also target ORM models or command-line parsers by mapping IR properties to database columns or CLI arguments.
+  * A **Server Emitter** creates routing controllers and request-validation logic (such as mocks).
+  * A **Client Emitter** creates API wrappers, fetch functions, and response-parsing logic tailored for Python clients.
 * **Specification Generation**: Emitters translating back to OpenAPI serialize the IR into standard OpenAPI 3.x JSON or YAML, rigorously formatting descriptions, type constraints, and endpoint schemas based on what was parsed from the source code.
 
 ## 🔄 Extensibility

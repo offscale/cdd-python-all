@@ -12,6 +12,7 @@ class ClassExtractor(cst.CSTVisitor):
     """
 
     def __init__(self, spec: OpenAPI):
+        """Initialize ClassExtractor with an OpenAPI spec."""
         self.spec = spec
         if self.spec.components is None:
             self.spec.components = Components(schemas={})

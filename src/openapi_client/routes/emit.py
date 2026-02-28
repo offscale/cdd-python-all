@@ -16,6 +16,7 @@ class ClientGenerator:
     """
 
     def __init__(self, spec: OpenAPI):
+        """Initialize ClientGenerator with an OpenAPI spec."""
         self.spec = spec
 
     def generate(self) -> cst.Module:

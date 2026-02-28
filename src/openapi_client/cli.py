@@ -2,6 +2,7 @@
 
 import argparse
 import sys
+import json
 from pathlib import Path
 import libcst as cst
 
@@ -15,6 +16,55 @@ from openapi_client.mocks.parse import extract_mocks_from_ast
 
 from openapi_client.openapi.parse import parse_openapi_json
 from openapi_client.openapi.emit import emit_openapi_json
+
+
+def generate_docs_json(input_path: str, no_imports: bool, no_wrapping: bool) -> None:
+    """Parse OpenAPI spec and output JSON documentation."""
+    spec_path = Path(input_path)
+    spec = parse_openapi_json(spec_path.read_text(encoding="utf-8"))
+
+    operations = []
+
+    if spec.paths:
+        for path, path_item in spec.paths.items():
+            for method in ["get", "post", "put", "delete", "patch"]:
+                operation = getattr(path_item, method, None)
+                if operation:
+                    op_id = (
+                        operation.operationId
+                        or f"{method}_{path.replace('/', '_').strip('_')}"
+                    )
+
+                    code = {}
+                    if not no_imports:
+                        code["imports"] = "from client import Client"
+                    if not no_wrapping:
+                        code["wrapper_start"] = (
+                            'def main():\n    client = Client(base_url="https://api.example.com")'
+                        )
+                        code["wrapper_end"] = 'if __name__ == "__main__":\n    main()'
+
+                    # Basic snippet with arguments
+                    args = []
+                    if operation.parameters:
+                        for param in operation.parameters:
+                            if hasattr(param, "name"):
+                                p_name = param.name.replace("-", "_")
+                                args.append(f"{p_name}={p_name}")
+
+                    args_str = ", ".join(args)
+                    indent = "    " if not no_wrapping else ""
+                    code["snippet"] = f"{indent}response = client.{op_id}({args_str})"
+
+                    op_data = {"method": method.upper(), "path": path, "code": code}
+                    if operation.operationId:
+                        op_data["operationId"] = operation.operationId
+
+                    operations.append(op_data)
+
+    output = [{"language": "python", "operations": operations}]
+
+    print(json.dumps(output, indent=2))
 
 
 def sync_to_python(openapi_path: str, output_dir: str) -> None:
@@ -140,6 +190,23 @@ def main() -> None:
         help="Path to directory containing client.py, mock_server.py, test_client.py",
     )
 
+    docs_parser = subparsers.add_parser(
+        "to_docs_json", help="Generate JSON documentation"
+    )
+    docs_parser.add_argument(
+        "-i",
+        "--input",
+        type=str,
+        required=True,
+        help="Path or URL to the OpenAPI specification",
+    )
+    docs_parser.add_argument(
+        "--no-imports", action="store_true", help="Omit the imports field"
+    )
+    docs_parser.add_argument(
+        "--no-wrapping", action="store_true", help="Omit the wrapper fields"
+    )
+
     args = parser.parse_args()
 
     if args.command == "sync":
@@ -154,6 +221,8 @@ def main() -> None:
                 "Invalid sync arguments. Use either --dir, --from-openapi & --to-python OR --from-python & --to-openapi."
             )
             sys.exit(1)
+    elif args.command == "to_docs_json":
+        generate_docs_json(args.input, args.no_imports, args.no_wrapping)
 
 
 if __name__ == "__main__":  # pragma: no cover

@@ -12,6 +12,7 @@ class FunctionExtractor(cst.CSTVisitor):
     """
 
     def __init__(self, spec: OpenAPI):
+        """Initialize FunctionExtractor with an OpenAPI spec."""
         self.spec = spec
         if not self.spec.paths:
             self.spec.paths = {}

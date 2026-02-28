@@ -146,3 +146,116 @@ def test_cli_main_sync_dir(tmp_path, monkeypatch):
     monkeypatch.setattr("sys.argv", ["cdd", "sync", "--dir", str(project_dir)])
     main()
     assert (project_dir / "openapi.json").exists()
+
+
+def test_cli_to_docs_json(tmp_path, monkeypatch, capsys):
+    from openapi_client.cli import main
+    import json
+
+    spec = {
+        "openapi": "3.2.0",
+        "info": {"title": "Test API", "version": "1.0"},
+        "paths": {
+            "/pets": {
+                "get": {
+                    "operationId": "getPets",
+                    "parameters": [
+                        {"name": "limit", "in": "query", "schema": {"type": "integer"}}
+                    ],
+                }
+            }
+        },
+    }
+    spec_path = tmp_path / "openapi.json"
+    spec_path.write_text(json.dumps(spec))
+
+    # Test full output
+    monkeypatch.setattr("sys.argv", ["cdd", "to_docs_json", "-i", str(spec_path)])
+    main()
+
+    captured = capsys.readouterr()
+    output = json.loads(captured.out)
+    assert len(output) == 1
+    assert output[0]["language"] == "python"
+
+    ops = output[0]["operations"]
+    assert len(ops) == 1
+    op = ops[0]
+    assert op["method"] == "GET"
+    assert op["path"] == "/pets"
+    assert op["operationId"] == "getPets"
+
+    code = op["code"]
+    assert "imports" in code
+    assert "wrapper_start" in code
+    assert "wrapper_end" in code
+    assert "snippet" in code
+    assert "limit=limit" in code["snippet"]
+    assert code["snippet"].startswith("    response =")
+
+    # Test --no-imports
+    monkeypatch.setattr(
+        "sys.argv", ["cdd", "to_docs_json", "-i", str(spec_path), "--no-imports"]
+    )
+    main()
+    captured = capsys.readouterr()
+    output = json.loads(captured.out)
+    code = output[0]["operations"][0]["code"]
+    assert "imports" not in code
+    assert "wrapper_start" in code
+
+    # Test --no-wrapping
+    monkeypatch.setattr(
+        "sys.argv", ["cdd", "to_docs_json", "-i", str(spec_path), "--no-wrapping"]
+    )
+    main()
+    captured = capsys.readouterr()
+    output = json.loads(captured.out)
+    code = output[0]["operations"][0]["code"]
+    assert "imports" in code
+    assert "wrapper_start" not in code
+    assert "wrapper_end" not in code
+    assert not code["snippet"].startswith("    response =")
+    assert code["snippet"].startswith("response =")
+
+    # Test both
+    monkeypatch.setattr(
+        "sys.argv",
+        ["cdd", "to_docs_json", "-i", str(spec_path), "--no-imports", "--no-wrapping"],
+    )
+    main()
+    captured = capsys.readouterr()
+    output = json.loads(captured.out)
+    code = output[0]["operations"][0]["code"]
+    assert "imports" not in code
+    assert "wrapper_start" not in code
+    assert "wrapper_end" not in code
+    assert "snippet" in code
+
+
+def test_cli_to_docs_json_no_operation_id(tmp_path, monkeypatch, capsys):
+    from openapi_client.cli import main
+    import json
+
+    spec = {
+        "openapi": "3.2.0",
+        "info": {"title": "Test API", "version": "1.0"},
+        "paths": {"/dogs": {"post": {}}},
+    }
+    spec_path = tmp_path / "openapi.json"
+    spec_path.write_text(json.dumps(spec))
+
+    # Test full output
+    monkeypatch.setattr("sys.argv", ["cdd", "to_docs_json", "-i", str(spec_path)])
+    main()
+
+    captured = capsys.readouterr()
+    output = json.loads(captured.out)
+    assert len(output) == 1
+
+    ops = output[0]["operations"]
+    assert len(ops) == 1
+    op = ops[0]
+    assert op["method"] == "POST"
+    assert "operationId" not in op  # Only included if present
+    assert "post_dogs" in op["code"]["snippet"]

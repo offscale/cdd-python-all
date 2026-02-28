@@ -12,6 +12,7 @@ class TestExtractor(cst.CSTVisitor):
     """
 
     def __init__(self, spec: OpenAPI):
+        """Initialize TestExtractor with an OpenAPI spec."""
         self.spec = spec
 
     def visit_FunctionDef(self, node: cst.FunctionDef) -> None:
@@ -25,6 +26,7 @@ class TestExtractor(cst.CSTVisitor):
                 """Visitor to check for SSE event streams."""
 
                 def __init__(self):
+                    """Initialize SSEChecker."""
                     self.found = False
 
                 def visit_SimpleString(self, node: cst.SimpleString) -> None:

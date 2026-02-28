@@ -12,6 +12,7 @@ class MockServerExtractor(cst.CSTVisitor):
     """
 
     def __init__(self, spec: OpenAPI):
+        """Initialize MockServerExtractor with an OpenAPI spec."""
         self.spec = spec
         if not self.spec.paths:
             self.spec.paths = {}
@@ -62,6 +63,7 @@ class MockServerExtractor(cst.CSTVisitor):
                                         """Visitor to find event stream responses."""
 
                                         def __init__(self):
+                                            """Initialize ReturnExtractor."""
                                             self.has_event_stream = False
 
                                         def visit_Return(
