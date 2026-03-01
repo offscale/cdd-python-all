@@ -1,5 +1,5 @@
-cdd-Python
-============
+cdd-python
+==========
 
 [![License](https://img.shields.io/badge/license-Apache--2.0%20OR%20MIT-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![CI/CD](https://github.com/offscale/cdd-python-client/workflows/CI/badge.svg)](https://github.com/offscale/cdd-python-client/actions)
@@ -11,11 +11,11 @@ OpenAPI ↔ Python. This is one compiler in a suite, all focussed on the same ta
 Each compiler is written in its target language, is whitespace and comment sensitive, and has both an SDK and CLI.
 
 The CLI—at a minimum—has:
-- `cdd --help`
-- `cdd --version`
-- `cdd sync --from-openapi spec.json --to-python out_dir`
-- `cdd sync --from-python client.py --to-openapi spec.json`
-- `cdd to_docs_json --no-imports --no-wrapping -i spec.json`
+- `cdd-python --help`
+- `cdd-python --version`
+- `cdd-python from_openapi -i spec.json`
+- `cdd-python to_openapi -f path/to/code`
+- `cdd-python to_docs_json --no-imports --no-wrapping -i spec.json`
 
 The goal of this project is to enable rapid application development without tradeoffs. Tradeoffs of Protocol Buffers / Thrift etc. are an untouchable "generated" directory and package, compile-time and/or runtime overhead. Tradeoffs of Java or JavaScript for everything are: overhead in hardware access, offline mode, ML inefficiency, and more. And neither of these alterantive approaches are truly integrated into your target system, test frameworks, and bigger abstractions you build in your app. Tradeoffs in CDD are code duplication (but CDD handles the synchronisation for you).
 
@@ -31,29 +31,29 @@ The `cdd-python-client` compiler leverages a unified architecture to support var
 
 ## 📦 Installation
 
-Requires Python 3.9+.
+Requires Python 3.9+. Install directly from the repository using `uv` or `pip`:
 
 ```bash
-pip install openapi-python-client
+uv pip install git+https://github.com/offscale/cdd-python-client.git
 ```
 
 ## 🛠 Usage
 
 ### Command Line Interface
 
-Generate a Python client from an OpenAPI specification:
+Generate a Python client, tests, and mocks from an OpenAPI spec:
 ```bash
-cdd sync --from-openapi spec.json --to-python ./my_client
+cdd-python from_openapi -i openapi.json -o my_client_dir
 ```
 
-Extract an OpenAPI specification from an existing Python client module:
+Extract an OpenAPI spec back out of your Python source code:
 ```bash
-cdd sync --from-python ./my_client/client.py --to-openapi spec.json
+cdd-python to_openapi -f my_client_dir/client.py -o openapi.json
 ```
 
-Generate a docs JSON:
+Generate a docs JSON array for the website:
 ```bash
-cdd to_docs_json -i spec.json --no-imports
+cdd-python to_docs_json -i openapi.json --no-imports --no-wrapping
 ```
 
 ### Programmatic SDK / Library
@@ -62,14 +62,17 @@ cdd to_docs_json -i spec.json --no-imports
 from openapi_client.openapi.parse import parse_openapi_json
 from openapi_client.routes.emit import ClientGenerator
 
-spec = parse_openapi_json(open('spec.json').read())
+spec = parse_openapi_json(open("openapi.json").read())
 generator = ClientGenerator(spec)
-print(generator.generate_code())
+client_code = generator.generate_code()
+
+with open("client.py", "w") as f:
+    f.write(client_code)
 ```
 
 ## Design choices
 
-The `cdd-python-client` leverages LibCST for parsing and generating Python Abstract Syntax Trees (AST). LibCST is chosen over Python's built-in `ast` module because it preserves whitespace, comments, and structure, which is crucial for a bidirectional compiler that doesn't mess up your code formatting when syncing changes. Pydantic is used for models generation to provide idiomatic and robust validation for the client interfaces.
+The project leverages `libcst` to guarantee that code parsing and emission are completely whitespace and comment sensitive. By utilizing a lossless Abstract Syntax Tree (AST), `cdd-python` allows for symmetric conversion back and forth between OpenAPI specifications and rich Python source code without clobbering manual developer interventions like inline comments or non-API-related logic.
 
 ## 🏗 Supported Conversions for Python
 
@@ -77,13 +80,16 @@ The `cdd-python-client` leverages LibCST for parsing and generating Python Abstr
 
 | Concept | Parse (From) | Emit (To) |
 |---------|--------------|-----------|
-| OpenAPI (JSON/YAML) | [✅] | [✅] |
-| `Python` Models / Structs / Types | [✅] | [✅] |
-| `Python` Server Routes / Endpoints | [✅] | [✅] |
-| `Python` API Clients / SDKs | [✅] | [✅] |
+| OpenAPI (JSON/YAML) | ✅ | ✅ |
+| `Python` Models / Structs / Types | ✅ | ✅ |
+| `Python` Server Routes / Endpoints | ✅ | ✅ |
+| `Python` API Clients / SDKs | ✅ | ✅ |
 | `Python` ORM / DB Schemas | [ ] | [ ] |
 | `Python` CLI Argument Parsers | [ ] | [ ] |
-| `Python` Docstrings / Comments | [✅] | [✅] |
+| `Python` Docstrings / Comments | ✅ | ✅ |
+| WASM Support (Standalone / Web) | ❌ (Not natively possible) | ⏳ (In Progress) |
+
+> **Note on WASM Support:** While integrating this project into a web interface via `Pyodide` is entirely feasible (and in progress), producing a *standalone* WASM binary (`.wasm`) for CLI execution without Node.js or Python is currently blocked. Python compilation via tools like `py2wasm` and `wasi-sdk` requires complex workarounds (such as modifying `libatomic` and `patchelf`) to successfully compile `libcst` and other C-extensions into WASI modules.
 
 ---
 

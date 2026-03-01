@@ -6,13 +6,13 @@ import libcst as cst
 from openapi_client.models import OpenAPI
 
 
-class TestExtractor(cst.CSTVisitor):
+class ASTTestExtractor(cst.CSTVisitor):
     """
     AST Visitor to extract test methods into OpenAPI tests/examples.
     """
 
     def __init__(self, spec: OpenAPI):
-        """Initialize TestExtractor with an OpenAPI spec."""
+        """Initialize ASTTestExtractor with an OpenAPI spec."""
         self.spec = spec
 
     def visit_FunctionDef(self, node: cst.FunctionDef) -> None:
@@ -48,5 +48,5 @@ def extract_tests_from_ast(module: cst.Module, spec: OpenAPI) -> None:
         module (cst.Module): Parsed Python module.
         spec (OpenAPI): OpenAPI specification to update.
     """
-    visitor = TestExtractor(spec)
+    visitor = ASTTestExtractor(spec)
     module.visit(visitor)

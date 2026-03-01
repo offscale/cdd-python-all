@@ -24,7 +24,7 @@ app = FastAPI()
 @app.get("/pets")
 def get_pets():
     \"\"\"Summary
-    
+
     Description
     \"\"\"
     pass
@@ -116,7 +116,7 @@ def test_extract_code():
     code = """
 class Pet(BaseModel):
     \"\"\"A pet
-    
+
     This represents a pet in the system.
     \"\"\"
     id: Optional[int] = None
@@ -127,7 +127,7 @@ class Pet(BaseModel):
 class Client:
     def get_pets(self):
         \"\"\"Get all pets
-        
+
         Returns all pets.
         \"\"\"
         pass

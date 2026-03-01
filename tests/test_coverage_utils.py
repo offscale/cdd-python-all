@@ -4,7 +4,7 @@ from openapi_client.functions.utils import get_annotation_for_schema
 from openapi_client.models import Schema
 from openapi_client.openapi.parse import resolve_external_refs, parse_openapi_json
 import libcst as cst
-from openapi_client.tests.parse import TestExtractor
+from openapi_client.tests.parse import ASTTestExtractor
 from openapi_client.models import OpenAPI
 
 
@@ -45,7 +45,7 @@ def test_parse_openapi_json_with_ref(tmp_path):
 
 def test_test_extractor_sse():
     spec = OpenAPI(openapi="3.2.0", info={"title": "test", "version": "1.0"})
-    extractor = TestExtractor(spec)
+    extractor = ASTTestExtractor(spec)
     module = cst.parse_module(
         "def test_stream_something():\n"
         "    assert 'text/event-stream' in res\n"

@@ -22,7 +22,7 @@ dev = [
 ]
 
 [project.scripts]
-cdd = "openapi_client.cli:main"
+"cdd-python" = "openapi_client.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/openapi_client"]

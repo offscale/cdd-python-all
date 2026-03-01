@@ -1,33 +1,33 @@
-# OpenAPI 3.2.0 Compliance
+# OpenAPI 3.2.0 Compliance Report
 
-This project is actively pursuing 100% compliance with the **OpenAPI 3.2.0 Specification**.
+This document outlines the current level of compliance of `cdd-python-client` with the [OpenAPI 3.2.0 Specification](https://raw.githubusercontent.com/OAI/OpenAPI-Specification/refs/heads/main/versions/3.2.0.md).
 
-## Supported Features
+## Currently Implemented
 
-The following OpenAPI 3.2.0 structures are fully modeled in `src/openapi_client/models.py` via Pydantic and actively supported in the AST parsing/emitting pipeline:
+- **OpenAPI Object**: `openapi` version parsing (`3.2.0`), `info`, `paths`, `components` (schemas).
+- **Info Object**: `title`, `version`.
+- **Paths Object**: basic mapping of routes.
+- **Path Item Object**: `get`, `post`, `put`, `delete`, `patch`.
+- **Operation Object**: `operationId`, `parameters`, `requestBody`, `responses`, `deprecated`, `tags`.
+- **Parameter Object**: `name`, `in` (query/path/header/cookie).
+- **RequestBody Object**: `content`, `required`.
+- **Response Object**: `description`, `content`.
+- **Schema Object**: basic types (`string`, `integer`, `boolean`, `array`, `object`, `number`), `properties`, `$ref`.
+- **MediaType Object**: `schema` mapping.
 
-### Document Structure
-- **OpenAPI Object**: Core root object supporting `openapi: 3.2.0`, `info`, `paths`, `components`, `servers`, `security`, `tags`, `webhooks`, and `$self`.
-- **Info Object**: Fully supported, including `Contact` and `License` objects.
-- **Server / ServerVariable Objects**: Fully modeled.
-- **Paths / PathItem Objects**: Supports standard HTTP methods (`get`, `post`, `put`, `delete`, `patch`, `options`, `head`, `trace`) as well as the new OAS 3.2.0 `query` method and `additionalOperations` mapping.
-- **Operation Object**: Supports `operationId`, `summary`, `description`, `parameters`, `requestBody`, `responses`, `callbacks`, `security`, etc.
-- **Components Object**: Models schemas, responses, parameters, examples, requestBodies, headers, securitySchemes, links, callbacks, pathItems, and `mediaTypes` (new in OAS 3.2.0).
+## Missing / Partial Implementation (WIP)
 
-### Schema & Data Types
-- **Schema Object**: Includes full JSON Schema validation properties (`type`, `properties`, `items`, `allOf`, `anyOf`, `oneOf`, `discriminator`, etc.). 
-- **Reference Object**: Full support for `$ref` pointer objects across paths, components, parameters, etc.
+- **OpenAPI Object**: `servers`, `security`, `externalDocs`, `webhooks`.
+- **Info Object**: `description`, `termsOfService`, `contact`, `license`, `summary`.
+- **Server Object** & **Server Variable Object**.
+- **Operation Object**: `callbacks`, `security`, `servers`.
+- **Responses Object**: advanced status mapping.
+- **Header Object**.
+- **Security Scheme Object** & **Security Requirement Object**.
+- **Components Object**: `responses`, `parameters`, `examples`, `requestBodies`, `headers`, `securitySchemes`, `links`, `callbacks`, `pathItems`.
+- **Discriminator Object** & polymorphism (`allOf`, `anyOf`, `oneOf`).
+- **XML Object**.
 
-### Media Types & Encodings (OAS 3.2.0 Enhancements)
-- **MediaType Object**: Supports the newly defined streaming and sequential payload fields `itemSchema`, `prefixEncoding`, and `itemEncoding`.
-- **Encoding Object**: Supports headers, standard encodings, `prefixEncoding`, and `itemEncoding`.
+## Goal
 
-## Partial / Ongoing Support
-All previous ongoing issues have been implemented:
-
-1. **Complex Parameters**: Deep object serializations for Query strings (`spaceDelimited`, `pipeDelimited`) are fully generated in the Python client, automatically building delimited query strings and strongly typed input arguments.
-2. **Streaming / Webhooks**: FastAPI mock extraction properly extracts event-driven / server-sent events (`text/event-stream`) for `EventSourceResponse`, and test extraction parses tests checking for SSE streams.
-3. **Implicit Connections**: Cross-document `$ref` resolution is fully supported across local JSON file scopes.
-
-## Testing Compliance
-Compliance is strictly enforced via 100% test coverage and `mypy` strict mode checking across all model definitions and serializers.
+Achieve 100% compliance with OpenAPI 3.2.0 by progressively adding AST mapping for missing components and expanding the Intermediate Representation (IR) to natively support all 3.2.0 features.

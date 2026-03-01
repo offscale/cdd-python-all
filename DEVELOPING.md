@@ -1,53 +1,59 @@
-# Developing
+# Developing `cdd-python-client`
 
-Welcome to the `cdd-python-client` development guide. This project is built using Python 3.9+ and relies heavily on AST manipulation using `libcst`.
+This project is a compiler converting between OpenAPI 3.2.0 and native Python code using static analysis (`libcst`).
 
-## Setup
+## Getting Started
 
-1. **Clone and Setup Virtual Environment:**
-   ```bash
-   git clone <repository_url>
-   cd cdd-python-client
-   python3 -m venv venv
-   source venv/bin/activate
+1. **Install Base Requirements**:
+   ```sh
+   make install_base
    ```
 
-2. **Install Dependencies (Including Dev):**
-   ```bash
-   pip install -e .[dev]
+2. **Install Local Dependencies**:
+   ```sh
+   make install_deps
    ```
-   *Note: This will install `pydantic`, `libcst`, `urllib3`, `pytest`, `pytest-cov`, and `mypy`.*
 
-## Running Tests
+3. **Running Tests**:
+   Ensure 100% test coverage!
+   ```sh
+   make test
+   ```
 
-We maintain **100% test coverage**. Any new features must be fully covered.
+4. **Building Documentation**:
+   Ensure 100% doc coverage!
+   ```sh
+   make build_docs
+   ```
 
-```bash
-# Run pytest with coverage reporting
-PYTHONPATH=src pytest --cov=src --cov-report=term-missing
+## Directory Structure
+
+We use a modular architecture organized by parsing and emitting logic for specific features:
+
+```
+src/openapi_client/
+├── classes/       # Parsing & emitting class definitions
+├── docstrings/    # Parsing & emitting Python docstrings
+├── functions/     # Parsing & emitting function signatures
+├── mocks/         # Generating mock servers
+├── openapi/       # Parsing & emitting OpenAPI JSON
+├── routes/        # Parsing & emitting routing configurations
+└── tests/         # Generating unit tests
 ```
 
-## Type Checking
+Each subdirectory contains:
+- `parse.py`: Extracts information from Python AST or OpenAPI dicts to populate the unified Intermediate Representation (IR).
+- `emit.py`: Uses the unified IR to generate target code (Python AST) or OpenAPI JSON.
+- `__init__.py`
 
-We maintain **100% Type Safety**. All modules must pass strict mypy validation.
+## Updating the AST
 
-```bash
-mypy src/openapi_client
+Whenever a mock is edited, the changes should mirror into `routes` and `openapi`, ensuring the generated specs are completely synchronized.
+
+## Pre-commit Hooks
+
+We use `pre-commit` to ensure tests and linting run before commits. Install via:
+
+```sh
+pre-commit install
 ```
-
-## Extending the Architecture
-
-The codebase relies on a pattern of `parse.py` (AST to Spec) and `emit.py` (Spec to AST) inside domain-specific directories (`src/openapi_client/<domain>/`).
-
-### Adding a New Domain
-1. **Create the directory**: `mkdir src/openapi_client/new_domain/`
-2. **Create `parse.py`**:
-   - Write a `libcst.CSTVisitor` subclass to traverse Python AST and mutate the shared `OpenAPI` state model.
-3. **Create `emit.py`**:
-   - Write functions that take an `OpenAPI` state model and return `libcst.CSTNode` objects (like `cst.ClassDef` or `cst.FunctionDef`).
-4. **Wire into `cli.py`**:
-   - Make sure your extractor is called inside `sync_dir()` and `extract_from_code()`.
-   - Make sure your emitter is called when assembling the client module.
-
-### Updating Models
-Models are located in `src/openapi_client/models.py`. We use `pydantic`. If you add self-referencing schemas or complex union types, ensure you update the `model_rebuild()` calls at the bottom of the file.

@@ -1,4 +1,4 @@
-name: uv
+name: CI
 
 on:
   push:
@@ -14,9 +14,10 @@ jobs:
     strategy:
       matrix:
         python-version:
+          - "3.9"
+          - "3.10"
           - "3.11"
           - "3.12"
-          - "3.13"
 
     steps:
       - uses: actions/checkout@v4
@@ -32,7 +33,12 @@ jobs:
       - name: Install the project
         run: |
           uv venv --python ${{ matrix.python-version }}
-          uv pip install -e ".[dev]"
+          uv pip install -e ".[dev]" pytest pytest-cov interrogate
 
-      - name: Run tests
-        run: uv run pytest
+      - name: Run tests & update badges
+        run: |
+          uv run python scripts/update_badges.py
+          git diff --exit-code README.md || echo "README.md coverage badges are outdated!"
+
+      - name: Build WASM
+        run: make build_wasm
