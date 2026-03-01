@@ -3,7 +3,7 @@ import libcst as cst
 from openapi_client.models import OpenAPI, Operation, Parameter, Schema
 from openapi_client.functions.emit import emit_function
 from openapi_client.mocks.parse import MockServerExtractor
-from openapi_client.tests.parse import TestExtractor
+from openapi_client.tests.parse import ASTTestExtractor
 
 
 def test_emit_complex_query_parameter():

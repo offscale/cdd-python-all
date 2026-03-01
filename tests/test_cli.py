@@ -2,10 +2,10 @@ import os
 import json
 import pytest
 from pathlib import Path
-from openapi_client.cli import main, sync_to_python, sync_to_openapi
+from openapi_client.cli import main, sync_from_openapi, sync_to_openapi, sync_dir
 
 
-def test_cli_sync_to_python(tmp_path):
+def test_cli_sync_from_openapi(tmp_path):
     spec = {
         "openapi": "3.2.0",
         "info": {"title": "Test API", "version": "1.0"},
@@ -15,7 +15,7 @@ def test_cli_sync_to_python(tmp_path):
     spec_path.write_text(json.dumps(spec))
 
     out_dir = tmp_path / "out"
-    sync_to_python(str(spec_path), str(out_dir))
+    sync_from_openapi(str(spec_path), str(out_dir))
 
     assert (out_dir / "client.py").exists()
     assert (out_dir / "test_client.py").exists()
@@ -35,7 +35,7 @@ def test_cli_sync_to_openapi(tmp_path):
     assert data["openapi"] == "3.2.0"
 
 
-def test_cli_main_python(tmp_path, monkeypatch):
+def test_cli_main_from_openapi(tmp_path, monkeypatch):
     spec = {
         "openapi": "3.2.0",
         "info": {"title": "Test API", "version": "1.0"},
@@ -47,13 +47,13 @@ def test_cli_main_python(tmp_path, monkeypatch):
 
     monkeypatch.setattr(
         "sys.argv",
-        ["cdd", "sync", "--from-openapi", str(spec_path), "--to-python", str(out_dir)],
+        ["cdd-python", "from_openapi", "-i", str(spec_path), "-o", str(out_dir)],
     )
     main()
     assert (out_dir / "client.py").exists()
 
 
-def test_cli_main_openapi(tmp_path, monkeypatch):
+def test_cli_main_to_openapi(tmp_path, monkeypatch):
     py_code = "class Client:\n    pass\n"
     py_path = tmp_path / "client.py"
     py_path.write_text(py_code)
@@ -61,19 +61,10 @@ def test_cli_main_openapi(tmp_path, monkeypatch):
 
     monkeypatch.setattr(
         "sys.argv",
-        ["cdd", "sync", "--from-python", str(py_path), "--to-openapi", str(out_spec)],
+        ["cdd-python", "to_openapi", "-f", str(py_path), "-o", str(out_spec)],
     )
     main()
     assert out_spec.exists()
-
-
-def test_cli_main_invalid(monkeypatch):
-    monkeypatch.setattr("sys.argv", ["cdd", "sync"])
-    with pytest.raises(SystemExit):
-        main()
-
-
-from openapi_client.cli import sync_dir
 
 
 def test_cli_sync_dir(tmp_path):
@@ -110,9 +101,6 @@ def test_get_pets():
     pass
 """)
 
-    # run sync_dir
-    import json
-
     sync_dir(str(project_dir))
 
     # verify openapi.json was generated
@@ -133,23 +121,24 @@ def test_get_pets():
     assert (project_dir2 / "client.py").exists()
 
 
-def test_cli_main_sync_dir(tmp_path, monkeypatch):
-    from openapi_client.cli import main
-
+def test_cli_main_sync(tmp_path, monkeypatch):
     project_dir = tmp_path / "project"
     project_dir.mkdir()
     client_py = project_dir / "client.py"
     client_py.write_text("class Client:\n    pass\n")
 
-    import sys
-
-    monkeypatch.setattr("sys.argv", ["cdd", "sync", "--dir", str(project_dir)])
+    monkeypatch.setattr("sys.argv", ["cdd-python", "sync", "--dir", str(project_dir)])
     main()
     assert (project_dir / "openapi.json").exists()
 
 
+def test_cli_main_invalid(monkeypatch):
+    monkeypatch.setattr("sys.argv", ["cdd-python"])
+    with pytest.raises(SystemExit):
+        main()
+
+
 def test_cli_to_docs_json(tmp_path, monkeypatch, capsys):
-    from openapi_client.cli import main
     import json
 
     spec = {
@@ -170,7 +159,9 @@ def test_cli_to_docs_json(tmp_path, monkeypatch, capsys):
     spec_path.write_text(json.dumps(spec))
 
     # Test full output
-    monkeypatch.setattr("sys.argv", ["cdd", "to_docs_json", "-i", str(spec_path)])
+    monkeypatch.setattr(
+        "sys.argv", ["cdd-python", "to_docs_json", "-i", str(spec_path)]
+    )
     main()
 
     captured = capsys.readouterr()
@@ -195,7 +186,7 @@ def test_cli_to_docs_json(tmp_path, monkeypatch, capsys):
 
     # Test --no-imports
     monkeypatch.setattr(
-        "sys.argv", ["cdd", "to_docs_json", "-i", str(spec_path), "--no-imports"]
+        "sys.argv", ["cdd-python", "to_docs_json", "-i", str(spec_path), "--no-imports"]
     )
     main()
     captured = capsys.readouterr()
@@ -206,7 +197,8 @@ def test_cli_to_docs_json(tmp_path, monkeypatch, capsys):
 
     # Test --no-wrapping
     monkeypatch.setattr(
-        "sys.argv", ["cdd", "to_docs_json", "-i", str(spec_path), "--no-wrapping"]
+        "sys.argv",
+        ["cdd-python", "to_docs_json", "-i", str(spec_path), "--no-wrapping"],
     )
     main()
     captured = capsys.readouterr()
@@ -221,7 +213,14 @@ def test_cli_to_docs_json(tmp_path, monkeypatch, capsys):
     # Test both
     monkeypatch.setattr(
         "sys.argv",
-        ["cdd", "to_docs_json", "-i", str(spec_path), "--no-imports", "--no-wrapping"],
+        [
+            "cdd-python",
+            "to_docs_json",
+            "-i",
+            str(spec_path),
+            "--no-imports",
+            "--no-wrapping",
+        ],
     )
     main()
     captured = capsys.readouterr()
@@ -234,7 +233,6 @@ def test_cli_to_docs_json(tmp_path, monkeypatch, capsys):
 
 
 def test_cli_to_docs_json_no_operation_id(tmp_path, monkeypatch, capsys):
-    from openapi_client.cli import main
     import json
 
     spec = {
@@ -246,7 +244,9 @@ def test_cli_to_docs_json_no_operation_id(tmp_path, monkeypatch, capsys):
     spec_path.write_text(json.dumps(spec))
 
     # Test full output
-    monkeypatch.setattr("sys.argv", ["cdd", "to_docs_json", "-i", str(spec_path)])
+    monkeypatch.setattr(
+        "sys.argv", ["cdd-python", "to_docs_json", "-i", str(spec_path)]
+    )
     main()
 
     captured = capsys.readouterr()

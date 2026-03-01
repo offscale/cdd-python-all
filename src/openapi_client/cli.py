@@ -5,6 +5,7 @@ import sys
 import json
 from pathlib import Path
 import libcst as cst
+from importlib.metadata import version, PackageNotFoundError
 
 from openapi_client.models import OpenAPI, Info, Components
 from openapi_client.routes.emit import ClientGenerator
@@ -16,6 +17,14 @@ from openapi_client.mocks.parse import extract_mocks_from_ast
 
 from openapi_client.openapi.parse import parse_openapi_json
 from openapi_client.openapi.emit import emit_openapi_json
+
+
+def get_version() -> str:
+    """Get the version of the CLI."""
+    try:
+        return version("openapi-python-client")
+    except PackageNotFoundError:  # pragma: no cover
+        return "0.1.0"
 
 
 def generate_docs_json(input_path: str, no_imports: bool, no_wrapping: bool) -> None:
@@ -67,7 +76,7 @@ def generate_docs_json(input_path: str, no_imports: bool, no_wrapping: bool) -> 
     print(json.dumps(output, indent=2))
 
 
-def sync_to_python(openapi_path: str, output_dir: str) -> None:
+def sync_from_openapi(openapi_path: str, output_dir: str) -> None:
     """Generate Python client, tests, and mocks from an OpenAPI spec."""
     spec_path = Path(openapi_path)
     out_dir = Path(output_dir)
@@ -169,24 +178,45 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="CDD Python Client generator and extractor."
     )
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"cdd-python {get_version()}",
+    )
+    subparsers = parser.add_subparsers(dest="command")
 
-    sync_parser = subparsers.add_parser("sync", help="Sync between OpenAPI and Python")
-    sync_parser.add_argument(
-        "--from-openapi", type=str, help="Path to OpenAPI JSON file"
+    from_openapi_parser = subparsers.add_parser(
+        "from_openapi", help="Generate code from OpenAPI"
     )
-    sync_parser.add_argument(
-        "--to-python", type=str, help="Path to output Python directory"
+    from_openapi_parser.add_argument(
+        "-i", "--input", type=str, required=True, help="Path to OpenAPI JSON file"
     )
-    sync_parser.add_argument(
-        "--from-python", type=str, help="Path to Python client file"
+    from_openapi_parser.add_argument(
+        "-o", "--output", type=str, default=".", help="Output directory"
     )
-    sync_parser.add_argument(
-        "--to-openapi", type=str, help="Path to output OpenAPI JSON file"
+
+    to_openapi_parser = subparsers.add_parser(
+        "to_openapi", help="Extract OpenAPI from code"
+    )
+    to_openapi_parser.add_argument(
+        "-f", "--file", type=str, required=True, help="Path to Python source file"
+    )
+    to_openapi_parser.add_argument(
+        "-o",
+        "--output",
+        type=str,
+        default="openapi.json",
+        help="Output OpenAPI JSON file",
+    )
+
+    sync_parser = subparsers.add_parser(
+        "sync",
+        help="Sync a directory containing client.py, mock_server.py, test_client.py",
     )
     sync_parser.add_argument(
         "--dir",
         type=str,
+        required=True,
         help="Path to directory containing client.py, mock_server.py, test_client.py",
     )
 
@@ -209,25 +239,19 @@ def main() -> None:
 
     args = parser.parse_args()
 
+    if not args.command:
+        parser.print_help()
+        sys.exit(0)
+
     if args.command == "sync":
-        if args.dir:
-            sync_dir(args.dir)
-        elif args.from_openapi and args.to_python:
-            sync_to_python(args.from_openapi, args.to_python)
-        elif args.from_python and args.to_openapi:
-            sync_to_openapi(args.from_python, args.to_openapi)
-        else:
-            print(
-                "Invalid sync arguments. Use either --dir, --from-openapi & --to-python OR --from-python & --to-openapi."
-            )
-            sys.exit(1)
+        sync_dir(args.dir)
+    elif args.command == "from_openapi":
+        sync_from_openapi(args.input, args.output)
+    elif args.command == "to_openapi":
+        sync_to_openapi(args.file, args.output)
     elif args.command == "to_docs_json":
         generate_docs_json(args.input, args.no_imports, args.no_wrapping)
 
 
 if __name__ == "__main__":  # pragma: no cover
     main()
-
-"""
-Command-line interface for the openapi-python-client.
-"""
