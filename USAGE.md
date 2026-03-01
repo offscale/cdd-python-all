@@ -1,37 +1,15 @@
 # Usage
 
-`cdd-python` provides symmetric conversion back and forth between OpenAPI 3.2.0 specs and Python code.
+The `cdd-python` CLI can be used in two main modes:
 
-## Quick Start
+1. **from_openapi**: Generate Python SDK or server mock from OpenAPI JSON.
+```bash
+cdd-python from_openapi to_sdk -i openapi.json -o my_client
+```
 
-1. **Install**:
-   ```sh
-   pip install git+https://github.com/offscale/cdd-python-client.git
-   ```
+2. **to_openapi**: Extract OpenAPI JSON from Python code.
+```bash
+cdd-python to_openapi -f my_client/client.py -o openapi.json
+```
 
-2. **Generate Client from OpenAPI**:
-   ```sh
-   cdd-python from_openapi -i spec.json -o src/
-   ```
-
-3. **Update OpenAPI from Python Code**:
-   ```sh
-   cdd-python to_openapi -f src/client.py -o spec.json
-   ```
-
-4. **Sync a Project Directory**:
-   ```sh
-   cdd-python sync --dir src/
-   ```
-
-5. **Generate JSON Docs**:
-   ```sh
-   cdd-python to_docs_json --no-imports --no-wrapping -i spec.json
-   ```
-
-## Workflow
-
-1. Write or import an `openapi.json` file.
-2. Run `cdd-python from_openapi` to scaffold the `client.py`, `mock_server.py`, and `test_client.py`.
-3. You can edit the scaffolded Python directly (adding business logic, editing comments).
-4. Run `cdd-python sync --dir src/` to ingest those Python changes back into the OpenAPI specification, maintaining comments and metadata.
+It can also sync directories, generate docs, or serve a JSON-RPC interface.

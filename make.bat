@@ -1,82 +1,101 @@
 @echo off
 setlocal enabledelayedexpansion
 
-if "%~1"=="" goto help
-if "%~1"=="install_base" goto install_base
-if "%~1"=="install_deps" goto install_deps
-if "%~1"=="build_docs" goto build_docs
-if "%~1"=="build" goto build
-if "%~1"=="build_wasm" goto build_wasm
-if "%~1"=="test" goto test
-if "%~1"=="run" goto run
-if "%~1"=="help" goto help
-if "%~1"=="all" goto help
+set TASK=%1
+if "%TASK%"=="" set TASK=help
 
-echo Unknown command: "%~1"
-goto help
+if "%TASK%"=="install_base" goto install_base
+if "%TASK%"=="install_deps" goto install_deps
+if "%TASK%"=="build_docs" goto build_docs
+if "%TASK%"=="build" goto build
+if "%TASK%"=="test" goto test
+if "%TASK%"=="run" goto run
+if "%TASK%"=="build_wasm" goto build_wasm
+if "%TASK%"=="build_docker" goto build_docker
+if "%TASK%"=="run_docker" goto run_docker
+if "%TASK%"=="help" goto help
+if "%TASK%"=="all" goto help
+
+:help
+echo Available tasks:
+echo   install_base : install language runtime (Python 3 via winget)
+echo   install_deps : install local dependencies
+echo   build_docs   : build the API docs [dir]
+echo   build        : build the CLI [dir]
+echo   test         : run tests locally
+echo   run          : run the CLI [args...]
+echo   build_wasm   : build WASM output
+echo   build_docker : build Docker images
+echo   run_docker   : run and test Docker containers
+echo   help         : show this help text
+echo   all          : show this help text
+goto :EOF
 
 :install_base
-echo Installing base dependencies...
-uv python install
-uv pip install --upgrade pip build hatchling
-uv pip install -e .[dev]
-goto :eof
+echo Installing base tools (Python 3)
+winget install Python.Python.3.11
+goto :EOF
 
 :install_deps
-echo Installing local dependencies...
-uv pip install -e .[dev]
-goto :eof
+pip install uv
+uv venv
+uv pip install -e ".[dev]"
+goto :EOF
 
 :build_docs
-echo Building docs...
-set DOCS_DIR=docs
-if not "%~2"=="" set DOCS_DIR=%~2
-if not exist %DOCS_DIR% mkdir %DOCS_DIR%
-uv run python -m pydoc -w src/openapi_client/cli.py
-move cli.html %DOCS_DIR%\
-goto :eof
+set DOCS_DIR=%2
+if "%DOCS_DIR%"=="" set DOCS_DIR=docs
+echo Building docs in %DOCS_DIR%
+mkdir "%DOCS_DIR%" 2>NUL
+.venv\Scripts\python.exe -m pdoc src/openapi_client -o "%DOCS_DIR%"
+goto :EOF
 
 :build
-echo Building CLI binary (wheel)...
-set OUT_DIR=dist
-if not "%~2"=="" set OUT_DIR=%~2
-uv run python -m build --wheel --outdir %OUT_DIR%
-echo Build complete.
-goto :eof
+set BIN_DIR=%2
+if "%BIN_DIR%"=="" set BIN_DIR=dist
+echo Building binary/package in %BIN_DIR%
+mkdir "%BIN_DIR%" 2>NUL
+.venv\Scripts\python.exe -m build --wheel --outdir "%BIN_DIR%"
+goto :EOF
 
 :build_wasm
-echo Building WASM...
-echo WASM build using Pyodide/Emscripten is supported in theory. See WASM.md.
-goto :eof
+echo Building WASM to dist\wasm
+mkdir dist\wasm 2>NUL
+echo A full CPython WASM standalone build requires Pyodide. Stubbed for now. > dist\wasm\README.txt
+goto :EOF
 
 :test
-echo Running tests...
-uv run pytest tests/ --cov=src/openapi_client --cov-report=term-missing
-goto :eof
+.venv\Scripts\python.exe -m pytest tests/
+goto :EOF
 
 :run
 call :build
-echo Running CLI...
+set RUN_ARGS=
+:loop
 shift
-set "args="
-:run_loop
-if "%~1"=="" goto run_exec
-set "args=%args% %1"
-shift
-goto run_loop
-:run_exec
-uv run cdd-python %args%
-goto :eof
+if "%1"=="" goto after_loop
+set RUN_ARGS=%RUN_ARGS% %1
+goto loop
+:after_loop
+.venv\Scripts\python.exe -m openapi_client.cli %RUN_ARGS%
+goto :EOF
 
-:help
-echo Available commands:
-echo   install_base : install language runtime and anything else relevant
-echo   install_deps : install local dependencies
-echo   build_docs   : build the API docs and put them in the "docs" directory
-echo   build        : build the CLI binary
-echo   build_wasm   : build the WASM binary
-echo   test         : run tests locally
-echo   run          : run the CLI
-echo   help         : show what options are available
-echo   all          : show help text
-goto :eof
+:build_docker
+echo Building Docker images
+docker build -t cdd-python-client-alpine -f alpine.Dockerfile .
+docker build -t cdd-python-client-debian -f debian.Dockerfile .
+goto :EOF
+
+:run_docker
+call :build_docker
+docker run -d -p 8080:8080 --name cdd_alpine cdd-python-client-alpine
+timeout /t 3
+curl -X POST http://localhost:8080 -H "Content-Type: application/json" -d "{"jsonrpc": "2.0", "method": "missing", "id": 1}"
+docker stop cdd_alpine
+docker rm cdd_alpine
+docker run -d -p 8080:8080 --name cdd_debian cdd-python-client-debian
+timeout /t 3
+curl -X POST http://localhost:8080 -H "Content-Type: application/json" -d "{"jsonrpc": "2.0", "method": "missing", "id": 1}"
+docker stop cdd_debian
+docker rm cdd_debian
+goto :EOF

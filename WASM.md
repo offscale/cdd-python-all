@@ -1,27 +1,10 @@
-# WASM Support
+# WebAssembly (WASM) Support
 
-WASM support for Python CLI tools allows running the tool in environments without a native Python installation (like browsers or generic WASM runtimes).
+Compiling a pure Python application to a standalone `.wasm` binary that can run unmodified across different environments (browsers, WASI runtimes) is challenging due to the need for a bundled Python interpreter (like Pyodide or MicroPython) inside the WASM binary.
 
-## Building WASM
+## Current Status
 
-We can use the Emscripten SDK (`emsdk`) to compile CPython and our library into a WASM module, or leverage Pyodide.
+**Is WASM support possible?** Yes, using Pyodide or similar tools.
+**Is it implemented?** Partial. A stub target `build_wasm` exists in `Makefile`, but true standalone WASM builds of this Python CLI are not fully implemented.
 
-### Prerequisites
-
-You need `emsdk` installed. By default, the `Makefile` expects it one directory above the current working directory (`../emsdk`).
-
-### Build Command
-
-```sh
-make build_wasm
-```
-
-### Supported Environments
-
-- **Unified Web Interface**: This WASM build can be loaded in browsers using a web worker or Pyodide.
-- **Unified CLI**: Can be run via `wasmtime`, `wasmer`, or Node.js without needing a host Python installation.
-
-## Implementation Status
-
-- **Feasible**: Yes
-- **Implemented**: In progress (Makefile target exists, waiting for Emscripten/Pyodide complete integration).
+To implement this fully in the future, we could compile a custom Pyodide environment using the Emscripten SDK (`emsdk`) found in `../emsdk`, bundle `openapi-python-client` into the virtual filesystem, and output a packaged JS/WASM bundle that exposes the `cdd-python` CLI via a JavaScript wrapper.

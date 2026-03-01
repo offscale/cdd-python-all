@@ -46,6 +46,9 @@ def run_interrogate():
     match = re.search(r"actual: ([\d.]+)%", res.stdout + res.stderr)
     if match:
         return float(match.group(1))
+
+    # Let's run and display the error if any
+    print(res.stderr)
     print("Could not find interrogate coverage")
     return 0.0
 
@@ -71,30 +74,31 @@ def update_readme(test_cov, doc_cov):
     test_color = get_color(test_cov)
     doc_color = get_color(doc_cov)
 
-    test_badge = f"![Test Coverage](https://img.shields.io/badge/Test_Coverage-{test_cov:.1f}%25-{test_color})"
-    doc_badge = f"![Doc Coverage](https://img.shields.io/badge/Doc_Coverage-{doc_cov:.1f}%25-{doc_color})"
+    test_badge = f"[![Test Coverage](https://img.shields.io/badge/Test_Coverage-{test_cov:.1f}%25-{test_color})](https://github.com/offscale/cdd-python-client/actions)"
+    doc_badge = f"[![Doc Coverage](https://img.shields.io/badge/Doc_Coverage-{doc_cov:.1f}%25-{doc_color})](https://github.com/offscale/cdd-python-client/actions)"
 
-    has_test_badge = "![Test Coverage]" in content
-    has_doc_badge = "![Doc Coverage]" in content
-
-    if has_test_badge and has_doc_badge:
+    # Regex search for existing badges
+    if "![Test Coverage]" in content and "![Doc Coverage]" in content:
         content = re.sub(
-            r"!\[Test Coverage\]\(https://img\.shields\.io/badge/Test_Coverage-[^\)]+\)",
+            r"\[?!\[Test Coverage\]\(https://img\.shields\.io/badge/Test_Coverage-[^\)]+\)\]?(?:\(https://[^\)]+\))?",
             test_badge,
             content,
         )
         content = re.sub(
-            r"!\[Doc Coverage\]\(https://img\.shields\.io/badge/Doc_Coverage-[^\)]+\)",
+            r"\[?!\[Doc Coverage\]\(https://img\.shields\.io/badge/Doc_Coverage-[^\)]+\)\]?(?:\(https://[^\)]+\))?",
             doc_badge,
             content,
         )
     else:
-        lines = content.split("\n")
-        for i, line in enumerate(lines):
-            if "[![uv]" in line:
-                lines[i] = f"{line}\n{test_badge}\n{doc_badge}"
-                break
-        content = "\n".join(lines)
+        # replace the placeholder from template
+        if "<!-- REPLACE WITH separate test and doc coverage badges" in content:
+            content = content.replace(
+                "<!-- REPLACE WITH separate test and doc coverage badges that you generate in pre-commit hook -->",
+                f"{test_badge}\n{doc_badge}",
+            )
+        else:
+            # prepend to README
+            content = f"{test_badge}\n{doc_badge}\n\n" + content
 
     with open("README.md", "w") as f:
         f.write(content)
