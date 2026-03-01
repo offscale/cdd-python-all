@@ -2,7 +2,7 @@ import os
 import json
 import pytest
 from pathlib import Path
-from openapi_client.cli import main, sync_from_openapi, sync_to_openapi, sync_dir
+from openapi_client.cli import main, process_from_openapi, sync_to_openapi, sync_dir
 
 
 def test_cli_sync_from_openapi(tmp_path):
@@ -15,7 +15,8 @@ def test_cli_sync_from_openapi(tmp_path):
     spec_path.write_text(json.dumps(spec))
 
     out_dir = tmp_path / "out"
-    sync_from_openapi(str(spec_path), str(out_dir))
+    process_from_openapi("to_sdk", str(spec_path), None, str(out_dir))
+    process_from_openapi("to_server", str(spec_path), None, str(out_dir))
 
     assert (out_dir / "client.py").exists()
     assert (out_dir / "test_client.py").exists()
@@ -47,7 +48,15 @@ def test_cli_main_from_openapi(tmp_path, monkeypatch):
 
     monkeypatch.setattr(
         "sys.argv",
-        ["cdd-python", "from_openapi", "-i", str(spec_path), "-o", str(out_dir)],
+        [
+            "cdd-python",
+            "from_openapi",
+            "to_sdk",
+            "-i",
+            str(spec_path),
+            "-o",
+            str(out_dir),
+        ],
     )
     main()
     assert (out_dir / "client.py").exists()
@@ -259,3 +268,61 @@ def test_cli_to_docs_json_no_operation_id(tmp_path, monkeypatch, capsys):
     assert op["method"] == "POST"
     assert "operationId" not in op  # Only included if present
     assert "post_dogs" in op["code"]["snippet"]
+
+
+def test_process_from_openapi_input_dir(tmp_path):
+    import json
+
+    spec = {
+        "openapi": "3.2.0",
+        "info": {"title": "Test", "version": "1.0"},
+        "paths": {},
+    }
+    d = tmp_path / "specs"
+    d.mkdir()
+    (d / "1.json").write_text(json.dumps(spec))
+    out_dir = tmp_path / "out"
+    process_from_openapi("to_sdk_cli", None, str(d), str(out_dir))
+    assert (out_dir / "client.py").exists()
+    assert (out_dir / "cli_main.py").exists()
+
+
+def test_process_from_openapi_no_input(capsys):
+    import pytest
+
+    with pytest.raises(SystemExit):
+        process_from_openapi("to_sdk", None, None, "out")
+
+
+def test_sync_to_openapi_cli(tmp_path):
+    py_code = 'import argparse\nparser = argparse.ArgumentParser()\nsubparsers = parser.add_subparsers()\nsubparsers.add_parser("test")'
+    py_path = tmp_path / "cli_main.py"
+    py_path.write_text(py_code)
+
+    out_spec = tmp_path / "openapi.json"
+    sync_to_openapi(str(py_path), str(out_spec))
+
+    assert out_spec.exists()
+    import json
+
+    data = json.loads(out_spec.read_text())
+    assert data["info"]["title"] == "Extracted API"
+
+
+def test_sync_dir_with_cli(tmp_path):
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    (project_dir / "cli_main.py").write_text(
+        'import argparse\nparser = argparse.ArgumentParser()\nsubparsers = parser.add_subparsers()\nsubparsers.add_parser("test")'
+    )
+    sync_dir(str(project_dir))
+    assert (project_dir / "cli_main.py").exists()
+    assert (project_dir / "openapi.json").exists()
+
+
+def test_cli_main_from_openapi_missing_subcmd(monkeypatch, capsys):
+    import pytest
+
+    monkeypatch.setattr("sys.argv", ["cdd-python", "from_openapi"])
+    with pytest.raises(SystemExit):
+        main()

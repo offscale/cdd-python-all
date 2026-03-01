@@ -9,3 +9,5 @@ __pycache__
 coverage.json
 3.2.0.md
 .coverage
+test_client.py
+openapi.json

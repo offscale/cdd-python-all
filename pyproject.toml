@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "openapi-python-client"
-version = "0.1.0"
+version = "0.0.1"
 description = "OpenAPI 3.2.0 Python Client"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -19,9 +19,12 @@ dev = [
     "pytest",
     "pytest-cov",
     "interrogate",
+    "build",
+    "pdoc",
 ]
 
 [project.scripts]
+"cdd-python-client" = "openapi_client.cli:main"
 "cdd-python" = "openapi_client.cli:main"
 
 [tool.hatch.build.targets.wheel]
