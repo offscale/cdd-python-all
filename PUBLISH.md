@@ -1,4 +1,4 @@
-# Publishing cdd-python-client
+# Publishing cdd-python-all
 
 ## Publishing to PyPI
 This project should be published to PyPI (the standard Python package index).

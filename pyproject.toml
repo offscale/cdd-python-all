@@ -25,7 +25,7 @@ dev = [
 ]
 
 [project.scripts]
-"cdd-python-client" = "openapi_client.cli:main"
+"cdd-python-all" = "openapi_client.cli:main"
 "cdd-python" = "openapi_client.cli:main"
 
 [tool.hatch.build.targets.wheel]

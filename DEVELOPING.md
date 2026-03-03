@@ -1,6 +1,6 @@
 # Developing
 
-To develop `cdd-python-client`, you will need Python 3.9+.
+To develop `cdd-python-all`, you will need Python 3.9+.
 
 ```bash
 make install_deps
