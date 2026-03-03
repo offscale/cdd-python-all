@@ -22,7 +22,8 @@ jobs:
         make install_deps
     - name: Run pre-commit hooks
       run: |
-        uv run pre-commit run --all-files
+        uv tool install pre-commit --with pre-commit-uv
+        pre-commit run --all-files
     - name: Test
       run: make test
     - name: Build
