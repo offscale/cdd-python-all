@@ -12,6 +12,7 @@ dependencies = [
     "pydantic>=2.0",
     "libcst",
     "urllib3",
+    "python-cdd>=0.0.98",
 ]
 
 [project.optional-dependencies]

@@ -20,7 +20,7 @@ def test_cli_sync_from_openapi(tmp_path):
 
     assert (out_dir / "client.py").exists()
     assert (out_dir / "test_client.py").exists()
-    assert (out_dir / "mock_server.py").exists()
+    assert (out_dir / "main.py").exists()
 
 
 def test_cli_sync_to_openapi(tmp_path):

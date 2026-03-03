@@ -99,7 +99,7 @@ def generate_docs_json(
 
     out_json = json.dumps(output, indent=2)
     if output_file:
-        Path(output_file).write_text(out_json, encoding="utf-8")
+        Path(output_file).write_text(out_json + "\n", encoding="utf-8")
     else:
         print(out_json)
 
@@ -168,7 +168,12 @@ def process_from_openapi(
     """Process from_openapi subcommands."""
     if not output_dir:
         output_dir = "."
-    out_dir = Path(output_dir)
+    out_path = Path(output_dir)
+    if out_path.suffix:  # It's a file path
+        out_dir = out_path.parent
+    else:
+        out_dir = out_path
+
     out_dir.mkdir(parents=True, exist_ok=True)
 
     if input_path:
@@ -196,10 +201,21 @@ def process_from_openapi(
             (out_dir / "client.py").write_text(
                 generator.generate_code(), encoding="utf-8"
             )
+            from openapi_client.cli_sdk_cdd.emit import emit_cli_sdk
+
             (out_dir / "cli_main.py").write_text(emit_cli_sdk(spec), encoding="utf-8")
         elif subcommand == "to_server":
-            mock_module = emit_mock_server(spec)
-            (out_dir / "mock_server.py").write_text(mock_module.code, encoding="utf-8")
+            from openapi_client.fastapi.emit import emit_fastapi
+            from openapi_client.sqlalchemy_cdd.emit import emit_sqlalchemy
+
+            # Emit FastAPI server
+            fastapi_code = emit_fastapi(spec)
+            (out_dir / "main.py").write_text(fastapi_code, encoding="utf-8")
+
+            # Emit SQLAlchemy models
+            sa_code = emit_sqlalchemy(spec)
+            if sa_code:
+                (out_dir / "models.py").write_text(sa_code, encoding="utf-8")
 
     if not no_installable_package:
         scaffold_package(out_dir)

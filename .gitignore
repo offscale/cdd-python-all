@@ -1,3 +1,5 @@
+docs/
+out_server/
 build/
 dist/
 *.xml

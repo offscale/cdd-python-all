@@ -120,3 +120,32 @@ dual licensed as above, without any additional terms or conditions.
 | WebAssembly (WASM) Build | [x] | [ ] | |
 
 For more details, see [WASM.md](WASM.md).
+\n## CLI Usage\n\n```
+usage: cdd-python [-h] [--version]
+                  {from_openapi,to_openapi,sync,to_docs_json,server_json_rpc}
+                  ...
+
+CDD Python Client generator and extractor.
+
+positional arguments:
+  {from_openapi,to_openapi,sync,to_docs_json,server_json_rpc}
+    from_openapi        Generate code from OpenAPI
+    to_openapi          Extract OpenAPI from code
+    sync                Sync a directory containing client.py, mock_server.py,
+                        test_client.py, cli_main.py
+    to_docs_json        Generate JSON documentation
+    server_json_rpc     Run JSON-RPC server
+
+options:
+  -h, --help            show this help message and exit
+  --version             show program's version number and exit
+```\n
+```
+usage: cdd-python from_openapi [-h] {to_sdk,to_sdk_cli,to_server} ...
+
+positional arguments:
+  {to_sdk,to_sdk_cli,to_server}
+
+options:
+  -h, --help            show this help message and exit
+```\n

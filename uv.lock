@@ -594,6 +594,7 @@ source = { editable = "." }
 dependencies = [
     { name = "libcst" },
     { name = "pydantic" },
+    { name = "python-cdd" },
     { name = "urllib3" },
 ]
 
@@ -617,6 +618,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.0" },
     { name = "pytest", marker = "extra == 'dev'" },
     { name = "pytest-cov", marker = "extra == 'dev'" },
+    { name = "python-cdd", specifier = ">=0.0.98" },
     { name = "urllib3" },
 ]
 provides-extras = ["dev"]
@@ -907,6 +909,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/5e/f7/c933acc76f5208b3b00089573cf6a2bc26dc80a8aece8f52bb7d6b1855ca/pytest_cov-7.0.0.tar.gz", hash = "sha256:33c97eda2e049a0c5298e91f519302a1334c26ac65c1a483d6206fd458361af1", size = 54328, upload-time = "2025-09-09T10:57:02.113Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ee/49/1377b49de7d0c1ce41292161ea0f721913fa8722c19fb9c1e3aa0367eecb/pytest_cov-7.0.0-py3-none-any.whl", hash = "sha256:3b8e9558b16cc1479da72058bdecf8073661c7f57f7d3c5f22a1c23507f2d861", size = 22424, upload-time = "2025-09-09T10:57:00.695Z" },
+]
+
+[[package]]
+name = "python-cdd"
+version = "0.0.98"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyyaml" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/64/a1/6b2d25e72b5243f3b8e3d703acd96ed8171b9b66a853d38fd481e74c6847/python-cdd-0.0.98.tar.gz", hash = "sha256:9e8bfad1ce81e23aa80a466ec231a3029d509bd5f5ac0730478e242f7d2c8305", size = 219889, upload-time = "2023-01-26T22:21:24.571Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3c/6a/706187ce6473b940f0162788bb63f664d2879fc24666294d693ba16fb616/python_cdd-0.0.98-py3-none-any.whl", hash = "sha256:96173ae49ded6fe783e218b9bf61df42f4c3fc54ceb6422062e4e466a9c74c1d", size = 276330, upload-time = "2023-01-26T22:21:22.329Z" },
 ]
 
 [[package]]

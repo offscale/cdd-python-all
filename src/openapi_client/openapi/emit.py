@@ -16,4 +16,4 @@ def emit_openapi_dict(spec: OpenAPI) -> Dict[str, Any]:
 def emit_openapi_json(spec: OpenAPI, indent: int = 2) -> str:
     """Emit an OpenAPI model as a JSON string."""
     spec_dict = emit_openapi_dict(spec)
-    return json.dumps(spec_dict, indent=indent)
+    return json.dumps(spec_dict, indent=indent) + "\n"
