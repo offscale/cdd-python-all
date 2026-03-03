@@ -76,16 +76,16 @@ all: help
 
 build_docker:
 	@echo "Building Docker images"
-	docker build -t cdd-python-client-alpine -f alpine.Dockerfile .
-	docker build -t cdd-python-client-debian -f debian.Dockerfile .
+	docker build -t cdd-python-all-alpine -f alpine.Dockerfile .
+	docker build -t cdd-python-all-debian -f debian.Dockerfile .
 
 run_docker: build_docker
-	docker run -d -p 8080:8080 --name cdd_alpine cdd-python-client-alpine
+	docker run -d -p 8080:8080 --name cdd_alpine cdd-python-all-alpine
 	sleep 3
 	curl -X POST http://localhost:8080 -H "Content-Type: application/json" -d '{"jsonrpc": "2.0", "method": "missing", "id": 1}' || echo "container failed to respond"
 	docker stop cdd_alpine
 	docker rm cdd_alpine
-	docker run -d -p 8080:8080 --name cdd_debian cdd-python-client-debian
+	docker run -d -p 8080:8080 --name cdd_debian cdd-python-all-debian
 	sleep 3
 	curl -X POST http://localhost:8080 -H "Content-Type: application/json" -d '{"jsonrpc": "2.0", "method": "missing", "id": 1}' || echo "container failed to respond"
 	docker stop cdd_debian

@@ -74,8 +74,8 @@ def update_readme(test_cov, doc_cov):
     test_color = get_color(test_cov)
     doc_color = get_color(doc_cov)
 
-    test_badge = f"[![Test Coverage](https://img.shields.io/badge/Test_Coverage-{test_cov:.1f}%25-{test_color})](https://github.com/offscale/cdd-python-client/actions)"
-    doc_badge = f"[![Doc Coverage](https://img.shields.io/badge/Doc_Coverage-{doc_cov:.1f}%25-{doc_color})](https://github.com/offscale/cdd-python-client/actions)"
+    test_badge = f"[![Test Coverage](https://img.shields.io/badge/Test_Coverage-{test_cov:.1f}%25-{test_color})](https://github.com/offscale/cdd-python-all/actions)"
+    doc_badge = f"[![Doc Coverage](https://img.shields.io/badge/Doc_Coverage-{doc_cov:.1f}%25-{doc_color})](https://github.com/offscale/cdd-python-all/actions)"
 
     # Regex search for existing badges
     if "![Test Coverage]" in content and "![Doc Coverage]" in content:
