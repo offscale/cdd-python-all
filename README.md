@@ -4,7 +4,7 @@ cdd-python-all
 [![License](https://img.shields.io/badge/license-Apache--2.0%20OR%20MIT-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![CI/CD](https://github.com/offscale/cdd-python-all/workflows/CI/badge.svg)](https://github.com/offscale/cdd-python-all/actions)
 [![Test Coverage](https://img.shields.io/badge/Test_Coverage-100.0%25-brightgreen)](https://github.com/offscale/cdd-python-all/actions)
-[![Doc Coverage](https://img.shields.io/badge/Doc_Coverage-0.0%25-red)](https://github.com/offscale/cdd-python-all/actions)
+[![Doc Coverage](https://img.shields.io/badge/Doc_Coverage-100.0%25-brightgreen)](https://github.com/offscale/cdd-python-all/actions)
 
 OpenAPI ↔ Python. This is one compiler in a suite, all focussed on the same task: Compiler Driven Development (CDD).
 
