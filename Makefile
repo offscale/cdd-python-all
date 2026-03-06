@@ -45,7 +45,7 @@ build_docs:
 build:
 	@echo "Building binary/package in $(BIN_DIR)"
 	@mkdir -p $(BIN_DIR)
-	.venv/bin/python3 -m build --wheel --outdir $(BIN_DIR) || python3 -m build --wheel --outdir $(BIN_DIR)
+	uv build --wheel --out-dir $(BIN_DIR)
 
 build_wasm:
 	@echo "Building WASM to dist/wasm"
