@@ -447,7 +447,7 @@ def main() -> None:
     from_openapi_parser = subparsers.add_parser(
         "from_openapi", help="Generate code from OpenAPI"
     )
-    
+
     group = from_openapi_parser.add_mutually_exclusive_group(required=False)
     group.add_argument("-i", "--input", type=str, help="Path to OpenAPI JSON file")
     group.add_argument(
@@ -565,9 +565,6 @@ def main() -> None:
         )
     elif args.command == "to_openapi":
         in_path = args.input
-        if not in_path:
-            to_openapi_parser.print_help()
-            sys.exit(1)
         sync_to_openapi(in_path, args.output)
     elif args.command == "to_docs_json":
         generate_docs_json(args.input, args.no_imports, args.no_wrapping, args.output)
