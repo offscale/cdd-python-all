@@ -110,3 +110,83 @@ at your option.
 Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in the work by you, as defined in the Apache-2.0 license, shall be
 dual licensed as above, without any additional terms or conditions.
+
+## CLI Help
+
+```
+$ cdd-python --help
+usage: cdd-python [-h] [--version]
+                  {from_openapi,to_openapi,sync,to_docs_json,server_json_rpc}
+                  ...
+
+CDD Python Client generator and extractor.
+
+positional arguments:
+  {from_openapi,to_openapi,sync,to_docs_json,server_json_rpc}
+    from_openapi        Generate code from OpenAPI
+    to_openapi          Extract OpenAPI from code
+    sync                Sync a directory containing client.py, mock_server.py,
+                        test_client.py, cli_main.py
+    to_docs_json        Generate JSON documentation
+    server_json_rpc     Run JSON-RPC server
+
+options:
+  -h, --help            show this help message and exit
+  --version             show program's version number and exit
+```
+
+### `from_openapi`
+
+```
+$ cdd-python from_openapi --help
+usage: cdd-python from_openapi [-h] [-i INPUT | --input-dir INPUT_DIR]
+                               [-o OUTPUT] [--no-github-actions]
+                               [--no-installable-package]
+                               {to_sdk,to_sdk_cli,to_server} ...
+
+positional arguments:
+  {to_sdk,to_sdk_cli,to_server}
+
+options:
+  -h, --help            show this help message and exit
+  -i INPUT, --input INPUT
+                        Path to OpenAPI JSON file
+  --input-dir INPUT_DIR
+                        Directory containing OpenAPI specs
+  -o OUTPUT, --output OUTPUT
+                        Output directory
+  --no-github-actions   Do not generate GitHub Actions
+  --no-installable-package
+                        Do not generate installable package scaffolding
+```
+
+### `to_openapi`
+
+```
+$ cdd-python to_openapi --help
+usage: cdd-python to_openapi [-h] -i INPUT [-o OUTPUT]
+
+options:
+  -h, --help            show this help message and exit
+  -i INPUT, --input INPUT
+                        Path to Python source file or directory
+  -o OUTPUT, --output OUTPUT
+                        Output OpenAPI JSON file
+```
+
+### `to_docs_json`
+
+```
+$ cdd-python to_docs_json --help
+usage: cdd-python to_docs_json [-h] -i INPUT [--no-imports] [--no-wrapping]
+                               [-o OUTPUT]
+
+options:
+  -h, --help            show this help message and exit
+  -i INPUT, --input INPUT
+                        Path or URL to the OpenAPI specification
+  --no-imports          Omit the imports field
+  --no-wrapping         Omit the wrapper fields
+  -o OUTPUT, --output OUTPUT
+                        Output JSON file (defaults to stdout)
+```
