@@ -70,7 +70,7 @@ def test_cli_main_to_openapi(tmp_path, monkeypatch):
 
     monkeypatch.setattr(
         "sys.argv",
-        ["cdd-python", "to_openapi", "-f", str(py_path), "-o", str(out_spec)],
+        ["cdd-python", "to_openapi", "-i", str(py_path), "-o", str(out_spec)],
     )
     main()
     assert out_spec.exists()
