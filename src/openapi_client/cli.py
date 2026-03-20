@@ -226,14 +226,53 @@ def process_from_openapi(
     print(f"Successfully generated {subcommand} in {out_dir}")
 
 
-def sync_to_openapi(python_path: str, output_path: str) -> None:
-    """Extract an OpenAPI spec from a Python module."""
+def sync_to_openapi(input_path: str, output_path: str) -> None:
+    """Extract an OpenAPI spec from a Python module or directory."""
     if not output_path:
         output_path = "openapi.json"
-    py_path = Path(python_path)
+    in_path = Path(input_path)
     out_path = Path(output_path)
 
-    code = py_path.read_text(encoding="utf-8")
+    if in_path.is_dir():
+        spec = OpenAPI(
+            **{
+                "openapi": "3.2.0",
+                "info": Info(title="Extracted API", version="0.0.1"),
+                "paths": {},
+                "components": Components(schemas={}),
+            }
+        )  # type: ignore
+
+        client_py = in_path / "client.py"
+        mock_py = in_path / "mock_server.py"
+        test_py = in_path / "test_client.py"
+        cli_py = in_path / "cli_main.py"
+
+        if client_py.exists():
+            from openapi_client.classes.parse import extract_classes_from_ast
+            from openapi_client.functions.parse import extract_functions_from_ast
+
+            mod = cst.parse_module(client_py.read_text(encoding="utf-8"))
+            extract_classes_from_ast(mod, spec)
+            extract_functions_from_ast(mod, spec)
+
+        if mock_py.exists():
+            mod = cst.parse_module(mock_py.read_text(encoding="utf-8"))
+            extract_mocks_from_ast(mod, spec)
+
+        if test_py.exists():
+            mod = cst.parse_module(test_py.read_text(encoding="utf-8"))
+            extract_tests_from_ast(mod, spec)
+
+        if cli_py.exists():
+            mod = cst.parse_module(cli_py.read_text(encoding="utf-8"))
+            extract_cli_from_ast(mod, spec)
+
+        out_path.write_text(emit_openapi_json(spec, indent=2), encoding="utf-8")
+        print(f"Successfully extracted OpenAPI spec to {out_path}")
+        return
+
+    code = in_path.read_text(encoding="utf-8")
 
     if "argparse" in code and "add_parser" in code:
         spec = OpenAPI(
@@ -408,8 +447,26 @@ def main() -> None:
     from_openapi_parser = subparsers.add_parser(
         "from_openapi", help="Generate code from OpenAPI"
     )
+    
+    group = from_openapi_parser.add_mutually_exclusive_group(required=False)
+    group.add_argument("-i", "--input", type=str, help="Path to OpenAPI JSON file")
+    group.add_argument(
+        "--input-dir", type=str, help="Directory containing OpenAPI specs"
+    )
+    from_openapi_parser.add_argument("-o", "--output", type=str, default=".", help="Output directory")
+    from_openapi_parser.add_argument(
+        "--no-github-actions",
+        action="store_true",
+        help="Do not generate GitHub Actions",
+    )
+    from_openapi_parser.add_argument(
+        "--no-installable-package",
+        action="store_true",
+        help="Do not generate installable package scaffolding",
+    )
+
     from_openapi_subparsers = from_openapi_parser.add_subparsers(
-        dest="from_openapi_command"
+        dest="from_openapi_command", required=False
     )
 
     for subcmd in ["to_sdk", "to_sdk_cli", "to_server"]:
@@ -435,7 +492,7 @@ def main() -> None:
         "to_openapi", help="Extract OpenAPI from code"
     )
     to_openapi_parser.add_argument(
-        "-f", "--file", type=str, required=True, help="Path to Python source file"
+        "-i", "--input", type=str, help="Path to Python source file or directory", required=True
     )
     to_openapi_parser.add_argument(
         "-o",
@@ -494,19 +551,24 @@ def main() -> None:
     if args.command == "sync":
         sync_dir(args.dir)
     elif args.command == "from_openapi":
-        if not args.from_openapi_command:
+        subcmd = args.from_openapi_command or "to_sdk"
+        if not args.input and not getattr(args, "input_dir", None):
             from_openapi_parser.print_help()
-            sys.exit(0)
+            sys.exit(1)
         process_from_openapi(
-            args.from_openapi_command,
+            subcmd,
             args.input,
-            args.input_dir,
+            getattr(args, "input_dir", None),
             args.output,
             args.no_github_actions,
             args.no_installable_package,
         )
     elif args.command == "to_openapi":
-        sync_to_openapi(args.file, args.output)
+        in_path = args.input
+        if not in_path:
+            to_openapi_parser.print_help()
+            sys.exit(1)
+        sync_to_openapi(in_path, args.output)
     elif args.command == "to_docs_json":
         generate_docs_json(args.input, args.no_imports, args.no_wrapping, args.output)
     elif args.command == "server_json_rpc":
