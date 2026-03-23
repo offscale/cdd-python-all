@@ -25,3 +25,11 @@ fix_all.py
 fix_coverage.py
 test_get_terms.py
 update.py
+
+*.wasm
+node_modules/
+__pycache__/
+*.o
+*.so
+target/
+.idea/
