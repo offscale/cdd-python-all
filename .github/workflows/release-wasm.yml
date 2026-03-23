@@ -14,14 +14,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          make install_deps
+          if [ -d .venv ]; then .venv/bin/pip install py2wasm; else pip install py2wasm; fi
+
       - name: Build WASM
         run: |
-          if [ -f Makefile ] && grep -q build_wasm Makefile; then
-            make build_wasm || true
-            cp bin/cdd-python-all.wasm . || echo -n -e '\x00asm\x01\x00\x00\x00' > cdd-python-all.wasm
-          else
-            echo -n -e '\x00asm\x01\x00\x00\x00' > cdd-python-all.wasm
-          fi
+          make build_wasm
+          cp bin/cdd-python-all.wasm .
       - name: Release WASM Artifact
         uses: softprops/action-gh-release@v2
         with:

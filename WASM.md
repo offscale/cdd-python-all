@@ -4,7 +4,12 @@ Compiling a pure Python application to a standalone `.wasm` binary that can run 
 
 ## Current Status
 
-**Is WASM support possible?** Yes, using Pyodide or similar tools.
-**Is it implemented?** Partial. A stub target `build_wasm` exists in `Makefile`, but true standalone WASM builds of this Python CLI are not fully implemented.
+**Is WASM support possible?** Yes, using `py2wasm`.
+**Is it implemented?** Yes. A `build_wasm` target exists in `Makefile` which compiles the CLI to a standalone `.wasm` binary.
 
-To implement this fully in the future, we could compile a custom Pyodide environment using the Emscripten SDK (`emsdk`) found in `../emsdk`, bundle `openapi-python-client` into the virtual filesystem, and output a packaged JS/WASM bundle that exposes the `cdd-python` CLI via a JavaScript wrapper.
+To build it manually:
+```bash
+pip install py2wasm
+make build_wasm
+```
+This produces `bin/cdd-python-all.wasm`.
