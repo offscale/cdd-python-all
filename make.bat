@@ -59,9 +59,13 @@ mkdir "%BIN_DIR%" 2>NUL
 goto :EOF
 
 :build_wasm
-echo Building WASM to dist\wasm
-mkdir dist\wasm 2>NUL
-echo A full CPython WASM standalone build requires Pyodide. Stubbed for now. > dist\wasm\README.txt
+echo Building WASM to bin\
+mkdir bin 2>NUL
+if exist .venv\Scripts\python.exe (
+    .venv\Scripts\python.exe -m py2wasm src\openapi_client\cli.py -o bin\cdd-python-all.wasm
+) else (
+    py2wasm src\openapi_client\cli.py -o bin\cdd-python-all.wasm
+)
 goto :EOF
 
 :test

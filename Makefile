@@ -48,9 +48,9 @@ build:
 	uv build --wheel --out-dir $(BIN_DIR)
 
 build_wasm:
-	@echo "Building WASM to dist/wasm"
-	@mkdir -p dist/wasm
-	@echo "A full CPython WASM standalone build requires Pyodide. Stubbed for now." > dist/wasm/README.txt
+	@echo "Building WASM to bin/"
+	@mkdir -p bin
+	if [ -d .venv ]; then .venv/bin/python3 -m py2wasm src/openapi_client/cli.py -o bin/cdd-python-all.wasm; else py2wasm src/openapi_client/cli.py -o bin/cdd-python-all.wasm; fi
 
 test:
 	.venv/bin/python3 -m pytest tests/ || pytest tests/
