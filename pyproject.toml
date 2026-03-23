@@ -22,6 +22,7 @@ dev = [
     "interrogate",
     "build",
     "pdoc",
+    "py2wasm",
 ]
 
 [project.scripts]

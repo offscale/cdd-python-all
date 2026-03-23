@@ -21,7 +21,6 @@ jobs:
       - name: Install dependencies
         run: |
           make install_deps
-          if [ -d .venv ]; then .venv/bin/pip install py2wasm; else pip install py2wasm; fi
 
       - name: Build WASM
         run: |

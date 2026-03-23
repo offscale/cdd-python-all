@@ -2,21 +2,20 @@
 
 .DEFAULT_GOAL := help
 
+BIN_DIR ?= dist
+DOCS_DIR ?= docs
+
 # Extract arguments for build, build_docs, run
 ifeq ($(firstword $(MAKECMDGOALS)),build)
-  BIN_DIR := $(word 2,$(MAKECMDGOALS))
-  ifeq ($(BIN_DIR),)
-    BIN_DIR := dist
-  else
+  ifneq ($(word 2,$(MAKECMDGOALS)),)
+    BIN_DIR := $(word 2,$(MAKECMDGOALS))
     $(eval $(BIN_DIR):;@:)
   endif
 endif
 
 ifeq ($(firstword $(MAKECMDGOALS)),build_docs)
-  DOCS_DIR := $(word 2,$(MAKECMDGOALS))
-  ifeq ($(DOCS_DIR),)
-    DOCS_DIR := docs
-  else
+  ifneq ($(word 2,$(MAKECMDGOALS)),)
+    DOCS_DIR := $(word 2,$(MAKECMDGOALS))
     $(eval $(DOCS_DIR):;@:)
   endif
 endif
@@ -40,7 +39,7 @@ install_deps:
 build_docs:
 	@echo "Building docs in $(DOCS_DIR)"
 	@mkdir -p $(DOCS_DIR)
-	.venv/bin/python3 -m pdoc src/openapi_client -o $(DOCS_DIR) || pdoc src/openapi_client -o $(DOCS_DIR)
+	pdoc src/openapi_client -o $(DOCS_DIR)
 
 build:
 	@echo "Building binary/package in $(BIN_DIR)"
@@ -50,13 +49,12 @@ build:
 build_wasm:
 	@echo "Building WASM to bin/"
 	@mkdir -p bin
-	if [ -d .venv ]; then .venv/bin/python3 -m py2wasm src/openapi_client/cli.py -o bin/cdd-python-all.wasm; else py2wasm src/openapi_client/cli.py -o bin/cdd-python-all.wasm; fi
-
+	py2wasm src/openapi_client/cli.py -o bin/cdd-python-all.wasm
 test:
-	.venv/bin/python3 -m pytest tests/ || pytest tests/
+	pytest tests/
 
 run: build
-	.venv/bin/python3 -m openapi_client.cli $(RUN_ARGS) || cdd-python $(RUN_ARGS)
+	python3 -m openapi_client.cli $(RUN_ARGS) || cdd-python $(RUN_ARGS)
 
 help:
 	@echo "Available tasks:"
