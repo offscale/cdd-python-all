@@ -7,7 +7,7 @@ name = "openapi-python-client"
 version = "0.0.1"
 description = "OpenAPI 3.2.0 Python Client"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.9,<3.14"
 dependencies = [
     "pydantic>=2.0",
     "libcst",

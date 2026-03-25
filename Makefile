@@ -49,10 +49,9 @@ build:
 build_wasm:
 	@echo "Building WASM to bin/"
 	@mkdir -p bin
-	py2wasm src/openapi_client/cli.py -o bin/cdd-python-all.wasm
+	uv run py2wasm src/openapi_client/cli.py -o bin/cdd-python-all.wasm
 test:
-	pytest tests/
-
+	uv run pytest tests/
 run: build
 	python3 -m openapi_client.cli $(RUN_ARGS) || cdd-python $(RUN_ARGS)
 
