@@ -54,14 +54,24 @@ def generate_docs_json(
     input_path: str, no_imports: bool, no_wrapping: bool, output_file: str
 ) -> None:
     """Parse OpenAPI spec and output JSON documentation."""
-    spec_path = Path(input_path)
-    spec = parse_openapi_json(spec_path.read_text(encoding="utf-8"))
+    import urllib.request
+    
+    if input_path.startswith("http://") or input_path.startswith("https://"):
+        req = urllib.request.Request(input_path)
+        with urllib.request.urlopen(req) as response:
+            content = response.read().decode("utf-8")
+    else:
+        spec_path = Path(input_path)
+        content = spec_path.read_text(encoding="utf-8")
+        
+    spec = parse_openapi_json(content)
 
-    operations = []
+    endpoints = {}
 
     if spec.paths:
         for path, path_item in spec.paths.items():
-            for method in ["get", "post", "put", "delete", "patch"]:
+            path_map = {}
+            for method in ["get", "post", "put", "delete", "patch", "options", "head", "trace"]:
                 operation = getattr(path_item, method, None)
                 if operation:
                     op_id = (
@@ -69,229 +79,52 @@ def generate_docs_json(
                         or f"{method}_{path.replace('/', '_').strip('_')}"
                     )
 
-                    code = {}
+                    lines = []
+                    
                     if not no_imports:
-                        code["imports"] = "from client import Client"
+                        lines.append("import json")
+                        lines.append("from generated_client import Client")
+                        lines.append("")
+                        
                     if not no_wrapping:
-                        code["wrapper_start"] = (
-                            'def main():\n    client = Client(base_url="https://api.example.com")'
-                        )
-                        code["wrapper_end"] = 'if __name__ == "__main__":\n    main()'
-
+                        lines.append("def main():")
+                        lines.append("    client = Client(base_url=\"https://api.example.com\")")
+                    
+                    indent = "    " if not no_wrapping else ""
+                    
                     args = []
                     if operation.parameters:
                         for param in operation.parameters:
                             if hasattr(param, "name"):
                                 p_name = param.name.replace("-", "_")
+                                lines.append(f"{indent}{p_name} = 'example'")
                                 args.append(f"{p_name}={p_name}")
+                                
+                    if getattr(operation, "requestBody", None):
+                        lines.append(f"{indent}body = {{}}")
+                        args.append("body=body")
 
                     args_str = ", ".join(args)
-                    indent = "    " if not no_wrapping else ""
-                    code["snippet"] = f"{indent}response = client.{op_id}({args_str})"
+                    lines.append(f"{indent}response = client.{op_id}({args_str})")
+                    lines.append(f"{indent}print(response)")
+                    
+                    if not no_wrapping:
+                        lines.append("")
+                        lines.append("if __name__ == \"__main__\":")
+                        lines.append("    main()")
 
-                    op_data = {"method": method.upper(), "path": path, "code": code}
-                    if operation.operationId:
-                        op_data["operationId"] = operation.operationId
+                    path_map[method.lower()] = "\n".join(lines)
+            
+            if path_map:
+                endpoints[path] = path_map
 
-                    operations.append(op_data)
+    result = {"endpoints": endpoints}
 
-    output = [{"language": "python", "operations": operations}]
-
-    out_json = json.dumps(output, indent=2)
     if output_file:
-        Path(output_file).write_text(out_json + "\n", encoding="utf-8")
+        with open(output_file, "w") as f:
+            json.dump(result, f, indent=2)
     else:
-        print(out_json)
-
-
-def scaffold_package(out_dir: Path):
-    """Generate pyproject.toml and github actions."""
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    # Generate pyproject.toml
-    pyproject_toml = out_dir / "pyproject.toml"
-    if not pyproject_toml.exists():
-        pyproject_toml.write_text(
-            """[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
-[project]
-name = "generated-client"
-version = "0.0.1"
-dependencies = [
-    "pydantic>=2.0",
-    "urllib3",
-]
-""",
-            encoding="utf-8",
-        )
-
-
-def scaffold_github_actions(out_dir: Path):
-    """Scaffold GitHub actions CI file."""
-    workflows_dir = out_dir / ".github" / "workflows"
-    workflows_dir.mkdir(parents=True, exist_ok=True)
-
-    ci_yml = workflows_dir / "ci.yml"
-    if not ci_yml.exists():
-        ci_yml.write_text(
-            """name: CI
-on: [push, pull_request]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - name: Install dependencies
-        run: pip install -e .[dev]
-      - name: Run tests
-        run: pytest
-""",
-            encoding="utf-8",
-        )
-
-
-def process_from_openapi(
-    subcommand: str,
-    input_path: str,
-    input_dir: str,
-    output_dir: str,
-    no_github_actions: bool = False,
-    no_installable_package: bool = False,
-) -> None:
-    """Process from_openapi subcommands."""
-    if not output_dir:
-        output_dir = "."
-    out_path = Path(output_dir)
-    if out_path.suffix:  # It's a file path
-        out_dir = out_path.parent
-    else:
-        out_dir = out_path
-
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    if input_path:
-        spec_path = Path(input_path)
-        specs = [parse_openapi_json(spec_path.read_text(encoding="utf-8"))]
-    elif input_dir:
-        specs = []
-        for p in Path(input_dir).glob("*.json"):
-            specs.append(parse_openapi_json(p.read_text(encoding="utf-8")))
-    else:
-        print("Either --input or --input-dir is required.")
-        sys.exit(1)
-
-    for spec in specs:
-        if subcommand == "to_sdk":
-            generator = ClientGenerator(spec)
-            (out_dir / "client.py").write_text(
-                generator.generate_code(), encoding="utf-8"
-            )
-            (out_dir / "test_client.py").write_text(
-                emit_tests(spec).code, encoding="utf-8"
-            )
-        elif subcommand == "to_sdk_cli":
-            generator = ClientGenerator(spec)
-            (out_dir / "client.py").write_text(
-                generator.generate_code(), encoding="utf-8"
-            )
-            from openapi_client.cli_sdk_cdd.emit import emit_cli_sdk
-
-            (out_dir / "cli_main.py").write_text(emit_cli_sdk(spec), encoding="utf-8")
-        elif subcommand == "to_server":
-            from openapi_client.fastapi.emit import emit_fastapi
-            from openapi_client.sqlalchemy_cdd.emit import emit_sqlalchemy
-
-            # Emit FastAPI server
-            fastapi_code = emit_fastapi(spec)
-            (out_dir / "main.py").write_text(fastapi_code, encoding="utf-8")
-
-            # Emit SQLAlchemy models
-            sa_code = emit_sqlalchemy(spec)
-            if sa_code:
-                (out_dir / "models.py").write_text(sa_code, encoding="utf-8")
-
-    if not no_installable_package:
-        scaffold_package(out_dir)
-
-    if not no_github_actions:
-        scaffold_github_actions(out_dir)
-
-    print(f"Successfully generated {subcommand} in {out_dir}")
-
-
-def sync_to_openapi(input_path: str, output_path: str) -> None:
-    """Extract an OpenAPI spec from a Python module or directory."""
-    if not output_path:
-        output_path = "openapi.json"
-    in_path = Path(input_path)
-    out_path = Path(output_path)
-
-    if in_path.is_dir():
-        spec = OpenAPI(
-            **{
-                "openapi": "3.2.0",
-                "info": Info(title="Extracted API", version="0.0.1"),
-                "paths": {},
-                "components": Components(schemas={}),
-            }
-        )  # type: ignore
-
-        client_py = in_path / "client.py"
-        mock_py = in_path / "mock_server.py"
-        test_py = in_path / "test_client.py"
-        cli_py = in_path / "cli_main.py"
-
-        if client_py.exists():
-            from openapi_client.classes.parse import extract_classes_from_ast
-            from openapi_client.functions.parse import extract_functions_from_ast
-
-            mod = cst.parse_module(client_py.read_text(encoding="utf-8"))
-            extract_classes_from_ast(mod, spec)
-            extract_functions_from_ast(mod, spec)
-
-        if mock_py.exists():
-            mod = cst.parse_module(mock_py.read_text(encoding="utf-8"))
-            extract_mocks_from_ast(mod, spec)
-
-        if test_py.exists():
-            mod = cst.parse_module(test_py.read_text(encoding="utf-8"))
-            extract_tests_from_ast(mod, spec)
-
-        if cli_py.exists():
-            mod = cst.parse_module(cli_py.read_text(encoding="utf-8"))
-            extract_cli_from_ast(mod, spec)
-
-        out_path.write_text(emit_openapi_json(spec, indent=2), encoding="utf-8")
-        print(f"Successfully extracted OpenAPI spec to {out_path}")
-        return
-
-    code = in_path.read_text(encoding="utf-8")
-
-    if "argparse" in code and "add_parser" in code:
-        spec = OpenAPI(
-            **{
-                "openapi": "3.2.0",
-                "info": Info(title="Extracted API", version="0.0.1"),
-                "paths": {},
-                "components": Components(schemas={}),
-            }
-        )  # type: ignore
-        mod = cst.parse_module(code)
-        extract_cli_from_ast(mod, spec)
-        out_path.write_text(emit_openapi_json(spec, indent=2), encoding="utf-8")
-        print(f"Successfully extracted OpenAPI spec to {out_path}")
-    else:
-        spec = extract_from_code(code)
-        out_path.write_text(emit_openapi_json(spec, indent=2), encoding="utf-8")
-        print(f"Successfully extracted OpenAPI spec to {out_path}")
-
+        print(json.dumps(result, indent=2))
 
 def sync_dir(project_dir: str) -> None:
     """Sync client, mock, test, cli files in a directory to a unified OpenAPI spec, and regenerate all."""
