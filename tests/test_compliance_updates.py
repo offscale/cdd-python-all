@@ -44,14 +44,24 @@ def test_mock_streaming_extraction():
     assert op.responses is not None
     assert "text/event-stream" in op.responses["200"].content
 
+
 def test_parse_sqlalchemy_cdd():
     from openapi_client.sqlalchemy_cdd.parse import parse_sqlalchemy_cdd
     from openapi_client.models import OpenAPI
     import libcst as cst
-    parse_sqlalchemy_cdd(cst.parse_module(""), OpenAPI(openapi="3.2.0", info={"title": "test", "version": "1.0"}))
+
+    parse_sqlalchemy_cdd(
+        cst.parse_module(""),
+        OpenAPI(openapi="3.2.0", info={"title": "test", "version": "1.0"}),
+    )
+
 
 def test_parse_cli_sdk_cdd():
     from openapi_client.cli_sdk_cdd.parse import parse_cli_sdk_cdd
     from openapi_client.models import OpenAPI
     import libcst as cst
-    parse_cli_sdk_cdd(cst.parse_module(""), OpenAPI(openapi="3.2.0", info={"title": "test", "version": "1.0"}))
+
+    parse_cli_sdk_cdd(
+        cst.parse_module(""),
+        OpenAPI(openapi="3.2.0", info={"title": "test", "version": "1.0"}),
+    )

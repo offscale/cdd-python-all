@@ -175,23 +175,18 @@ def test_cli_to_docs_json(tmp_path, monkeypatch, capsys):
 
     captured = capsys.readouterr()
     output = json.loads(captured.out)
-    assert len(output) == 1
-    assert output[0]["language"] == "python"
+    assert "endpoints" in output
+    endpoints = output["endpoints"]
+    assert "/pets" in endpoints
+    assert "get" in endpoints["/pets"]
 
-    ops = output[0]["operations"]
-    assert len(ops) == 1
-    op = ops[0]
-    assert op["method"] == "GET"
-    assert op["path"] == "/pets"
-    assert op["operationId"] == "getPets"
-
-    code = op["code"]
-    assert "imports" in code
-    assert "wrapper_start" in code
-    assert "wrapper_end" in code
-    assert "snippet" in code
-    assert "limit=limit" in code["snippet"]
-    assert code["snippet"].startswith("    response =")
+    code = endpoints["/pets"]["get"]
+    assert "import json" in code
+    assert "def main():" in code
+    assert "client = Client(" in code
+    assert "limit = 'example'" in code
+    assert "response = client.getPets(limit=limit)" in code
+    assert 'if __name__ == "__main__":' in code
 
     # Test --no-imports
     monkeypatch.setattr(
@@ -200,9 +195,9 @@ def test_cli_to_docs_json(tmp_path, monkeypatch, capsys):
     main()
     captured = capsys.readouterr()
     output = json.loads(captured.out)
-    code = output[0]["operations"][0]["code"]
-    assert "imports" not in code
-    assert "wrapper_start" in code
+    code = output["endpoints"]["/pets"]["get"]
+    assert "import json" not in code
+    assert "def main():" in code
 
     # Test --no-wrapping
     monkeypatch.setattr(
@@ -212,12 +207,12 @@ def test_cli_to_docs_json(tmp_path, monkeypatch, capsys):
     main()
     captured = capsys.readouterr()
     output = json.loads(captured.out)
-    code = output[0]["operations"][0]["code"]
-    assert "imports" in code
-    assert "wrapper_start" not in code
-    assert "wrapper_end" not in code
-    assert not code["snippet"].startswith("    response =")
-    assert code["snippet"].startswith("response =")
+    code = output["endpoints"]["/pets"]["get"]
+    assert "import json" in code
+    assert "def main():" not in code
+    assert 'if __name__ == "__main__":' not in code
+    assert code.startswith("import json")
+    assert "response = client.getPets(limit=limit)" in code
 
     # Test both
     monkeypatch.setattr(
@@ -234,11 +229,10 @@ def test_cli_to_docs_json(tmp_path, monkeypatch, capsys):
     main()
     captured = capsys.readouterr()
     output = json.loads(captured.out)
-    code = output[0]["operations"][0]["code"]
-    assert "imports" not in code
-    assert "wrapper_start" not in code
-    assert "wrapper_end" not in code
-    assert "snippet" in code
+    code = output["endpoints"]["/pets"]["get"]
+    assert "import json" not in code
+    assert "def main():" not in code
+    assert "response = client.getPets(limit=limit)" in code
 
 
 def test_cli_to_docs_json_no_operation_id(tmp_path, monkeypatch, capsys):
@@ -260,14 +254,13 @@ def test_cli_to_docs_json_no_operation_id(tmp_path, monkeypatch, capsys):
 
     captured = capsys.readouterr()
     output = json.loads(captured.out)
-    assert len(output) == 1
+    assert "endpoints" in output
+    endpoints = output["endpoints"]
+    assert "/dogs" in endpoints
+    assert "post" in endpoints["/dogs"]
 
-    ops = output[0]["operations"]
-    assert len(ops) == 1
-    op = ops[0]
-    assert op["method"] == "POST"
-    assert "operationId" not in op  # Only included if present
-    assert "post_dogs" in op["code"]["snippet"]
+    code = endpoints["/dogs"]["post"]
+    assert "post_dogs(" in code
 
 
 def test_process_from_openapi_input_dir(tmp_path):
@@ -326,3 +319,51 @@ def test_cli_main_from_openapi_missing_subcmd(monkeypatch, capsys):
     monkeypatch.setattr("sys.argv", ["cdd-python", "from_openapi"])
     with pytest.raises(SystemExit):
         main()
+
+
+def test_cli_to_docs_json_url(monkeypatch, capsys):
+    import json
+    import io
+    from urllib.request import Request
+
+    spec = {
+        "openapi": "3.2.0",
+        "info": {"title": "Test API", "version": "1.0"},
+        "paths": {
+            "/pets": {
+                "post": {
+                    "requestBody": {
+                        "content": {"application/json": {"schema": {"type": "object"}}}
+                    }
+                }
+            }
+        },
+    }
+
+    class MockResponse:
+        def read(self):
+            return json.dumps(spec).encode("utf-8")
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+    def mock_urlopen(req):
+        return MockResponse()
+
+    import urllib.request
+
+    monkeypatch.setattr(urllib.request, "urlopen", mock_urlopen)
+    monkeypatch.setattr(
+        "sys.argv",
+        ["cdd-python", "to_docs_json", "-i", "https://example.com/openapi.json"],
+    )
+    main()
+
+    captured = capsys.readouterr()
+    output = json.loads(captured.out)
+    code = output["endpoints"]["/pets"]["post"]
+    assert "body = {}" in code
+    assert "body=body" in code

@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 from openapi_client.cli import sync_to_openapi
 
+
 def test_sync_to_openapi_dir(tmp_path: Path) -> None:
     project_dir = tmp_path / "project"
     project_dir.mkdir()
@@ -25,9 +26,11 @@ def test_sync_to_openapi_dir(tmp_path: Path) -> None:
     data = json.loads(out_file.read_text())
     assert "openapi" in data
 
+
 def test_sync_to_openapi_empty_output(tmp_path: Path) -> None:
     # Test when output_path is not given (it defaults to "openapi.json")
     import os
+
     old_cwd = os.getcwd()
     os.chdir(str(tmp_path))
     try:
