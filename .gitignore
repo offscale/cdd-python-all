@@ -33,3 +33,5 @@ __pycache__/
 *.so
 target/
 .idea/
+temp-*
+temp-py/
