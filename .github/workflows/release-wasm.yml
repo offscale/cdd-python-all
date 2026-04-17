@@ -25,13 +25,14 @@ jobs:
           sudo apt-get update && sudo apt-get install -y binaryen
       - name: Build WASM
         run: |
+          make install_deps
           if [ -f Makefile ] && grep -q build_wasm Makefile; then
-            make build_wasm || true
+            make build_wasm
             cp bin/*.wasm . 2>/dev/null || cp build/*.wasm . 2>/dev/null || cp target/wasm32-wasip1/release/*.wasm . 2>/dev/null || true
           fi
-          # Fallback to dummy if no wasm was found
           if ! ls *.wasm 1> /dev/null 2>&1; then
-            echo -n -e '\x00asm\x01\x00\x00\x00' > cdd-python-all.wasm
+            echo "Error: No WASM file built."
+            exit 1
           fi
           for f in *.wasm; do
             if [ -f "$f" ]; then
