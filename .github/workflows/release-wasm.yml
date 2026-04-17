@@ -15,8 +15,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install binaryen
-        run: sudo apt-get update && sudo apt-get install -y binaryen
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install uv and binaryen
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          sudo apt-get update && sudo apt-get install -y binaryen
       - name: Build WASM
         run: |
           if [ -f Makefile ] && grep -q build_wasm Makefile; then
