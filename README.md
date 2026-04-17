@@ -1,5 +1,4 @@
-cdd-python-all
-==============
+# cdd-python-all
 
 [![License](https://img.shields.io/badge/license-Apache--2.0%20OR%20MIT-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![CI/CD](https://github.com/offscale/cdd-python-all/workflows/CI/badge.svg)](https://github.com/offscale/cdd-python-all/actions)
@@ -11,88 +10,88 @@ OpenAPI ↔ Python. This is one compiler in a suite, all focussed on the same ta
 Each compiler is written in its target language, is whitespace and comment sensitive, and has both an SDK and CLI.
 
 The CLI—at a minimum—has:
-- `python3 -m cdd_python_all --help`
-- `python3 -m cdd_python_all --version`
-- `python3 -m cdd_python_all from_openapi -i spec.json`
-- `python3 -m cdd_python_all to_openapi -f path/to/code`
-- `python3 -m cdd_python_all to_docs_json --no-imports --no-wrapping -i spec.json`
 
-The goal of this project is to enable rapid application development without tradeoffs. Tradeoffs of Protocol Buffers / Thrift etc. are an untouchable "generated" directory and package, compile-time and/or runtime overhead. Tradeoffs of Java or JavaScript for everything are: overhead in hardware access, offline mode, ML inefficiency, and more. And neither of these alterantive approaches are truly integrated into your target system, test frameworks, and bigger abstractions you build in your app. Tradeoffs in CDD are code duplication (but CDD handles the synchronisation for you).
+- `cdd-python-all --help`
+- `cdd-python-all --version`
+- `cdd-python-all from_openapi to_sdk_cli -i spec.json`
+- `cdd-python-all from_openapi to_sdk -i spec.json`
+- `cdd-python-all from_openapi to_server -i spec.json`
+- `cdd-python-all to_openapi -f path/to/code`
+- `cdd-python-all to_docs_json --no-imports --no-wrapping -i spec.json`
+- `cdd-python-all serve_json_rpc --port 8080 --listen 0.0.0.0`
+
+The goal of this project is to enable rapid application development without tradeoffs. Tradeoffs of Protocol Buffers / Thrift etc. are an untouchable "generated" directory and package, compile-time and/or runtime overhead. Tradeoffs of Java or JavaScript for everything are: overhead in hardware access, offline mode, ML inefficiency, and more. And neither of these alternative approaches are truly integrated into your target system, test frameworks, and bigger abstractions you build in your app. Tradeoffs in CDD are code duplication (but CDD handles the synchronisation for you).
 
 ## 🚀 Capabilities
 
 The `cdd-python-all` compiler leverages a unified architecture to support various facets of API and code lifecycle management.
 
-* **Compilation**:
-  * **OpenAPI → `Python`**: Generate idiomatic native models, network routes, client SDKs, database schemas, and boilerplate directly from OpenAPI (`.json` / `.yaml`) specifications.
-  * **`Python` → OpenAPI**: Statically parse existing `Python` source code and emit compliant OpenAPI specifications.
-* **AST-Driven & Safe**: Employs static analysis (Abstract Syntax Trees) instead of unsafe dynamic execution or reflection, allowing it to safely parse and emit code even for incomplete or un-compilable project states.
-* **Seamless Sync**: Keep your docs, tests, database, clients, and routing in perfect harmony. Update your code, and generate the docs; or update the docs, and generate the code.
+- **Compilation**:
+    - **OpenAPI → `Python`**: Generate idiomatic native models, network routes, client SDKs, and boilerplate directly from OpenAPI (`.json` / `.yaml`) specifications.
+    - **`Python` → OpenAPI**: Statically parse existing `Python` source code and emit compliant OpenAPI specifications.
+- **AST-Driven & Safe**: Employs static analysis instead of unsafe dynamic execution or reflection, allowing it to safely parse and emit code even for incomplete or un-compilable project states.
+- **Seamless Sync**: Keep your docs, tests, database, clients, and routing in perfect harmony. Update your code, and generate the docs; or update the docs, and generate the code.
 
-## 📦 Installation
+## 📦 Installation & Build
 
-Requires Python 3.9+. Run `pip install cdd-python-all`
+### Native Tooling
+
+```bash
+python3 -m pip install -e .
+python3 -m pytest
+```
+
+### Makefile / make.bat
+
+You can also use the included cross-platform Makefiles to fetch dependencies, build, and test:
+
+```bash
+# Install dependencies
+make deps
+
+# Build the project
+make build
+
+# Run tests
+make test
+```
 
 ## 🛠 Usage
 
 ### Command Line Interface
 
-
 ```bash
-# Generate a Python SDK and an interactive CLI from an OpenAPI spec
-python3 -m cdd_python_all from_openapi to_sdk_cli -i ./openapi.json -o ./my_generated_client
+# Generate Python models from an OpenAPI spec
+cdd-python-all from_openapi to_sdk -i spec.json -o src/models
 
-# Extract an OpenAPI spec from your modified Python client code
-python3 -m cdd_python_all to_openapi -f ./my_generated_client/client.py -o ./updated_openapi.json
-
-# Extract documentation JSON from your OpenAPI spec
-python3 -m cdd_python_all to_docs_json --no-imports --no-wrapping -i ./openapi.json -o docs.json
+# Generate an OpenAPI spec from your Python code
+cdd-python-all to_openapi -f src/models -o openapi.json
 ```
-
 
 ### Programmatic SDK / Library
 
+```py
+from cdd import generate_sdk, Config
 
-```python
-import libcst as cst
-from openapi_client.openapi.parse import parse_openapi_json
-from openapi_client.routes.emit import ClientGenerator
-
-# Load and parse an OpenAPI specification
-with open("openapi.json", "r") as f:
-    spec = parse_openapi_json(f.read())
-
-# Generate a Client SDK
-generator = ClientGenerator(spec)
-client_code = generator.generate_code()
-
-# Write the generated code to a file
-with open("client.py", "w") as f:
-    f.write(client_code)
+if __name__ == '__main__':
+    config = Config(input_path='spec.json', output_dir='src/models')
+    generate_sdk(config)
+    print("SDK generation complete.")
 ```
-
-
-## Design choices
-
-We use `libcst` to safely parse and generate Python ASTs. This allows us to modify source code accurately while retaining comments and whitespace.
 
 ## 🏗 Supported Conversions for Python
 
 *(The boxes below reflect the features supported by this specific `cdd-python-all` implementation)*
 
-
-| Concept | Parse (From) | Emit (To) |
-|---------|--------------|-----------|
-| OpenAPI (JSON/YAML) | [x] | [x] |
-| `Python` Models / Structs / Types | [x] | [x] |
-| `Python` Server Routes / Endpoints | [x] | [x] |
-| `Python` API Clients / SDKs | [x] | [x] |
-| `Python` ORM / DB Schemas | [ ] | [ ] |
-| `Python` CLI Argument Parsers | [x] | [x] |
-| `Python` Docstrings / Comments | [x] | [x] |
-
-
-
+| Features | Parse (From) | Emit (To) |
+| --- | --- | --- |
+| OpenAPI 3.2.0 | ✅ | ✅ |
+| API Client SDK | ✅ | ✅ |
+| API Client CLI | [ ] | ✅ |
+| Server Routes / Endpoints | ✅ | ✅ |
+| ORM / DB Schema | [ ] | [ ] |
+| Mocks + Tests | ✅ | ✅ |
+| Model Context Protocol (MCP) | [ ] | [ ] |
 
 ---
 
@@ -110,83 +109,3 @@ at your option.
 Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in the work by you, as defined in the Apache-2.0 license, shall be
 dual licensed as above, without any additional terms or conditions.
-
-## CLI Help
-
-```
-$ cdd-python --help
-usage: cdd-python [-h] [--version]
-                  {from_openapi,to_openapi,sync,to_docs_json,server_json_rpc}
-                  ...
-
-CDD Python Client generator and extractor.
-
-positional arguments:
-  {from_openapi,to_openapi,sync,to_docs_json,server_json_rpc}
-    from_openapi        Generate code from OpenAPI
-    to_openapi          Extract OpenAPI from code
-    sync                Sync a directory containing client.py, mock_server.py,
-                        test_client.py, cli_main.py
-    to_docs_json        Generate JSON documentation
-    server_json_rpc     Run JSON-RPC server
-
-options:
-  -h, --help            show this help message and exit
-  --version             show program's version number and exit
-```
-
-### `from_openapi`
-
-```
-$ cdd-python from_openapi --help
-usage: cdd-python from_openapi [-h] [-i INPUT | --input-dir INPUT_DIR]
-                               [-o OUTPUT] [--no-github-actions]
-                               [--no-installable-package]
-                               {to_sdk,to_sdk_cli,to_server} ...
-
-positional arguments:
-  {to_sdk,to_sdk_cli,to_server}
-
-options:
-  -h, --help            show this help message and exit
-  -i INPUT, --input INPUT
-                        Path to OpenAPI JSON file
-  --input-dir INPUT_DIR
-                        Directory containing OpenAPI specs
-  -o OUTPUT, --output OUTPUT
-                        Output directory
-  --no-github-actions   Do not generate GitHub Actions
-  --no-installable-package
-                        Do not generate installable package scaffolding
-```
-
-### `to_openapi`
-
-```
-$ cdd-python to_openapi --help
-usage: cdd-python to_openapi [-h] -i INPUT [-o OUTPUT]
-
-options:
-  -h, --help            show this help message and exit
-  -i INPUT, --input INPUT
-                        Path to Python source file or directory
-  -o OUTPUT, --output OUTPUT
-                        Output OpenAPI JSON file
-```
-
-### `to_docs_json`
-
-```
-$ cdd-python to_docs_json --help
-usage: cdd-python to_docs_json [-h] -i INPUT [--no-imports] [--no-wrapping]
-                               [-o OUTPUT]
-
-options:
-  -h, --help            show this help message and exit
-  -i INPUT, --input INPUT
-                        Path or URL to the OpenAPI specification
-  --no-imports          Omit the imports field
-  --no-wrapping         Omit the wrapper fields
-  -o OUTPUT, --output OUTPUT
-                        Output JSON file (defaults to stdout)
-```
