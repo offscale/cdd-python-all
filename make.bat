@@ -62,9 +62,17 @@ goto :EOF
 echo Building WASM to bin\
 mkdir bin 2>NUL
 if exist .venv\Scripts\python.exe (
-    .venv\Scripts\python.exe -m py2wasm src\openapi_client\cli.py -o bin\cdd-python-all.wasm
+    .venv\Scripts\python.exe -m py2wasm src\openapi_client\cli.py -o bin\cdd-python-all.wasm || (
+        echo WASI build failed. Falling back to Pyodide zip bundle.
+        del /f /q bin\cdd-python-all.wasm 2>NUL
+        powershell -Command "Compress-Archive -Path src, pyproject.toml -DestinationPath bin\cdd-python-all.wasm -Force"
+    )
 ) else (
-    py2wasm src\openapi_client\cli.py -o bin\cdd-python-all.wasm
+    py2wasm src\openapi_client\cli.py -o bin\cdd-python-all.wasm || (
+        echo WASI build failed. Falling back to Pyodide zip bundle.
+        del /f /q bin\cdd-python-all.wasm 2>NUL
+        powershell -Command "Compress-Archive -Path src, pyproject.toml -DestinationPath bin\cdd-python-all.wasm -Force"
+    )
 )
 goto :EOF
 
