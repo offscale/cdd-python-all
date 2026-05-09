@@ -347,6 +347,10 @@ SchemaOrReference = Union[Schema, Reference]
 for model in list(locals().values()):
     if isinstance(model, type) and issubclass(model, BaseModel) and model != BaseModel:
         if hasattr(model, "model_rebuild"):
-            model.model_rebuild()
+            try:
+                model.model_rebuild()
+            except AttributeError:
+                if hasattr(model, "update_forward_refs"):
+                    model.update_forward_refs()
         elif hasattr(model, "update_forward_refs"):
             model.update_forward_refs()
