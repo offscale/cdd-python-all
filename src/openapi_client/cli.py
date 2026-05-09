@@ -154,7 +154,7 @@ build-backend = "hatchling.build"
 name = "generated-client"
 version = "0.0.1"
 dependencies = [
-    "pydantic>=2.0",
+    "pydantic<2.0",
     "urllib3",
 ]
 """,

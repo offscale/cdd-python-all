@@ -9,7 +9,7 @@ description = "OpenAPI 3.2.0 Python Client"
 readme = "README.md"
 requires-python = ">=3.9,<3.14"
 dependencies = [
-    "pydantic>=2.0",
+    "pydantic<2.0",
     "libcst",
     "urllib3",
     "python-cdd>=0.0.98",

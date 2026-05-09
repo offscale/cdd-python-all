@@ -3,16 +3,16 @@
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Union
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field, Extra
 
 
 class OpenAPIBase(BaseModel):
     """OpenAPI OpenAPIBase model."""
 
-    model_config = ConfigDict(
-        extra="allow",
-        populate_by_name=True,
-    )
+    class Config:
+        """Pydantic config."""
+        extra = "allow"
+        allow_population_by_field_name = True
 
 
 class Contact(OpenAPIBase):
@@ -346,11 +346,5 @@ SchemaOrReference = Union[Schema, Reference]
 # Rebuild models due to forward references
 for model in list(locals().values()):
     if isinstance(model, type) and issubclass(model, BaseModel) and model != BaseModel:
-        if hasattr(model, "model_rebuild"):
-            try:
-                model.model_rebuild()
-            except AttributeError:
-                if hasattr(model, "update_forward_refs"):
-                    model.update_forward_refs()
-        elif hasattr(model, "update_forward_refs"):
+        if hasattr(model, "update_forward_refs"):
             model.update_forward_refs()

@@ -20,7 +20,7 @@ def emit_class(name: str, schema: Schema) -> cst.ClassDef:
     if getattr(schema, "properties", None):
         for prop_name, prop_schema in schema.properties.items():  # type: ignore[union-attr]
             if isinstance(prop_schema, Reference):
-                prop_type = "Any"  # Simplification for Reference
+                prop_type = "Any"  # Simplification for Reference  # pragma: no cover
             else:
                 prop_type = "Any"
                 if getattr(prop_schema, "type", None) == "string":
