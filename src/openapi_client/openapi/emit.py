@@ -10,7 +10,7 @@ from openapi_client.models import OpenAPI
 
 def emit_openapi_dict(spec: OpenAPI) -> Dict[str, Any]:
     """Emit an OpenAPI model as a dictionary."""
-    return spec.dict(by_alias=True, exclude_none=True)
+    return spec.model_dump(by_alias=True, exclude_none=True)
 
 
 def emit_openapi_json(spec: OpenAPI, indent: int = 2) -> str:
