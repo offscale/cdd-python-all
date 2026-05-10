@@ -346,4 +346,7 @@ SchemaOrReference = Union[Schema, Reference]
 # Rebuild models due to forward references
 for model in list(locals().values()):
     if isinstance(model, type) and issubclass(model, BaseModel) and model != BaseModel:
-        model.model_rebuild()
+        if hasattr(model, "model_rebuild"):
+            model.model_rebuild()
+        elif hasattr(model, "update_forward_refs"):  # pragma: no cover
+            model.update_forward_refs()  # pragma: no cover
