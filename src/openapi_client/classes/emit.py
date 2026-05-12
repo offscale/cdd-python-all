@@ -73,6 +73,49 @@ def emit_classes(schemas: Dict[str, SchemaOrReference]) -> List[cst.ClassDef]:
     return class_defs
 
 
+def emit_models_module(schemas: Dict[str, SchemaOrReference]) -> str:
+    """Emit a complete Python module containing Pydantic models."""
+    body: List[cst.BaseStatement | cst.EmptyLine] = []
+
+    body.append(
+        cst.SimpleStatementLine(
+            [
+                cst.ImportFrom(
+                    module=cst.Name("typing"),
+                    names=[
+                        cst.ImportAlias(name=cst.Name("Any")),
+                        cst.ImportAlias(name=cst.Name("Dict")),
+                        cst.ImportAlias(name=cst.Name("Optional")),
+                        cst.ImportAlias(name=cst.Name("List")),
+                    ],
+                )
+            ]
+        )
+    )
+    body.append(
+        cst.SimpleStatementLine(
+            [
+                cst.ImportFrom(
+                    module=cst.Name("pydantic"),
+                    names=[
+                        cst.ImportAlias(name=cst.Name("BaseModel")),
+                        cst.ImportAlias(name=cst.Name("Field")),
+                    ],
+                )
+            ]
+        )
+    )
+    body.append(cst.EmptyLine())
+
+    class_defs = emit_classes(schemas)
+    for class_def in class_defs:
+        body.append(class_def)
+        body.append(cst.EmptyLine())
+
+    module = cst.Module(body=body) # type: ignore
+    return module.code
+
+
 # OpenAPI 3.2.0 keywords: openapi, $self, jsonSchemaDialect, servers, webhooks, components, security, tags, externalDocs, termsOfService, contact, license, version, name, url, email, identifier, variables, responses, requestBodies, headers, securitySchemes, links, callbacks, pathItems, mediaTypes
 
 

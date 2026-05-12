@@ -4,7 +4,6 @@ Module for emitting complete Python client module from OpenAPI schema.
 
 import libcst as cst
 from openapi_client.models import OpenAPI
-from openapi_client.classes.emit import emit_classes
 from openapi_client.functions.emit import emit_functions
 
 from typing import List
@@ -54,27 +53,21 @@ class ClientGenerator:
                 ]
             )
         )
-        body.append(
-            cst.SimpleStatementLine(
-                [
-                    cst.ImportFrom(
-                        module=cst.Name("pydantic"),
-                        names=[
-                            cst.ImportAlias(name=cst.Name("BaseModel")),
-                            cst.ImportAlias(name=cst.Name("Field")),
-                        ],
-                    )
-                ]
-            )
-        )
         body.append(cst.EmptyLine())
 
-        # Emit classes (Pydantic Models)
+        # Import Pydantic models from models.py
         if self.spec.components and self.spec.components.schemas:
-            class_defs = emit_classes(self.spec.components.schemas)
-            for class_def in class_defs:
-                body.append(class_def)
-                body.append(cst.EmptyLine())
+            body.append(
+                cst.SimpleStatementLine(
+                    [
+                        cst.ImportFrom(
+                            module=cst.Name("models"),
+                            names=cst.ImportStar(),
+                        )
+                    ]
+                )
+            )
+            body.append(cst.EmptyLine())
 
         # Emit functions inside the Client class
         methods = emit_functions(self.spec)

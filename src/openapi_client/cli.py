@@ -224,18 +224,34 @@ def process_from_openapi(
 
     for spec in specs:
         if subcommand == "to_sdk":
+            from openapi_client.classes.emit import emit_models_module
+
             generator = ClientGenerator(spec)
             (out_dir / "client.py").write_text(
                 generator.generate_code(), encoding="utf-8"
             )
+            
+            if spec.components and getattr(spec.components, "schemas", None):
+                (out_dir / "models.py").write_text(
+                    emit_models_module(spec.components.schemas), encoding="utf-8"
+                )
+
             (out_dir / "test_client.py").write_text(
                 emit_tests(spec).code, encoding="utf-8"
             )
         elif subcommand == "to_sdk_cli":
+            from openapi_client.classes.emit import emit_models_module
+
             generator = ClientGenerator(spec)
             (out_dir / "client.py").write_text(
                 generator.generate_code(), encoding="utf-8"
             )
+
+            if spec.components and getattr(spec.components, "schemas", None):
+                (out_dir / "models.py").write_text(
+                    emit_models_module(spec.components.schemas), encoding="utf-8"
+                )
+
             from openapi_client.cli_sdk_cdd.emit import emit_cli_sdk
 
             (out_dir / "cli_main.py").write_text(emit_cli_sdk(spec), encoding="utf-8")
@@ -279,6 +295,7 @@ def sync_to_openapi(input_path: str, output_path: str) -> None:
         )  # type: ignore
 
         client_py = in_path / "client.py"
+        models_py = in_path / "models.py"
         mock_py = in_path / "mock_server.py"
         test_py = in_path / "test_client.py"
         cli_py = in_path / "cli_main.py"
@@ -290,6 +307,11 @@ def sync_to_openapi(input_path: str, output_path: str) -> None:
             mod = cst.parse_module(client_py.read_text(encoding="utf-8"))
             extract_classes_from_ast(mod, spec)
             extract_functions_from_ast(mod, spec)
+
+        if models_py.exists():
+            from openapi_client.classes.parse import extract_classes_from_ast
+            mod = cst.parse_module(models_py.read_text(encoding="utf-8"))
+            extract_classes_from_ast(mod, spec)
 
         if mock_py.exists():
             mod = cst.parse_module(mock_py.read_text(encoding="utf-8"))
@@ -333,6 +355,7 @@ def sync_dir(project_dir: str) -> None:
     d = Path(project_dir)
 
     client_py = d / "client.py"
+    models_py = d / "models.py"
     mock_py = d / "mock_server.py"
     test_py = d / "test_client.py"
     cli_py = d / "cli_main.py"
@@ -354,6 +377,11 @@ def sync_dir(project_dir: str) -> None:
         mod = cst.parse_module(client_py.read_text(encoding="utf-8"))
         extract_classes_from_ast(mod, spec)
         extract_functions_from_ast(mod, spec)
+
+    if models_py.exists():
+        from openapi_client.classes.parse import extract_classes_from_ast
+        mod = cst.parse_module(models_py.read_text(encoding="utf-8"))
+        extract_classes_from_ast(mod, spec)
 
     if mock_py.exists():
         mod = cst.parse_module(mock_py.read_text(encoding="utf-8"))
@@ -378,6 +406,11 @@ def sync_dir(project_dir: str) -> None:
 
     generator = ClientGenerator(spec)
     client_py.write_text(generator.generate_code(), encoding="utf-8")
+    
+    if spec.components and getattr(spec.components, "schemas", None):
+        from openapi_client.classes.emit import emit_models_module
+        models_py.write_text(emit_models_module(spec.components.schemas), encoding="utf-8")
+
     test_py.write_text(emit_tests(spec).code, encoding="utf-8")
     mock_py.write_text(emit_mock_server(spec).code, encoding="utf-8")
     if cli_py.exists():

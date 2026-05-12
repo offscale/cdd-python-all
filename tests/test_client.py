@@ -107,9 +107,12 @@ def test_generate_code():
     code = generator.generate_code()
     assert "class Client" in code
     assert "def get_pets" in code
-    assert "class Pet(BaseModel):" in code
-    assert "class Empty(BaseModel):" in code
     assert "limit: int" in code
+    
+    from openapi_client.classes.emit import emit_models_module
+    models_code = emit_models_module(spec.components.schemas)
+    assert "class Pet(BaseModel):" in models_code
+    assert "class Empty(BaseModel):" in models_code
 
 
 def test_extract_code():

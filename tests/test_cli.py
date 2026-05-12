@@ -41,6 +41,16 @@ def test_cli_main_from_openapi(tmp_path, monkeypatch):
         "openapi": "3.2.0",
         "info": {"title": "Test API", "version": "1.0"},
         "paths": {},
+        "components": {
+            "schemas": {
+                "Pet": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string"}
+                    }
+                }
+            }
+        }
     }
     spec_path = tmp_path / "openapi.json"
     spec_path.write_text(json.dumps(spec))
@@ -60,6 +70,25 @@ def test_cli_main_from_openapi(tmp_path, monkeypatch):
     )
     main()
     assert (out_dir / "client.py").exists()
+    assert (out_dir / "models.py").exists()
+
+    out_dir_cli = tmp_path / "out_cli"
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "cdd-python",
+            "from_openapi",
+            "to_sdk_cli",
+            "-i",
+            str(spec_path),
+            "-o",
+            str(out_dir_cli),
+        ],
+    )
+    main()
+    assert (out_dir_cli / "client.py").exists()
+    assert (out_dir_cli / "cli_main.py").exists()
+    assert (out_dir_cli / "models.py").exists()
 
 
 def test_cli_main_to_openapi(tmp_path, monkeypatch):
@@ -76,6 +105,24 @@ def test_cli_main_to_openapi(tmp_path, monkeypatch):
     assert out_spec.exists()
 
 
+def test_cli_sync_to_openapi_with_models(tmp_path):
+    py_code = "class Client:\n    pass\n"
+    py_path = tmp_path / "client.py"
+    py_path.write_text(py_code)
+
+    models_code = "from pydantic import BaseModel\nclass Pet(BaseModel):\n    name: str\n"
+    models_path = tmp_path / "models.py"
+    models_path.write_text(models_code)
+
+    out_spec = tmp_path / "openapi.json"
+    sync_to_openapi(str(tmp_path), str(out_spec))
+
+    assert out_spec.exists()
+    data = json.loads(out_spec.read_text())
+    assert data["openapi"] == "3.2.0"
+    assert "Pet" in data["components"]["schemas"]
+
+
 def test_cli_sync_dir(tmp_path):
     project_dir = tmp_path / "project"
     project_dir.mkdir()
@@ -83,13 +130,17 @@ def test_cli_sync_dir(tmp_path):
     # client.py
     client_py = project_dir / "client.py"
     client_py.write_text("""
-from pydantic import BaseModel
-class Pet(BaseModel):
-    name: str
-
 class Client:
     def get_pets(self):
         pass
+""")
+
+    # models.py
+    models_py = project_dir / "models.py"
+    models_py.write_text("""
+from pydantic import BaseModel
+class Pet(BaseModel):
+    name: str
 """)
 
     # mock_server.py
