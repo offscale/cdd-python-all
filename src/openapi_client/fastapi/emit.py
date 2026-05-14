@@ -1,15 +1,17 @@
 """Emit FastAPI server code."""
 
-from typing import List
+from __future__ import annotations
+
 from openapi_client.models import OpenAPI
 
 
 def emit_fastapi(spec: OpenAPI) -> str:
     """Generate a FastAPI server from OpenAPI."""
     lines = [
+        "from __future__ import annotations",
         "from fastapi import FastAPI, HTTPException",
         "from pydantic import BaseModel",
-        "from typing import List, Optional, Any",
+        "from typing import Any",
         "import models",  # The SQLAlchemy models
         "",
         "app = FastAPI(",
@@ -42,10 +44,10 @@ def emit_fastapi(spec: OpenAPI) -> str:
                     lines.append(
                         f'    """{operation.summary or ""}\n    {operation.description or ""}"""'
                     )
-                    lines.append(f'    return {{"message": "Not implemented"}}')
+                    lines.append('    return {"message": "Not implemented"}')
                     lines.append("")
 
-    return "\\n".join(lines)
+    return "\n".join(lines)
 
 
 # OpenAPI 3.2.0 keywords: openapi, $self, jsonSchemaDialect, servers, webhooks, components, security, tags, externalDocs, termsOfService, contact, license, version, name, url, email, identifier, variables, responses, requestBodies, headers, securitySchemes, links, callbacks, pathItems, mediaTypes

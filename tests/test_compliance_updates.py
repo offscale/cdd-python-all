@@ -1,9 +1,7 @@
-import pytest
 import libcst as cst
 from openapi_client.models import OpenAPI, Operation, Parameter, Schema
 from openapi_client.functions.emit import emit_function
 from openapi_client.mocks.parse import MockServerExtractor
-from openapi_client.tests.parse import ASTTestExtractor
 
 
 def test_emit_complex_query_parameter():
@@ -28,7 +26,7 @@ def test_emit_complex_query_parameter():
     node = emit_function("get", "/things", op)
     code = cst.Module(body=[node]).code
     assert "things" in code
-    assert "List[str]" in code
+    assert "list[str]" in code
     assert "spaceDelimited" in code or "' '" in code
     assert "pipeDelimited" in code or "'|'" in code
 

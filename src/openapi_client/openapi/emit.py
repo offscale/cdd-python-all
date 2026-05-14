@@ -2,13 +2,15 @@
 Module for emitting OpenAPI specifications.
 """
 
+from __future__ import annotations
+
 import json
-from typing import Dict, Any
+from typing import Any
 
 from openapi_client.models import OpenAPI
 
 
-def emit_openapi_dict(spec: OpenAPI) -> Dict[str, Any]:
+def emit_openapi_dict(spec: OpenAPI) -> dict[str, Any]:
     """Emit an OpenAPI model as a dictionary."""
     return spec.model_dump(by_alias=True, exclude_none=True)
 

@@ -1,6 +1,4 @@
 import json
-import pytest
-from pathlib import Path
 from openapi_client.cli import process_from_openapi
 
 
@@ -16,7 +14,7 @@ def test_cli_output_file(tmp_path):
     out_file = tmp_path / "out" / "client.py"
     process_from_openapi("to_sdk", str(spec_path), None, str(out_file))
 
-    assert (tmp_path / "out" / "client.py").exists()
+    assert (tmp_path / "out" / "src" / "client.py").exists()
 
 
 def test_cli_to_server_with_models(tmp_path):
@@ -75,7 +73,7 @@ def test_cli_to_sdk_cli_cdd(tmp_path, monkeypatch):
     out_dir = tmp_path / "out_sdk_cli"
     process_from_openapi("to_sdk_cli", str(spec_path), None, str(out_dir))
 
-    assert (out_dir / "cli_main.py").exists()
+    assert (out_dir / "src" / "cli_main.py").exists()
 
     # Now make ast.unparse fail to cover the except block in cli_sdk_cdd/emit.py
     def mock_unparse(*args, **kwargs):

@@ -2,8 +2,10 @@
 Module for parsing OpenAPI specifications.
 """
 
+from __future__ import annotations
+
 import json
-from typing import Dict, Any
+from typing import Any
 from pathlib import Path
 
 from openapi_client.models import OpenAPI
@@ -38,7 +40,7 @@ def resolve_external_refs(obj: Any, base_path: Path = Path(".")) -> Any:
 
 
 def parse_openapi_dict(
-    spec_dict: Dict[str, Any], base_path: Path = Path(".")
+    spec_dict: dict[str, Any], base_path: Path = Path(".")
 ) -> OpenAPI:
     """Parse an OpenAPI dictionary into an OpenAPI model, resolving external refs."""
     spec_dict = resolve_external_refs(spec_dict, base_path)

@@ -2,7 +2,9 @@
 Module for extracting OpenAPI Operations from Python method ASTs.
 """
 
-from typing import List, Dict, Union, Any, cast
+from __future__ import annotations
+
+
 import libcst as cst
 from openapi_client.models import (
     OpenAPI,
@@ -19,7 +21,7 @@ from openapi_client.models import (
 
 def _extract_schema_from_annotation(
     annotation: cst.Annotation,
-) -> Union[Schema, Reference]:
+) -> Schema | Reference:
     """Helper to convert CST annotation node to OpenAPI Schema/Reference."""
     # Extremely basic mapping logic. Ideally calls `get_schema_for_annotation`
     ann_node = annotation.annotation
@@ -36,7 +38,7 @@ def _extract_schema_from_annotation(
         else:
             return Reference(**{"$ref": f"#/components/schemas/{type_str}"})
     elif isinstance(ann_node, cst.Subscript):
-        # Handling List[Type] or Dict[str, Type]
+        # Handling list[Type] or dict[str, Type]
         base_name = getattr(ann_node.value, "value", None)
         if base_name in ("List", "list"):
             slice_node = ann_node.slice[0].slice

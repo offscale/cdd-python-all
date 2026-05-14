@@ -1,7 +1,7 @@
 """Module for parsing an existing CLI application and updating an OpenAPI specification."""
 
 import libcst as cst
-from openapi_client.models import OpenAPI, Operation, Parameter, Schema
+from openapi_client.models import OpenAPI
 
 
 class CLIExtractor(cst.CSTVisitor):

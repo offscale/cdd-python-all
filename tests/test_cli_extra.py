@@ -1,12 +1,7 @@
-import os
-import sys
 import json
-import pytest
-from pathlib import Path
-from http.server import HTTPServer
 
 import openapi_client.cli
-from openapi_client.cli import main, apply_env_vars_to_parser, run_json_rpc_server
+from openapi_client.cli import main
 
 
 def test_apply_env_vars_to_parser(monkeypatch, tmp_path):
@@ -21,7 +16,7 @@ def test_apply_env_vars_to_parser(monkeypatch, tmp_path):
 
     monkeypatch.setattr("sys.argv", ["cdd-python", "from_openapi", "to_sdk"])
     main()
-    assert (tmp_path / "client.py").exists()
+    assert (tmp_path / "src" / "client.py").exists()
     assert not (tmp_path / ".github" / "workflows" / "ci.yml").exists()
 
 

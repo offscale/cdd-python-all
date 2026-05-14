@@ -1,5 +1,3 @@
-import pytest
-from pathlib import Path
 from openapi_client.functions.utils import get_annotation_for_schema
 from openapi_client.models import Schema
 from openapi_client.openapi.parse import resolve_external_refs, parse_openapi_json
@@ -16,9 +14,9 @@ def test_get_annotation_for_schema():
     assert get_annotation_for_schema(Schema(type="boolean")) == "bool"
     assert (
         get_annotation_for_schema(Schema(type="array", items=Schema(type="object")))
-        == "List[Dict[str, Any]]"
+        == "list[dict[str, Any]]"
     )
-    assert get_annotation_for_schema(Schema(type="object")) == "Dict[str, Any]"
+    assert get_annotation_for_schema(Schema(type="object")) == "dict[str, Any]"
     assert get_annotation_for_schema(Schema(type="unknown")) == "Any"
 
 

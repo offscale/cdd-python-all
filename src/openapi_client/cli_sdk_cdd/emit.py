@@ -78,7 +78,7 @@ def emit_cli_sdk(spec: OpenAPI) -> str:
                         body.append(code)
                         body.append("")
                         operations.append((op_id, desc))
-                    except Exception as e:
+                    except Exception:
                         pass
 
     body.append("def main():")

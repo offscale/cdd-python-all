@@ -1,7 +1,7 @@
 """Parse FastAPI code into an OpenAPI specification."""
 
 import libcst as cst
-from openapi_client.models import OpenAPI, Info, Components
+from openapi_client.models import OpenAPI
 
 
 class FastAPIExtractor(cst.CSTVisitor):

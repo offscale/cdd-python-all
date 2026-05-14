@@ -1,15 +1,7 @@
-import pytest
-import json
 import libcst as cst
-from openapi_client.models import OpenAPI, Schema, Components, Operation, PathItem
+from openapi_client.models import OpenAPI
 from openapi_client.routes.emit import ClientGenerator
 from openapi_client.routes.parse import extract_from_code
-from openapi_client.classes.emit import emit_classes, emit_class
-from openapi_client.classes.parse import extract_classes_from_ast
-from openapi_client.docstrings.emit import emit_class_docstring, emit_function_docstring
-from openapi_client.docstrings.parse import parse_docstring
-from openapi_client.functions.emit import emit_function, emit_functions
-from openapi_client.functions.parse import extract_functions_from_ast
 from openapi_client.tests.emit import emit_tests
 from openapi_client.mocks.emit import emit_mock_server
 from openapi_client.mocks.parse import extract_mocks_from_ast
@@ -108,8 +100,9 @@ def test_generate_code():
     assert "class Client" in code
     assert "def get_pets" in code
     assert "limit: int" in code
-    
+
     from openapi_client.classes.emit import emit_models_module
+
     models_code = emit_models_module(spec.components.schemas)
     assert "class Pet(BaseModel):" in models_code
     assert "class Empty(BaseModel):" in models_code
@@ -168,7 +161,33 @@ def test_emit_tests_and_mocks():
     spec_dict = {
         "openapi": "3.2.0",
         "info": {"title": "Example API", "version": "1.0.0"},
-        "paths": {"/pets": {"get": {"operationId": "get_pets"}}},
+        "paths": {
+            "/pets": {
+                "get": {
+                    "operationId": "get_pets",
+                    "responses": {"200": {"description": "OK"}},
+                },
+                "post": {
+                    "operationId": "create_pet",
+                    "requestBody": {
+                        "content": {"application/json": {"schema": {"type": "object"}}}
+                    },
+                    "responses": {"201": {"description": "Created"}},
+                },
+                "put": {
+                    "operationId": "update_pet",
+                    "responses": {"200": {"description": "OK"}},
+                },
+                "delete": {
+                    "operationId": "delete_pet",
+                    "responses": {"204": {"description": "No Content"}},
+                },
+                "patch": {
+                    "operationId": "patch_pet",
+                    "responses": {"200": {"description": "OK"}},
+                },
+            }
+        },
     }
     spec = OpenAPI(**spec_dict)
 
@@ -176,8 +195,25 @@ def test_emit_tests_and_mocks():
     test_module = emit_tests(spec)
     code = test_module.code
     assert "import pytest" in code
+
+    # Check GET (no body)
     assert "def test_get_pets():" in code
-    assert 'Client("http://localhost")' in code
+    assert "response = client.get_pets()" in code
+
+    # Check POST (with body)
+    assert "def test_create_pet():" in code
+    assert "response=client.create_pet(body={})" in code.replace(" ", "")
+
+    # Check other methods
+    assert "def test_update_pet():" in code
+    assert "response = client.update_pet()" in code
+    assert "def test_delete_pet():" in code
+    assert "response = client.delete_pet()" in code
+    assert "def test_patch_pet():" in code
+    assert "response = client.patch_pet()" in code
+
+    # Check response assertion
+    assert "assert response is not None" in code
 
     # Test emit_mock_server
     mock_module = emit_mock_server(spec)
@@ -185,3 +221,16 @@ def test_emit_tests_and_mocks():
     assert "from fastapi import FastAPI" in code
     assert '@app.get("/pets")' in code
     assert "def get_pets():" in code
+    assert '@app.post("/pets")' in code
+    assert "def create_pet():" in code
+
+    # Test emit_tests composable
+    composable_module = emit_tests(spec, composable=True)
+    comp_code = composable_module.code
+    assert "@pytest.fixture" in comp_code
+    assert "def client():" in comp_code
+    assert "return Client(" in comp_code
+
+    # Check that tests accept the fixture
+    assert "def test_get_pets(client):" in comp_code
+    assert "response=client.get_pets()" in comp_code.replace(" ", "")

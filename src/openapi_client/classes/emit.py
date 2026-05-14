@@ -2,14 +2,15 @@
 Module for emitting Python classes (Pydantic models) from OpenAPI schemas.
 """
 
-from typing import Dict, List
+from __future__ import annotations
+
 import libcst as cst
 from openapi_client.models import Schema, Reference, SchemaOrReference
 
 
 def emit_class(name: str, schema: Schema) -> cst.ClassDef:
     """Emit a Pydantic BaseModel class from an OpenAPI Schema object."""
-    class_body: List[cst.BaseStatement] = []
+    class_body: list[cst.BaseStatement] = []
 
     from openapi_client.docstrings.emit import emit_class_docstring
 
@@ -38,13 +39,10 @@ def emit_class(name: str, schema: Schema) -> cst.ClassDef:
                         cst.AnnAssign(
                             target=cst.Name(prop_name),
                             annotation=cst.Annotation(
-                                cst.Subscript(
-                                    value=cst.Name("Optional"),
-                                    slice=[
-                                        cst.SubscriptElement(
-                                            cst.Index(cst.Name(prop_type))
-                                        )
-                                    ],
+                                cst.BinaryOperation(
+                                    left=cst.Name(prop_type),
+                                    operator=cst.BitOr(),
+                                    right=cst.Name("None"),
                                 )
                             ),
                             value=cst.Name("None"),
@@ -63,7 +61,7 @@ def emit_class(name: str, schema: Schema) -> cst.ClassDef:
     )
 
 
-def emit_classes(schemas: Dict[str, SchemaOrReference]) -> List[cst.ClassDef]:
+def emit_classes(schemas: dict[str, SchemaOrReference]) -> list[cst.ClassDef]:
     """Emit a list of Pydantic BaseModel classes from a dictionary of OpenAPI Schema objects."""
     class_defs = []
     if schemas:
@@ -73,10 +71,22 @@ def emit_classes(schemas: Dict[str, SchemaOrReference]) -> List[cst.ClassDef]:
     return class_defs
 
 
-def emit_models_module(schemas: Dict[str, SchemaOrReference]) -> str:
+def emit_models_module(schemas: dict[str, SchemaOrReference]) -> str:
     """Emit a complete Python module containing Pydantic models."""
-    body: List[cst.BaseStatement | cst.EmptyLine] = []
+    body: list[cst.BaseStatement | cst.EmptyLine] = []
 
+    body.append(
+        cst.SimpleStatementLine(
+            [
+                cst.ImportFrom(
+                    module=cst.Name("__future__"),
+                    names=[
+                        cst.ImportAlias(name=cst.Name("annotations")),
+                    ],
+                )
+            ]
+        )
+    )
     body.append(
         cst.SimpleStatementLine(
             [
@@ -84,9 +94,6 @@ def emit_models_module(schemas: Dict[str, SchemaOrReference]) -> str:
                     module=cst.Name("typing"),
                     names=[
                         cst.ImportAlias(name=cst.Name("Any")),
-                        cst.ImportAlias(name=cst.Name("Dict")),
-                        cst.ImportAlias(name=cst.Name("Optional")),
-                        cst.ImportAlias(name=cst.Name("List")),
                     ],
                 )
             ]
@@ -112,7 +119,7 @@ def emit_models_module(schemas: Dict[str, SchemaOrReference]) -> str:
         body.append(class_def)
         body.append(cst.EmptyLine())
 
-    module = cst.Module(body=body) # type: ignore
+    module = cst.Module(body=body)  # type: ignore
     return module.code
 
 

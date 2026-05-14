@@ -2,11 +2,11 @@
 Module for emitting complete Python client module from OpenAPI schema.
 """
 
+from __future__ import annotations
+
 import libcst as cst
 from openapi_client.models import OpenAPI
 from openapi_client.functions.emit import emit_functions
-
-from typing import List
 
 
 class ClientGenerator:
@@ -25,9 +25,21 @@ class ClientGenerator:
         Returns:
             cst.Module: The constructed Python syntax tree representing the client.
         """
-        body: List[cst.BaseStatement | cst.EmptyLine] = []
+        body: list[cst.BaseStatement | cst.EmptyLine] = []
 
         # Emit imports
+        body.append(
+            cst.SimpleStatementLine(
+                [
+                    cst.ImportFrom(
+                        module=cst.Name("__future__"),
+                        names=[
+                            cst.ImportAlias(name=cst.Name("annotations")),
+                        ],
+                    )
+                ]
+            )
+        )
         body.append(
             cst.SimpleStatementLine(
                 [
@@ -45,9 +57,6 @@ class ClientGenerator:
                         module=cst.Name("typing"),
                         names=[
                             cst.ImportAlias(name=cst.Name("Any")),
-                            cst.ImportAlias(name=cst.Name("Dict")),
-                            cst.ImportAlias(name=cst.Name("Optional")),
-                            cst.ImportAlias(name=cst.Name("List")),
                         ],
                     )
                 ]

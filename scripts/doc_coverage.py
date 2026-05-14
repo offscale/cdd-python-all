@@ -11,7 +11,7 @@ def calculate_doc_coverage(directory):
             if not file.endswith(".py"):
                 continue
             path = os.path.join(root, file)
-            with open(path, "r", encoding="utf-8") as f:
+            with open(path, encoding="utf-8") as f:
                 content = f.read()
             try:
                 tree = ast.parse(content)

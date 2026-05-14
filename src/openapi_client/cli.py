@@ -158,6 +158,9 @@ dependencies = [
     "pydantic-core==2.41.5",
     "urllib3",
 ]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
 """,
             encoding="utf-8",
         )
@@ -199,6 +202,7 @@ def process_from_openapi(
     output_dir: str,
     no_github_actions: bool = False,
     no_installable_package: bool = False,
+    tests: bool = False,
 ) -> None:
     """Process from_openapi subcommands."""
     if not output_dir:
@@ -227,37 +231,58 @@ def process_from_openapi(
             from openapi_client.classes.emit import emit_models_module
 
             generator = ClientGenerator(spec)
-            (out_dir / "client.py").write_text(
+
+            src_dir = out_dir / "src"
+            src_dir.mkdir(parents=True, exist_ok=True)
+            (src_dir / "__init__.py").touch(exist_ok=True)
+
+            (src_dir / "client.py").write_text(
                 generator.generate_code(), encoding="utf-8"
             )
-            
+
             if spec.components and getattr(spec.components, "schemas", None):
-                (out_dir / "models.py").write_text(
+                (src_dir / "models.py").write_text(
                     emit_models_module(spec.components.schemas), encoding="utf-8"
                 )
 
-            (out_dir / "test_client.py").write_text(
-                emit_tests(spec).code, encoding="utf-8"
-            )
+            if tests:
+                test_dir = out_dir / "test"
+                test_dir.mkdir(parents=True, exist_ok=True)
+                (test_dir / "__init__.py").touch()
+                (test_dir / "test_client.py").write_text(
+                    emit_tests(spec, composable=tests).code, encoding="utf-8"
+                )
+                from openapi_client.mocks.emit import emit_mock_server
+
+                (test_dir / "mock_server.py").write_text(
+                    emit_mock_server(spec).code, encoding="utf-8"
+                )
         elif subcommand == "to_sdk_cli":
             from openapi_client.classes.emit import emit_models_module
 
             generator = ClientGenerator(spec)
-            (out_dir / "client.py").write_text(
+
+            src_dir = out_dir / "src"
+            src_dir.mkdir(parents=True, exist_ok=True)
+            (src_dir / "__init__.py").touch(exist_ok=True)
+
+            (src_dir / "client.py").write_text(
                 generator.generate_code(), encoding="utf-8"
             )
 
             if spec.components and getattr(spec.components, "schemas", None):
-                (out_dir / "models.py").write_text(
+                (src_dir / "models.py").write_text(
                     emit_models_module(spec.components.schemas), encoding="utf-8"
                 )
 
             from openapi_client.cli_sdk_cdd.emit import emit_cli_sdk
 
-            (out_dir / "cli_main.py").write_text(emit_cli_sdk(spec), encoding="utf-8")
+            (src_dir / "cli_main.py").write_text(emit_cli_sdk(spec), encoding="utf-8")
         elif subcommand == "to_server":
             from openapi_client.fastapi.emit import emit_fastapi
             from openapi_client.sqlalchemy_cdd.emit import emit_sqlalchemy
+
+            (out_dir / "__init__.py").touch(exist_ok=True)
 
             # Emit FastAPI server
             fastapi_code = emit_fastapi(spec)
@@ -294,11 +319,25 @@ def sync_to_openapi(input_path: str, output_path: str) -> None:
             }
         )  # type: ignore
 
-        client_py = in_path / "client.py"
-        models_py = in_path / "models.py"
-        mock_py = in_path / "mock_server.py"
-        test_py = in_path / "test_client.py"
-        cli_py = in_path / "cli_main.py"
+        client_py = in_path / "src" / "client.py"
+        if not client_py.exists():
+            client_py = in_path / "client.py"
+
+        models_py = in_path / "src" / "models.py"
+        if not models_py.exists():
+            models_py = in_path / "models.py"
+
+        mock_py = in_path / "test" / "mock_server.py"
+        if not mock_py.exists():
+            mock_py = in_path / "mock_server.py"
+
+        test_py = in_path / "test" / "test_client.py"
+        if not test_py.exists():
+            test_py = in_path / "test_client.py"
+
+        cli_py = in_path / "src" / "cli_main.py"
+        if not cli_py.exists():
+            cli_py = in_path / "cli_main.py"
 
         if client_py.exists():
             from openapi_client.classes.parse import extract_classes_from_ast
@@ -310,6 +349,7 @@ def sync_to_openapi(input_path: str, output_path: str) -> None:
 
         if models_py.exists():
             from openapi_client.classes.parse import extract_classes_from_ast
+
             mod = cst.parse_module(models_py.read_text(encoding="utf-8"))
             extract_classes_from_ast(mod, spec)
 
@@ -354,11 +394,25 @@ def sync_dir(project_dir: str) -> None:
     """Sync client, mock, test, cli files in a directory to a unified OpenAPI spec, and regenerate all."""
     d = Path(project_dir)
 
-    client_py = d / "client.py"
-    models_py = d / "models.py"
-    mock_py = d / "mock_server.py"
-    test_py = d / "test_client.py"
-    cli_py = d / "cli_main.py"
+    client_py = d / "src" / "client.py"
+    if not client_py.exists():
+        client_py = d / "client.py"
+
+    models_py = d / "src" / "models.py"
+    if not models_py.exists():
+        models_py = d / "models.py"
+
+    mock_py = d / "test" / "mock_server.py"
+    if not mock_py.exists():
+        mock_py = d / "mock_server.py"
+
+    test_py = d / "test" / "test_client.py"
+    if not test_py.exists():
+        test_py = d / "test_client.py"
+
+    cli_py = d / "src" / "cli_main.py"
+    if not cli_py.exists():
+        cli_py = d / "cli_main.py"
     openapi_json = d / "openapi.json"
 
     spec = OpenAPI(
@@ -380,6 +434,7 @@ def sync_dir(project_dir: str) -> None:
 
     if models_py.exists():
         from openapi_client.classes.parse import extract_classes_from_ast
+
         mod = cst.parse_module(models_py.read_text(encoding="utf-8"))
         extract_classes_from_ast(mod, spec)
 
@@ -405,16 +460,34 @@ def sync_dir(project_dir: str) -> None:
     openapi_json.write_text(emit_openapi_json(spec, indent=2), encoding="utf-8")
 
     generator = ClientGenerator(spec)
+    client_py.parent.mkdir(parents=True, exist_ok=True)
+    (client_py.parent / "__init__.py").touch(exist_ok=True)
     client_py.write_text(generator.generate_code(), encoding="utf-8")
-    
+
     if spec.components and getattr(spec.components, "schemas", None):
         from openapi_client.classes.emit import emit_models_module
-        models_py.write_text(emit_models_module(spec.components.schemas), encoding="utf-8")
 
+        models_py.parent.mkdir(parents=True, exist_ok=True)
+        (models_py.parent / "__init__.py").touch(exist_ok=True)
+        models_py.write_text(
+            emit_models_module(spec.components.schemas), encoding="utf-8"
+        )
+
+    test_py.parent.mkdir(parents=True, exist_ok=True)
+    (test_py.parent / "__init__.py").touch(exist_ok=True)
     test_py.write_text(emit_tests(spec).code, encoding="utf-8")
+
+    mock_py.parent.mkdir(parents=True, exist_ok=True)
+    (mock_py.parent / "__init__.py").touch(exist_ok=True)
     mock_py.write_text(emit_mock_server(spec).code, encoding="utf-8")
-    if cli_py.exists():
-        cli_py.write_text(emit_cli_sdk(spec), encoding="utf-8")
+
+    if (
+        cli_py.exists() or (d / "src").exists()
+    ):  # If src exists, might want to just update cli_py if it exists or should we always? Wait, original just did if cli_py.exists():
+        if cli_py.exists():
+            cli_py.parent.mkdir(parents=True, exist_ok=True)
+            (cli_py.parent / "__init__.py").touch(exist_ok=True)
+            cli_py.write_text(emit_cli_sdk(spec), encoding="utf-8")
 
     print(f"Successfully synced {project_dir}")
 
@@ -461,6 +534,7 @@ def run_json_rpc_server(port: int, listen: str):
                         params.get("output"),
                         params.get("no_github_actions", False),
                         params.get("no_installable_package", False),
+                        params.get("tests", False),
                     )
                     result = "Success"
                 elif method == "to_docs_json":
@@ -534,6 +608,11 @@ def main() -> None:
         action="store_true",
         help="Do not generate installable package scaffolding",
     )
+    from_openapi_parser.add_argument(
+        "--tests",
+        action="store_true",
+        help="Create composable tests & mocks",
+    )
 
     from_openapi_subparsers = from_openapi_parser.add_subparsers(
         dest="from_openapi_command", required=False
@@ -556,6 +635,11 @@ def main() -> None:
             "--no-installable-package",
             action="store_true",
             help="Do not generate installable package scaffolding",
+        )
+        p.add_argument(
+            "--tests",
+            action="store_true",
+            help="Create composable tests & mocks",
         )
 
     to_openapi_parser = subparsers.add_parser(
@@ -636,6 +720,7 @@ def main() -> None:
             args.output,
             args.no_github_actions,
             args.no_installable_package,
+            getattr(args, "tests", False),
         )
     elif args.command == "to_openapi":
         in_path = args.input

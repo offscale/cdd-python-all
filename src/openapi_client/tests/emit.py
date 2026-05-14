@@ -2,47 +2,148 @@
 Module for emitting pytest tests from OpenAPI examples.
 """
 
-from typing import List
+from __future__ import annotations
+
 import libcst as cst
 from openapi_client.models import OpenAPI, Operation
 
 
+def get_dummy_value_for_schema(schema_obj) -> cst.BaseExpression:
+    """Return a libcst BaseExpression for a dummy value based on schema type."""
+    from openapi_client.functions.utils import get_annotation_for_schema
+
+    ann = get_annotation_for_schema(schema_obj)
+    if ann == "str":
+        return cst.SimpleString('"test_string"')
+    elif ann == "int":
+        return cst.Integer("1")
+    elif ann == "float":
+        return cst.Float("1.0")
+    elif ann == "bool":
+        return cst.Name("True")
+    elif ann.startswith("list"):
+        if "str" in ann:
+            return cst.List(elements=[cst.Element(cst.SimpleString('"test_string"'))])
+        elif "int" in ann:
+            return cst.List(elements=[cst.Element(cst.Integer("1"))])
+        else:
+            return cst.List(elements=[])
+    elif ann.startswith("dict"):
+        return cst.Dict(elements=[])
+    else:
+        return cst.Name("None")
+
+
 def emit_operation_test(
-    method: str, path: str, operation: Operation
+    method: str, path: str, operation: Operation, composable: bool = False
 ) -> cst.FunctionDef:
     """
     Emit a pytest unit test for an API operation.
     """
-    func_name = f"test_{operation.operationId or method + '_' + path.replace('/', '_').strip('_')}"
+    op_id = operation.operationId or f"{method}_{path.replace('/', '_').strip('_')}"
+    func_name = f"test_{op_id}"
 
-    body = [
-        # Example test body: client = Client("http://localhost")
-        cst.SimpleStatementLine(
-            [
-                cst.Assign(
-                    targets=[cst.AssignTarget(cst.Name("client"))],
-                    value=cst.Call(
-                        func=cst.Name("Client"),
-                        args=[cst.Arg(cst.SimpleString('"http://localhost"'))],
-                    ),
-                )
-            ]
-        ),
-        cst.SimpleStatementLine([cst.Pass()]),
-    ]
+    args = []
+
+    # Pass dummy values for all parameters
+    if operation.parameters:
+        for param in operation.parameters:
+            if hasattr(param, "name"):
+                param_name = param.name.replace("-", "_")
+                schema_obj = getattr(param, "schema_", getattr(param, "schema", None))
+                val = get_dummy_value_for_schema(schema_obj)
+                args.append(cst.Arg(keyword=cst.Name(param_name), value=val))
+
+    # If there's a requestBody, pass a stub body
+    if operation.requestBody:
+        args.append(cst.Arg(keyword=cst.Name("body"), value=cst.Dict(elements=[])))
+
+    method_call = cst.Call(
+        func=cst.Attribute(value=cst.Name("client"), attr=cst.Name(op_id)),
+        args=args,
+    )
+
+    if composable:
+        body = [
+            cst.SimpleStatementLine(
+                [
+                    cst.Assign(
+                        targets=[cst.AssignTarget(cst.Name("response"))],
+                        value=method_call,
+                    )
+                ]
+            ),
+            cst.SimpleStatementLine(
+                [
+                    cst.Assert(
+                        test=cst.Comparison(
+                            left=cst.Name("response"),
+                            comparisons=[
+                                cst.ComparisonTarget(
+                                    operator=cst.IsNot(), comparator=cst.Name("None")
+                                )
+                            ],
+                        )
+                    )
+                ]
+            ),
+        ]
+        params = cst.Parameters(params=[cst.Param(name=cst.Name("client"))])
+    else:
+        body = [
+            # Example test body: client = Client("http://localhost:8080/api/v3")
+            cst.SimpleStatementLine(
+                [
+                    cst.Assign(
+                        targets=[cst.AssignTarget(cst.Name("client"))],
+                        value=cst.Call(
+                            func=cst.Name("Client"),
+                            args=[
+                                cst.Arg(
+                                    cst.SimpleString('"http://localhost:8080/api/v3"')
+                                )
+                            ],
+                        ),
+                    )
+                ]
+            ),
+            cst.SimpleStatementLine(
+                [
+                    cst.Assign(
+                        targets=[cst.AssignTarget(cst.Name("response"))],
+                        value=method_call,
+                    )
+                ]
+            ),
+            cst.SimpleStatementLine(
+                [
+                    cst.Assert(
+                        test=cst.Comparison(
+                            left=cst.Name("response"),
+                            comparisons=[
+                                cst.ComparisonTarget(
+                                    operator=cst.IsNot(), comparator=cst.Name("None")
+                                )
+                            ],
+                        )
+                    )
+                ]
+            ),
+        ]
+        params = cst.Parameters()
 
     return cst.FunctionDef(
         name=cst.Name(func_name),
-        params=cst.Parameters(),
+        params=params,
         body=cst.IndentedBlock(body=body),
     )
 
 
-def emit_tests(spec: OpenAPI) -> cst.Module:
+def emit_tests(spec: OpenAPI, composable: bool = False) -> cst.Module:
     """
     Emit a pytest test module for the OpenAPI spec.
     """
-    body: List[cst.SimpleStatementLine | cst.BaseCompoundStatement | cst.EmptyLine] = []
+    body: list[cst.SimpleStatementLine | cst.BaseCompoundStatement | cst.EmptyLine] = []
 
     body.append(
         cst.SimpleStatementLine(
@@ -53,7 +154,7 @@ def emit_tests(spec: OpenAPI) -> cst.Module:
         cst.SimpleStatementLine(
             [
                 cst.ImportFrom(
-                    module=cst.Name("openapi_client"),
+                    module=cst.Name("client"),
                     names=[cst.ImportAlias(name=cst.Name("Client"))],
                 )
             ]
@@ -61,13 +162,52 @@ def emit_tests(spec: OpenAPI) -> cst.Module:
     )
     body.append(cst.EmptyLine())
 
+    if composable:
+        fixture_func = cst.FunctionDef(
+            name=cst.Name("client"),
+            params=cst.Parameters(),
+            body=cst.IndentedBlock(
+                body=[
+                    cst.SimpleStatementLine(
+                        [
+                            cst.Return(
+                                value=cst.Call(
+                                    func=cst.Name("Client"),
+                                    args=[
+                                        cst.Arg(
+                                            cst.SimpleString(
+                                                '"http://localhost:8080/api/v3"'
+                                            )
+                                        )
+                                    ],
+                                )
+                            )
+                        ]
+                    )
+                ]
+            ),
+            decorators=[
+                cst.Decorator(
+                    decorator=cst.Attribute(
+                        value=cst.Name("pytest"), attr=cst.Name("fixture")
+                    )
+                )
+            ],
+        )
+        body.append(fixture_func)
+        body.append(cst.EmptyLine())
+
     if spec.paths:
         for path, path_item in spec.paths.items():
             if path.startswith("/"):
                 for method in ["get", "post", "put", "delete", "patch"]:
                     operation = getattr(path_item, method, None)
                     if operation:
-                        body.append(emit_operation_test(method, path, operation))
+                        body.append(
+                            emit_operation_test(
+                                method, path, operation, composable=composable
+                            )
+                        )
                         body.append(cst.EmptyLine())
 
     return cst.Module(body=body)  # type: ignore[arg-type]

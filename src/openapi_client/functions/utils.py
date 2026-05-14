@@ -27,7 +27,7 @@ def get_annotation_for_schema(s) -> str:
     if t == "array":
         items = getattr(s, "items", None)
         item_t = get_annotation_for_schema(items)
-        return f"List[{item_t}]"
+        return f"list[{item_t}]"
     if t == "object":
-        return "Dict[str, Any]"
+        return "dict[str, Any]"
     return "Any"

@@ -1,7 +1,5 @@
-import os
 import json
 import pytest
-from pathlib import Path
 from openapi_client.cli import main, process_from_openapi, sync_to_openapi, sync_dir
 
 
@@ -18,8 +16,7 @@ def test_cli_sync_from_openapi(tmp_path):
     process_from_openapi("to_sdk", str(spec_path), None, str(out_dir))
     process_from_openapi("to_server", str(spec_path), None, str(out_dir))
 
-    assert (out_dir / "client.py").exists()
-    assert (out_dir / "test_client.py").exists()
+    assert (out_dir / "src" / "client.py").exists()
     assert (out_dir / "main.py").exists()
 
 
@@ -43,14 +40,9 @@ def test_cli_main_from_openapi(tmp_path, monkeypatch):
         "paths": {},
         "components": {
             "schemas": {
-                "Pet": {
-                    "type": "object",
-                    "properties": {
-                        "name": {"type": "string"}
-                    }
-                }
+                "Pet": {"type": "object", "properties": {"name": {"type": "string"}}}
             }
-        }
+        },
     }
     spec_path = tmp_path / "openapi.json"
     spec_path.write_text(json.dumps(spec))
@@ -69,8 +61,8 @@ def test_cli_main_from_openapi(tmp_path, monkeypatch):
         ],
     )
     main()
-    assert (out_dir / "client.py").exists()
-    assert (out_dir / "models.py").exists()
+    assert (out_dir / "src" / "client.py").exists()
+    assert (out_dir / "src" / "models.py").exists()
 
     out_dir_cli = tmp_path / "out_cli"
     monkeypatch.setattr(
@@ -86,9 +78,9 @@ def test_cli_main_from_openapi(tmp_path, monkeypatch):
         ],
     )
     main()
-    assert (out_dir_cli / "client.py").exists()
-    assert (out_dir_cli / "cli_main.py").exists()
-    assert (out_dir_cli / "models.py").exists()
+    assert (out_dir_cli / "src" / "client.py").exists()
+    assert (out_dir_cli / "src" / "cli_main.py").exists()
+    assert (out_dir_cli / "src" / "models.py").exists()
 
 
 def test_cli_main_to_openapi(tmp_path, monkeypatch):
@@ -110,7 +102,9 @@ def test_cli_sync_to_openapi_with_models(tmp_path):
     py_path = tmp_path / "client.py"
     py_path.write_text(py_code)
 
-    models_code = "from pydantic import BaseModel\nclass Pet(BaseModel):\n    name: str\n"
+    models_code = (
+        "from pydantic import BaseModel\nclass Pet(BaseModel):\n    name: str\n"
+    )
     models_path = tmp_path / "models.py"
     models_path.write_text(models_code)
 
@@ -327,8 +321,8 @@ def test_process_from_openapi_input_dir(tmp_path):
     (d / "1.json").write_text(json.dumps(spec))
     out_dir = tmp_path / "out"
     process_from_openapi("to_sdk_cli", None, str(d), str(out_dir))
-    assert (out_dir / "client.py").exists()
-    assert (out_dir / "cli_main.py").exists()
+    assert (out_dir / "src" / "client.py").exists()
+    assert (out_dir / "src" / "cli_main.py").exists()
 
 
 def test_process_from_openapi_no_input(capsys):
@@ -374,8 +368,6 @@ def test_cli_main_from_openapi_missing_subcmd(monkeypatch, capsys):
 
 def test_cli_to_docs_json_url(monkeypatch, capsys):
     import json
-    import io
-    from urllib.request import Request
 
     spec = {
         "openapi": "3.2.0",
@@ -418,3 +410,20 @@ def test_cli_to_docs_json_url(monkeypatch, capsys):
     code = output["endpoints"]["/pets"]["post"]
     assert "body = {}" in code
     assert "body=body" in code
+
+
+def test_process_from_openapi_tests_flag(tmp_path):
+    spec = {
+        "openapi": "3.2.0",
+        "info": {"title": "Test API", "version": "1.0"},
+        "paths": {},
+    }
+    spec_path = tmp_path / "openapi.json"
+    spec_path.write_text(json.dumps(spec))
+
+    out_dir = tmp_path / "out"
+    process_from_openapi("to_sdk", str(spec_path), None, str(out_dir), tests=True)
+
+    assert (out_dir / "src" / "client.py").exists()
+    assert (out_dir / "test" / "test_client.py").exists()
+    assert (out_dir / "test" / "mock_server.py").exists()

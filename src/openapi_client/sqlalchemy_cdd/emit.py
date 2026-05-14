@@ -73,7 +73,7 @@ def emit_sqlalchemy(spec: OpenAPI) -> str:
                 code = ast.unparse(sa_ast)
                 body.append(code)
                 body.append("")
-            except Exception as e:
+            except Exception:
                 # Fallback if unparse fails (e.g. older python)
                 pass
 

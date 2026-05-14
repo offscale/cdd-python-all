@@ -1,4 +1,3 @@
-import pytest
 from openapi_client.models import OpenAPI, Schema, Reference, Components
 from openapi_client.classes.emit import emit_classes
 from openapi_client.classes.parse import ClassExtractor
@@ -58,12 +57,6 @@ def test_mocks_parse_empty_paths():
     assert "/pets" in spec.paths
 
 
-import pytest
-from openapi_client.models import OpenAPI, Schema, Reference, Components
-from openapi_client.functions.parse import FunctionExtractor
-import libcst as cst
-
-
 def test_functions_parse_full_features():
     spec = OpenAPI(openapi="3.2.0", info={"title": "test", "version": "1.0"})
     extractor = FunctionExtractor(spec)
@@ -120,12 +113,6 @@ def post_user(user_id: str, limit: int = 10, is_active: bool = True, ratio: floa
         op.responses["200"].content["application/json"].schema_.ref
         == "#/components/schemas/MyResponse"
     )
-
-
-import pytest
-from openapi_client.models import OpenAPI
-from openapi_client.functions.parse import FunctionExtractor
-import libcst as cst
 
 
 def test_functions_parse_fallback_annotation():

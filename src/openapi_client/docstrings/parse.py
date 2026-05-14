@@ -2,18 +2,19 @@
 Module for parsing docstrings to extract OpenAPI description details.
 """
 
-from typing import Optional, Tuple
+from __future__ import annotations
+
 import libcst as cst
 
 
 def parse_docstring(
     node: cst.FunctionDef | cst.ClassDef,
-) -> Tuple[Optional[str], Optional[str]]:
+) -> tuple[str | None, str | None]:
     """
     Extracts summary and description from a function or class docstring.
 
     Returns:
-        Tuple[Optional[str], Optional[str]]: (summary, description)
+        tuple[str | None, str | None]: (summary, description)
     """
     if isinstance(node.body, cst.IndentedBlock):
         if node.body.body:

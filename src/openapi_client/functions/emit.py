@@ -2,7 +2,8 @@
 Module for emitting Python functions (API client methods) from OpenAPI paths.
 """
 
-from typing import List
+from __future__ import annotations
+
 import libcst as cst
 from openapi_client.models import OpenAPI, Operation
 
@@ -61,8 +62,8 @@ def emit_function(method: str, path: str, operation: Operation) -> cst.FunctionD
                 schema_obj = getattr(param, "schema_", getattr(param, "schema", None))
                 annotation_str = get_annotation_for_schema(schema_obj)
 
-                if annotation_str.startswith("List") or annotation_str.startswith(
-                    "Dict"
+                if annotation_str.startswith("list") or annotation_str.startswith(
+                    "dict"
                 ):
                     ann_node = cst.parse_expression(annotation_str)
                 else:
@@ -184,6 +185,14 @@ def emit_function(method: str, path: str, operation: Operation) -> cst.FunctionD
                         )
 
     # Build the method body
+    if operation.requestBody:
+        params_list.append(
+            cst.Param(
+                name=cst.Name("body"),
+                annotation=cst.Annotation(cst.Name("dict")),
+                default=cst.Name("None"),
+            )
+        )
     body_statements.extend(query_statements)
 
     url_value = cst.BinaryOperation(
@@ -233,7 +242,16 @@ def emit_function(method: str, path: str, operation: Operation) -> cst.FunctionD
                             args=[
                                 cst.Arg(value=cst.SimpleString(f'"{method.upper()}"')),
                                 cst.Arg(value=cst.Name("url")),
-                            ],
+                            ]
+                            + (
+                                [
+                                    cst.Arg(
+                                        keyword=cst.Name("json"), value=cst.Name("body")
+                                    )
+                                ]
+                                if operation.requestBody
+                                else []
+                            ),
                         ),
                     )
                 ]
@@ -255,7 +273,7 @@ def emit_function(method: str, path: str, operation: Operation) -> cst.FunctionD
     )
 
 
-def emit_functions(spec: OpenAPI) -> List[cst.FunctionDef]:
+def emit_functions(spec: OpenAPI) -> list[cst.FunctionDef]:
     """
     Emit a list of HTTP client methods for all paths in an OpenAPI spec.
 
@@ -263,7 +281,7 @@ def emit_functions(spec: OpenAPI) -> List[cst.FunctionDef]:
         spec (OpenAPI): The parsed OpenAPI specification.
 
     Returns:
-        List[cst.FunctionDef]: A list of generated AST nodes for the methods.
+        list[cst.FunctionDef]: A list of generated AST nodes for the methods.
     """
     methods = []
 

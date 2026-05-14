@@ -1,4 +1,3 @@
-import json
 import libcst as cst
 from openapi_client.models import (
     OpenAPI,
@@ -6,7 +5,6 @@ from openapi_client.models import (
     Components,
     Operation,
     Parameter,
-    Schema,
 )
 from openapi_client.cli_sdk.emit import emit_cli_sdk
 from openapi_client.cli_sdk.parse import extract_cli_from_ast

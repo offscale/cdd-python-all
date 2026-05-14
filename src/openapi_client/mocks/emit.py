@@ -2,7 +2,8 @@
 Module for generating API mock servers based on OpenAPI specs.
 """
 
-from typing import List
+from __future__ import annotations
+
 import libcst as cst
 from openapi_client.models import OpenAPI
 
@@ -12,7 +13,7 @@ def emit_mock_server(spec: OpenAPI) -> cst.Module:
     Emit a basic mock server using a simple framework (e.g. FastAPI/Flask)
     based on the operations defined in the OpenAPI spec.
     """
-    body: List[cst.SimpleStatementLine | cst.BaseCompoundStatement | cst.EmptyLine] = []
+    body: list[cst.SimpleStatementLine | cst.BaseCompoundStatement | cst.EmptyLine] = []
 
     # Simple placeholder: emit an empty server setup
     body.append(

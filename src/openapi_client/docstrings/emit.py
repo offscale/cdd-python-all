@@ -2,12 +2,13 @@
 Module for emitting docstrings for generated Python models and methods.
 """
 
-from typing import Optional
+from __future__ import annotations
+
 import libcst as cst
 from openapi_client.models import Schema, Operation
 
 
-def emit_class_docstring(schema: Schema) -> Optional[cst.SimpleStatementLine]:
+def emit_class_docstring(schema: Schema) -> cst.SimpleStatementLine | None:
     """
     Generate a docstring for a Pydantic model.
     """
@@ -28,7 +29,7 @@ def emit_class_docstring(schema: Schema) -> Optional[cst.SimpleStatementLine]:
     return None
 
 
-def emit_function_docstring(operation: Operation) -> Optional[cst.SimpleStatementLine]:
+def emit_function_docstring(operation: Operation) -> cst.SimpleStatementLine | None:
     """
     Generate a docstring for an API client method.
     """

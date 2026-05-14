@@ -100,3 +100,53 @@ dmypy.json
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# ---------------------------------------------------
+# Further comprehensive wildcards for safe `git add .`
+# ---------------------------------------------------
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*~
+*.bak
+*.tmp
+*.orig
+.kdev4/
+*.kdev4
+.project
+.cproject
+.pydevproject
+.settings/
+
+# Logs and databases
+*.log
+*.sqlite
+*.sqlite3
+
+# Build and Packaging artifacts
+*.egg-info/
+.eggs/
+*.egg
+*.whl
+*.tar.gz
+*.bz2
+*.xz
+*.zip
+MANIFEST
+out/
+
+# Caches and tools
+.ruff_cache/
+.uv_cache/
+.pre-commit-config.yaml.bak
+__pypackages__/
+celerybeat-schedule
+celerybeat.pid
+*.pid
+*.seed
+*.pid.lock
+
+# Pyenv / Misc
+.python-version
