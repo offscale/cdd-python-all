@@ -328,7 +328,8 @@ class Components(OpenAPIBase):
 class OpenAPI(OpenAPIBase):
     """OpenAPI OpenAPI model."""
 
-    openapi: str
+    openapi: str | None = None
+    swagger: str | None = None
     self_: str | None = Field(None, alias="$self")
     info: Info
     jsonSchemaDialect: str | None = None

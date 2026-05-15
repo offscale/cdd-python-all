@@ -157,6 +157,7 @@ dependencies = [
     "pydantic==2.12.5",
     "pydantic-core==2.41.5",
     "urllib3",
+    "eval_type_backport",
 ]
 
 [project.optional-dependencies]

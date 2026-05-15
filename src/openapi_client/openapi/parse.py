@@ -44,6 +44,10 @@ def parse_openapi_dict(
 ) -> OpenAPI:
     """Parse an OpenAPI dictionary into an OpenAPI model, resolving external refs."""
     spec_dict = resolve_external_refs(spec_dict, base_path)
+    if "definitions" in spec_dict and "components" not in spec_dict:
+        spec_dict["components"] = {"schemas": spec_dict["definitions"]}
+    elif "definitions" in spec_dict and "schemas" not in spec_dict.get("components", {}):
+        spec_dict.setdefault("components", {})["schemas"] = spec_dict["definitions"]
     return OpenAPI(**spec_dict)
 
 
