@@ -159,6 +159,11 @@ dependencies = [
     "urllib3",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest",
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src"]
 """,
@@ -189,7 +194,7 @@ jobs:
       - name: Install dependencies
         run: pip install -e .[dev]
       - name: Run tests
-        run: pytest
+        run: pytest test/
 """,
             encoding="utf-8",
         )
@@ -245,18 +250,18 @@ def process_from_openapi(
                     emit_models_module(spec.components.schemas), encoding="utf-8"
                 )
 
-            if tests:
-                test_dir = out_dir / "test"
-                test_dir.mkdir(parents=True, exist_ok=True)
-                (test_dir / "__init__.py").touch()
-                (test_dir / "test_client.py").write_text(
-                    emit_tests(spec, composable=tests).code, encoding="utf-8"
-                )
-                from openapi_client.mocks.emit import emit_mock_server
+            # Always emit tests for to_sdk
+            test_dir = out_dir / "test"
+            test_dir.mkdir(parents=True, exist_ok=True)
+            (test_dir / "__init__.py").touch()
+            (test_dir / "test_client.py").write_text(
+                emit_tests(spec, composable=True).code, encoding="utf-8"
+            )
+            from openapi_client.mocks.emit import emit_mock_server
 
-                (test_dir / "mock_server.py").write_text(
-                    emit_mock_server(spec).code, encoding="utf-8"
-                )
+            (test_dir / "mock_server.py").write_text(
+                emit_mock_server(spec).code, encoding="utf-8"
+            )
         elif subcommand == "to_sdk_cli":
             from openapi_client.classes.emit import emit_models_module
 

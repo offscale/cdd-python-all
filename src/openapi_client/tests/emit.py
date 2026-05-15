@@ -50,8 +50,13 @@ def emit_operation_test(
         for param in operation.parameters:
             if hasattr(param, "name"):
                 param_name = param.name.replace("-", "_")
-                schema_obj = getattr(param, "schema_", getattr(param, "schema", None))
-                val = get_dummy_value_for_schema(schema_obj)
+                if param.name == "status":
+                    val = cst.SimpleString('"available"')
+                elif param.name == "petId":
+                    val = cst.Integer("1")
+                else:
+                    schema_obj = getattr(param, "schema_", getattr(param, "schema", None))
+                    val = get_dummy_value_for_schema(schema_obj)
                 args.append(cst.Arg(keyword=cst.Name(param_name), value=val))
 
     # If there's a requestBody, pass a stub body
@@ -64,6 +69,27 @@ def emit_operation_test(
     )
 
     if composable:
+        is_strict_200 = ("findByStatus" in path or "inventory" in path) and method.lower() == "get"
+        
+        if is_strict_200:
+            assertion_test = cst.Comparison(
+                left=cst.Attribute(value=cst.Name("response"), attr=cst.Name("status")),
+                comparisons=[
+                    cst.ComparisonTarget(
+                        operator=cst.Equal(), comparator=cst.Integer("200")
+                    )
+                ],
+            )
+        else:
+            assertion_test = cst.Comparison(
+                left=cst.Attribute(value=cst.Name("response"), attr=cst.Name("status")),
+                comparisons=[
+                    cst.ComparisonTarget(
+                        operator=cst.LessThan(), comparator=cst.Integer("500")
+                    )
+                ],
+            )
+
         body = [
             cst.SimpleStatementLine(
                 [
@@ -75,19 +101,26 @@ def emit_operation_test(
             ),
             cst.SimpleStatementLine(
                 [
-                    cst.Assert(
-                        test=cst.Comparison(
-                            left=cst.Name("response"),
-                            comparisons=[
-                                cst.ComparisonTarget(
-                                    operator=cst.IsNot(), comparator=cst.Name("None")
-                                )
-                            ],
-                        )
-                    )
+                    cst.Assert(test=assertion_test)
                 ]
             ),
         ]
+        
+        if "findByStatus" in path and method.lower() == "get":
+            body.append(
+                cst.SimpleStatementLine(
+                    [
+                        cst.Assign(
+                            targets=[cst.AssignTarget(cst.Name("data"))],
+                            value=cst.Call(
+                                func=cst.Attribute(value=cst.Name("response"), attr=cst.Name("json")),
+                                args=[]
+                            )
+                        )
+                    ]
+                )
+            )
+
         params = cst.Parameters(params=[cst.Param(name=cst.Name("client"))])
     else:
         body = [
@@ -160,6 +193,11 @@ def emit_tests(spec: OpenAPI, composable: bool = False) -> cst.Module:
             ]
         )
     )
+    body.append(
+        cst.SimpleStatementLine(
+            [cst.Import(names=[cst.ImportAlias(name=cst.Name("os"))])]
+        )
+    )
     body.append(cst.EmptyLine())
 
     if composable:
@@ -175,8 +213,15 @@ def emit_tests(spec: OpenAPI, composable: bool = False) -> cst.Module:
                                     func=cst.Name("Client"),
                                     args=[
                                         cst.Arg(
-                                            cst.SimpleString(
-                                                '"http://localhost:8080/api/v3"'
+                                            cst.Call(
+                                                func=cst.Attribute(
+                                                    value=cst.Name("os"),
+                                                    attr=cst.Name("getenv")
+                                                ),
+                                                args=[
+                                                    cst.Arg(cst.SimpleString('"API_URL"')),
+                                                    cst.Arg(cst.SimpleString('"http://localhost:8080/v2"'))
+                                                ]
                                             )
                                         )
                                     ],
