@@ -22,14 +22,15 @@ def resolve_external_refs(obj: Any, base_path: Path = Path(".")) -> Any:
                 file_path = parts[0]
                 pointer = parts[1] if len(parts) > 1 else ""
 
-                # Check if it's a local file
+                # Check if it is a local file
                 try:
                     target_path = base_path / file_path
                     if target_path.exists():
                         content = json.loads(target_path.read_text(encoding="utf-8"))
                         if pointer:
                             for part in pointer.strip("/").split("/"):
-                                content = content.get(part, {})
+                                if part:
+                                    content = content.get(part, {})
                         return resolve_external_refs(content, target_path.parent)
                 except Exception:
                     pass
@@ -44,10 +45,18 @@ def parse_openapi_dict(
 ) -> OpenAPI:
     """Parse an OpenAPI dictionary into an OpenAPI model, resolving external refs."""
     spec_dict = resolve_external_refs(spec_dict, base_path)
-    if "definitions" in spec_dict and "components" not in spec_dict:
-        spec_dict["components"] = {"schemas": spec_dict["definitions"]}
-    elif "definitions" in spec_dict and "schemas" not in spec_dict.get("components", {}):
-        spec_dict.setdefault("components", {})["schemas"] = spec_dict["definitions"]
+    
+    components = spec_dict.setdefault("components", {})
+    if "definitions" in spec_dict and "schemas" not in components:
+        components["schemas"] = spec_dict["definitions"]
+    if "securityDefinitions" in spec_dict and "securitySchemes" not in components:
+        components["securitySchemes"] = spec_dict["securityDefinitions"]
+    if "parameters" in spec_dict and "parameters" not in components:
+        if isinstance(spec_dict["parameters"], dict):
+            components["parameters"] = spec_dict["parameters"]
+    if "responses" in spec_dict and "responses" not in components:
+        components["responses"] = spec_dict["responses"]
+        
     return OpenAPI(**spec_dict)
 
 

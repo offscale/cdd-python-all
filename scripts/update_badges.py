@@ -27,7 +27,7 @@ def main():
     doc_cov = 100
     try:
         out = subprocess.check_output(
-            ["pytest", "--cov"], text=True, stderr=subprocess.DEVNULL
+            ["pytest", "--cov=src/openapi_client"], text=True, stderr=subprocess.DEVNULL
         )
         m = re.search(r"TOTAL\s+\d+\s+\d+\s+(\d+)%", out)
         if m:

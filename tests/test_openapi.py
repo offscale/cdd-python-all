@@ -24,3 +24,20 @@ def test_openapi_parse_emit():
     emitted_json = emit_openapi_json(parsed_json)
     assert "3.2.0" in emitted_json
     assert "Test" in emitted_json
+
+def test_openapi_swagger2_parse():
+    spec_dict = {
+        "swagger": "2.0",
+        "info": {"title": "Swagger 2", "version": "1.0"},
+        "definitions": {"MyModel": {"type": "object"}},
+        "securityDefinitions": {"api_key": {"type": "apiKey", "name": "api_key", "in": "header"}},
+        "parameters": {"skipParam": {"name": "skip", "in": "query", "type": "integer"}},
+        "responses": {"Unauthorized": {"description": "Unauthorized"}}
+    }
+    parsed_dict = parse_openapi_dict(spec_dict)
+    assert parsed_dict.swagger == "2.0"
+    assert "MyModel" in parsed_dict.components.schemas
+    assert "api_key" in parsed_dict.components.securitySchemes
+    assert "skipParam" in parsed_dict.components.parameters
+    assert "Unauthorized" in parsed_dict.components.responses
+

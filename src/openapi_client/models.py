@@ -122,6 +122,23 @@ class Schema(OpenAPIBase):
     allOf: list[SchemaOrReference] | None = None
     anyOf: list[SchemaOrReference] | None = None
     oneOf: list[SchemaOrReference] | None = None
+    default: Any | None = None
+    multipleOf: float | None = None
+    maximum: float | None = None
+    exclusiveMaximum: bool | None = None
+    minimum: float | None = None
+    exclusiveMinimum: bool | None = None
+    maxLength: int | None = None
+    minLength: int | None = None
+    pattern: str | None = None
+    maxItems: int | None = None
+    minItems: int | None = None
+    uniqueItems: bool | None = None
+    maxProperties: int | None = None
+    minProperties: int | None = None
+    required: list[str] | None = None
+    enum: list[Any] | None = None
+    readOnly: bool | None = None
     # We allow extra fields since it supports full JSON Schema draft 2020-12
 
 
@@ -155,6 +172,23 @@ class Header(OpenAPIBase):
     deprecated: bool | None = None
     example: Any | None = None
     examples: dict[str, Example | Reference] | None = None
+    type: str | None = None
+    format: str | None = None
+    items: SchemaOrReference | list[SchemaOrReference] | None = None
+    collectionFormat: str | None = None
+    default: Any | None = None
+    maximum: float | None = None
+    exclusiveMaximum: bool | None = None
+    minimum: float | None = None
+    exclusiveMinimum: bool | None = None
+    maxLength: int | None = None
+    minLength: int | None = None
+    pattern: str | None = None
+    maxItems: int | None = None
+    minItems: int | None = None
+    uniqueItems: bool | None = None
+    enum: list[Any] | None = None
+    multipleOf: float | None = None
 
 
 class Encoding(OpenAPIBase):
@@ -206,6 +240,23 @@ class Parameter(OpenAPIBase):
     allowReserved: bool | None = None
     schema_: SchemaOrReference | None = Field(None, alias="schema")
     content: dict[str, MediaType | Reference] | None = None
+    type: str | None = None
+    format: str | None = None
+    collectionFormat: str | None = None
+    default: Any | None = None
+    maximum: float | None = None
+    exclusiveMaximum: bool | None = None
+    minimum: float | None = None
+    exclusiveMinimum: bool | None = None
+    maxLength: int | None = None
+    minLength: int | None = None
+    pattern: str | None = None
+    maxItems: int | None = None
+    minItems: int | None = None
+    uniqueItems: bool | None = None
+    enum: list[Any] | None = None
+    multipleOf: float | None = None
+    items: SchemaOrReference | list[SchemaOrReference] | None = None
 
 
 class Response(OpenAPIBase):
@@ -257,6 +308,10 @@ class SecurityScheme(OpenAPIBase):
     openIdConnectUrl: str | None = None
     oauth2MetadataUrl: str | None = None
     deprecated: bool | None = None
+    flow: str | None = None
+    authorizationUrl: str | None = None
+    tokenUrl: str | None = None
+    scopes: dict[str, str] | None = None
 
 
 class Callback(OpenAPIBase):
@@ -280,6 +335,9 @@ class Operation(OpenAPIBase):
     deprecated: bool | None = None
     security: list[dict[str, list[str]]] | None = None
     servers: list[Server] | None = None
+    consumes: list[str] | None = None
+    produces: list[str] | None = None
+    schemes: list[str] | None = None
 
 
 class PathItem(OpenAPIBase):
@@ -340,6 +398,15 @@ class OpenAPI(OpenAPIBase):
     security: list[dict[str, list[str]]] | None = None
     tags: list[Tag] | None = None
     externalDocs: ExternalDocumentation | None = None
+    host: str | None = None
+    basePath: str | None = None
+    schemes: list[str] | None = None
+    consumes: list[str] | None = None
+    produces: list[str] | None = None
+    definitions: dict[str, SchemaOrReference] | None = None
+    parameters: dict[str, Parameter | Reference] | None = None
+    responses: dict[str, Response | Reference] | None = None
+    securityDefinitions: dict[str, SecurityScheme | Reference] | None = None
 
 
 SchemaOrReference = Union[Schema, Reference]
