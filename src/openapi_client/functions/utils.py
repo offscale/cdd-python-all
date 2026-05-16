@@ -2,6 +2,16 @@
 Utility functions for generating API client methods.
 """
 
+import re
+
+
+def sanitize_name(name: str) -> str:
+    """Sanitize a string to be a valid Python identifier."""
+    if not name:
+        return ""
+    sanitized = re.sub(r"\W|^(?=\d)", "_", name)
+    return sanitized
+
 
 def get_annotation_for_schema(s) -> str:
     """

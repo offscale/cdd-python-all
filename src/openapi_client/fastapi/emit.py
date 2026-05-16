@@ -34,10 +34,13 @@ def emit_fastapi(spec: OpenAPI) -> str:
             for method in ["get", "post", "put", "delete", "patch"]:
                 operation = getattr(path_item, method, None)
                 if operation:
-                    op_id = (
+                    from openapi_client.functions.utils import sanitize_name
+
+                    raw_op_id = (
                         operation.operationId
                         or f"{method}_{path.replace('/', '_').strip('_')}"
                     )
+                    op_id = sanitize_name(raw_op_id)
 
                     lines.append(f"@app.{method}('{fastapi_path}')")
                     lines.append(f"def {op_id}():")

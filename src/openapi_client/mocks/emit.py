@@ -48,10 +48,13 @@ def emit_mock_server(spec: OpenAPI) -> cst.Module:
                         # @app.get("/path")
                         # def route_name():
                         #     pass
-                        route_name = (
+                        from openapi_client.functions.utils import sanitize_name
+
+                        raw_route_name = (
                             operation.operationId
                             or f"{method}_{path.replace('/', '_').strip('_')}"
                         )
+                        route_name = sanitize_name(raw_route_name)
                         decorator = cst.Decorator(
                             decorator=cst.Call(
                                 func=cst.Attribute(

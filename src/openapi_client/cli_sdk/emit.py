@@ -85,10 +85,13 @@ def emit_cli(spec: OpenAPI) -> cst.Module:
             for method in ["get", "post", "put", "delete", "patch"]:
                 operation = getattr(path_item, method, None)
                 if operation:
-                    op_id = (
+                    from openapi_client.functions.utils import sanitize_name
+
+                    raw_op_id = (
                         operation.operationId
                         or f"{method}_{path.replace('/', '_').strip('_')}"
                     )
+                    op_id = sanitize_name(raw_op_id)
                     desc = operation.summary or f"{method.upper()} {path}"
 
                     # op_parser = subparsers.add_parser("op_id", help="desc")

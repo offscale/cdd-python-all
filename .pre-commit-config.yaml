@@ -6,11 +6,23 @@ repos:
     -   id: end-of-file-fixer
     -   id: check-yaml
     -   id: check-added-large-files
+-   repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.4
+    hooks:
+    -   id: ruff
+        args: [ --fix ]
+    -   id: ruff-format
 -   repo: local
     hooks:
-    -   id: run-tests-and-update-badges
+    -   id: build
+        name: Build
+        entry: uv build
+        language: system
+        pass_filenames: false
+        always_run: true
+    -   id: test-and-coverage-badges
         name: Run Tests and Update Coverage Badges
-        entry: python3 scripts/update_badges.py
+        entry: uv run python scripts/update_badges.py
         language: system
         pass_filenames: false
         always_run: true

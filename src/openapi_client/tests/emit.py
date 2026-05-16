@@ -40,7 +40,10 @@ def emit_operation_test(
     """
     Emit a pytest unit test for an API operation.
     """
-    op_id = operation.operationId or f"{method}_{path.replace('/', '_').strip('_')}"
+    from openapi_client.functions.utils import sanitize_name
+
+    raw_op_id = operation.operationId or f"{method}_{path.replace('/', '_').strip('_')}"
+    op_id = sanitize_name(raw_op_id)
     func_name = f"test_{op_id}"
 
     args = []
@@ -55,7 +58,9 @@ def emit_operation_test(
                 elif param.name == "petId":
                     val = cst.Integer("1")
                 else:
-                    schema_obj = getattr(param, "schema_", getattr(param, "schema", None))
+                    schema_obj = getattr(
+                        param, "schema_", getattr(param, "schema", None)
+                    )
                     val = get_dummy_value_for_schema(schema_obj)
                 args.append(cst.Arg(keyword=cst.Name(param_name), value=val))
 
@@ -65,13 +70,25 @@ def emit_operation_test(
             content = getattr(operation.requestBody, "content", {})
             schema_obj = None
             if "application/json" in content:
-                schema_obj = getattr(content["application/json"], "schema_", getattr(content["application/json"], "schema", None))
+                schema_obj = getattr(
+                    content["application/json"],
+                    "schema_",
+                    getattr(content["application/json"], "schema", None),
+                )
             elif "application/xml" in content:
-                schema_obj = getattr(content["application/xml"], "schema_", getattr(content["application/xml"], "schema", None))
+                schema_obj = getattr(
+                    content["application/xml"],
+                    "schema_",
+                    getattr(content["application/xml"], "schema", None),
+                )
             elif content:
                 first_key = list(content.keys())[0]
-                schema_obj = getattr(content[first_key], "schema_", getattr(content[first_key], "schema", None))
-            
+                schema_obj = getattr(
+                    content[first_key],
+                    "schema_",
+                    getattr(content[first_key], "schema", None),
+                )
+
             if schema_obj and getattr(schema_obj, "properties", None):
                 elements = []
                 for prop_name, prop_schema in schema_obj.properties.items():
@@ -79,23 +96,28 @@ def emit_operation_test(
                     if prop_name == "name":
                         val = cst.SimpleString('"doggie"')
                     elif prop_name == "photoUrls":
-                        val = cst.List(elements=[cst.Element(cst.SimpleString('"http://dummy"'))])
+                        val = cst.List(
+                            elements=[cst.Element(cst.SimpleString('"http://dummy"'))]
+                        )
                     else:
                         val = get_dummy_value_for_schema(prop_schema)
                     elements.append(
                         cst.DictElement(
-                            key=cst.SimpleString(f'"{prop_name}"'),
-                            value=val
+                            key=cst.SimpleString(f'"{prop_name}"'), value=val
                         )
                     )
                 val = cst.Dict(elements=elements)
             elif schema_obj and getattr(schema_obj, "type", None) == "array":
-                val = cst.List(elements=[get_dummy_value_for_schema(getattr(schema_obj, "items", None))])
+                val = cst.List(
+                    elements=[
+                        get_dummy_value_for_schema(getattr(schema_obj, "items", None))
+                    ]
+                )
             else:
                 val = cst.Dict(elements=[])
         except Exception:
             val = cst.Dict(elements=[])
-            
+
         args.append(cst.Arg(keyword=cst.Name("body"), value=val))
 
     method_call = cst.Call(
@@ -104,8 +126,10 @@ def emit_operation_test(
     )
 
     if composable:
-        is_strict_200 = ("findByStatus" in path or "inventory" in path) and method.lower() == "get"
-        
+        is_strict_200 = (
+            "findByStatus" in path or "inventory" in path
+        ) and method.lower() == "get"
+
         if is_strict_200:
             assertion_test = cst.Comparison(
                 left=cst.Attribute(value=cst.Name("response"), attr=cst.Name("status")),
@@ -134,49 +158,77 @@ def emit_operation_test(
                     )
                 ]
             ),
-            cst.SimpleStatementLine(
-                [
-                    cst.Assert(test=assertion_test)
-                ]
-            ),
+            cst.SimpleStatementLine([cst.Assert(test=assertion_test)]),
             # Json validation for chaos audit
-            cst.SimpleStatementLine([
-                cst.Import(names=[cst.ImportAlias(name=cst.Name("json"))])
-            ]),
+            cst.SimpleStatementLine(
+                [cst.Import(names=[cst.ImportAlias(name=cst.Name("json"))])]
+            ),
             cst.If(
                 test=cst.Attribute(value=cst.Name("response"), attr=cst.Name("data")),
-                body=cst.IndentedBlock(body=[
-                    cst.SimpleStatementLine([
-                        cst.Assign(
-                            targets=[cst.AssignTarget(cst.Name("data"))],
-                            value=cst.Call(
-                                func=cst.Attribute(value=cst.Name("json"), attr=cst.Name("loads")),
+                body=cst.IndentedBlock(
+                    body=[
+                        cst.SimpleStatementLine(
+                            [
+                                cst.Assign(
+                                    targets=[cst.AssignTarget(cst.Name("data"))],
+                                    value=cst.Call(
+                                        func=cst.Attribute(
+                                            value=cst.Name("json"),
+                                            attr=cst.Name("loads"),
+                                        ),
+                                        args=[
+                                            cst.Arg(
+                                                cst.Call(
+                                                    func=cst.Attribute(
+                                                        value=cst.Attribute(
+                                                            value=cst.Name("response"),
+                                                            attr=cst.Name("data"),
+                                                        ),
+                                                        attr=cst.Name("decode"),
+                                                    ),
+                                                    args=[
+                                                        cst.Arg(
+                                                            cst.SimpleString('"utf-8"')
+                                                        )
+                                                    ],
+                                                )
+                                            )
+                                        ],
+                                    ),
+                                )
+                            ]
+                        ),
+                        cst.If(
+                            test=cst.Call(
+                                func=cst.Name("isinstance"),
                                 args=[
-                                    cst.Arg(
-                                        cst.Call(
-                                            func=cst.Attribute(value=cst.Attribute(value=cst.Name("response"), attr=cst.Name("data")), attr=cst.Name("decode")),
-                                            args=[cst.Arg(cst.SimpleString('"utf-8"'))]
-                                        )
+                                    cst.Arg(cst.Name("data")),
+                                    cst.Arg(cst.Name("dict")),
+                                ],
+                            ),
+                            body=cst.IndentedBlock(
+                                body=[
+                                    cst.SimpleStatementLine(
+                                        [
+                                            cst.Assert(
+                                                test=cst.Comparison(
+                                                    left=cst.SimpleString('"sabotage"'),
+                                                    comparisons=[
+                                                        cst.ComparisonTarget(
+                                                            operator=cst.NotIn(),
+                                                            comparator=cst.Name("data"),
+                                                        )
+                                                    ],
+                                                )
+                                            )
+                                        ]
                                     )
                                 ]
-                            )
-                        )
-                    ]),
-                    cst.If(
-                        test=cst.Call(func=cst.Name("isinstance"), args=[cst.Arg(cst.Name("data")), cst.Arg(cst.Name("dict"))]),
-                        body=cst.IndentedBlock(body=[
-                            cst.SimpleStatementLine([
-                                cst.Assert(
-                                    test=cst.Comparison(
-                                        left=cst.SimpleString('"sabotage"'),
-                                        comparisons=[cst.ComparisonTarget(operator=cst.NotIn(), comparator=cst.Name("data"))]
-                                    )
-                                )
-                            ])
-                        ])
-                    )
-                ])
-            )
+                            ),
+                        ),
+                    ]
+                ),
+            ),
         ]
 
         params = cst.Parameters(params=[cst.Param(name=cst.Name("client"))])
@@ -256,31 +308,65 @@ def emit_tests(spec: OpenAPI, composable: bool = False) -> cst.Module:
             [
                 cst.Expr(
                     value=cst.Call(
-                        func=cst.Attribute(value=cst.Attribute(value=cst.Name("sys"), attr=cst.Name("path")), attr=cst.Name("insert")),
+                        func=cst.Attribute(
+                            value=cst.Attribute(
+                                value=cst.Name("sys"), attr=cst.Name("path")
+                            ),
+                            attr=cst.Name("insert"),
+                        ),
                         args=[
                             cst.Arg(cst.Integer("0")),
                             cst.Arg(
                                 cst.Call(
-                                    func=cst.Attribute(value=cst.Attribute(value=cst.Name("os"), attr=cst.Name("path")), attr=cst.Name("abspath")),
+                                    func=cst.Attribute(
+                                        value=cst.Attribute(
+                                            value=cst.Name("os"), attr=cst.Name("path")
+                                        ),
+                                        attr=cst.Name("abspath"),
+                                    ),
                                     args=[
                                         cst.Arg(
                                             cst.Call(
-                                                func=cst.Attribute(value=cst.Attribute(value=cst.Name("os"), attr=cst.Name("path")), attr=cst.Name("join")),
+                                                func=cst.Attribute(
+                                                    value=cst.Attribute(
+                                                        value=cst.Name("os"),
+                                                        attr=cst.Name("path"),
+                                                    ),
+                                                    attr=cst.Name("join"),
+                                                ),
                                                 args=[
                                                     cst.Arg(
                                                         cst.Call(
-                                                            func=cst.Attribute(value=cst.Attribute(value=cst.Name("os"), attr=cst.Name("path")), attr=cst.Name("dirname")),
-                                                            args=[cst.Arg(cst.Name("__file__"))]
+                                                            func=cst.Attribute(
+                                                                value=cst.Attribute(
+                                                                    value=cst.Name(
+                                                                        "os"
+                                                                    ),
+                                                                    attr=cst.Name(
+                                                                        "path"
+                                                                    ),
+                                                                ),
+                                                                attr=cst.Name(
+                                                                    "dirname"
+                                                                ),
+                                                            ),
+                                                            args=[
+                                                                cst.Arg(
+                                                                    cst.Name("__file__")
+                                                                )
+                                                            ],
                                                         )
                                                     ),
-                                                    cst.Arg(cst.SimpleString("'../src'"))
-                                                ]
+                                                    cst.Arg(
+                                                        cst.SimpleString("'../src'")
+                                                    ),
+                                                ],
                                             )
                                         )
-                                    ]
+                                    ],
                                 )
-                            )
-                        ]
+                            ),
+                        ],
                     )
                 )
             ]
@@ -314,12 +400,18 @@ def emit_tests(spec: OpenAPI, composable: bool = False) -> cst.Module:
                                             cst.Call(
                                                 func=cst.Attribute(
                                                     value=cst.Name("os"),
-                                                    attr=cst.Name("getenv")
+                                                    attr=cst.Name("getenv"),
                                                 ),
                                                 args=[
-                                                    cst.Arg(cst.SimpleString('"API_URL"')),
-                                                    cst.Arg(cst.SimpleString('"http://localhost:8080/v2"'))
-                                                ]
+                                                    cst.Arg(
+                                                        cst.SimpleString('"API_URL"')
+                                                    ),
+                                                    cst.Arg(
+                                                        cst.SimpleString(
+                                                            '"http://localhost:8080/v2"'
+                                                        )
+                                                    ),
+                                                ],
                                             )
                                         )
                                     ],

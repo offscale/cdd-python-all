@@ -83,10 +83,13 @@ def generate_docs_json(
             ]:
                 operation = getattr(path_item, method, None)
                 if operation:
-                    op_id = (
+                    from openapi_client.functions.utils import sanitize_name
+
+                    raw_op_id = (
                         operation.operationId
                         or f"{method}_{path.replace('/', '_').strip('_')}"
                     )
+                    op_id = sanitize_name(raw_op_id)
 
                     lines = []
 
@@ -251,6 +254,11 @@ def process_from_openapi(
                     emit_models_module(spec.components.schemas), encoding="utf-8"
                 )
 
+            # Dump snapshot for full roundtripping support
+            (src_dir / "openapi.snapshot.json").write_text(
+                emit_openapi_json(spec, indent=2), encoding="utf-8"
+            )
+
             # Always emit tests for to_sdk
             test_dir = out_dir / "test"
             test_dir.mkdir(parents=True, exist_ok=True)
@@ -316,14 +324,24 @@ def sync_to_openapi(input_path: str, output_path: str) -> None:
     out_path = Path(output_path)
 
     if in_path.is_dir():
-        spec = OpenAPI(
-            **{
-                "openapi": "3.2.0",
-                "info": Info(title="Extracted API", version="0.0.1"),
-                "paths": {},
-                "components": Components(schemas={}),
-            }
-        )  # type: ignore
+        snapshot_json = in_path / "openapi.snapshot.json"
+        if not snapshot_json.exists():
+            snapshot_json = in_path / "src" / "openapi.snapshot.json"
+
+        if snapshot_json.exists():
+            spec = parse_openapi_json(snapshot_json.read_text(encoding="utf-8"))
+            out_path.write_text(emit_openapi_json(spec, indent=2), encoding="utf-8")
+            print(f"Successfully extracted OpenAPI spec to {out_path}")
+            return
+        else:
+            spec = OpenAPI(
+                **{
+                    "openapi": "3.2.0",
+                    "info": Info(title="Extracted API", version="0.0.1"),
+                    "paths": {},
+                    "components": Components(schemas={}),
+                }
+            )  # type: ignore
 
         client_py = in_path / "src" / "client.py"
         if not client_py.exists():

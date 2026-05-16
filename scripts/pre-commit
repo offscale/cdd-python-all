@@ -2,6 +2,21 @@
 
 set -e
 
+echo "[pre-commit] Auto-formatting code..."
+uv run ruff format .
+
+echo "[pre-commit] Checking code formatting..."
+uv run ruff format --check .
+
+echo "[pre-commit] Linting code (auto-fix)..."
+uv run ruff check --fix .
+
+echo "[pre-commit] Checking linting..."
+uv run ruff check .
+
+echo "[pre-commit] Building project..."
+uv run python -m build
+
 echo "[pre-commit] Calculating coverage and updating badges..."
 uv run python scripts/update_badges.py
 

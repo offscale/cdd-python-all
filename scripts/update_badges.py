@@ -2,6 +2,7 @@
 import os
 import re
 import subprocess
+import sys
 
 
 def get_color(pct):
@@ -23,27 +24,43 @@ def main():
     if not os.path.exists(readme_path):
         return
 
-    test_cov = 100
-    doc_cov = 100
-    try:
-        out = subprocess.check_output(
-            ["pytest", "--cov=src/openapi_client"], text=True, stderr=subprocess.DEVNULL
-        )
-        m = re.search(r"TOTAL\s+\d+\s+\d+\s+(\d+)%", out)
-        if m:
-            test_cov = int(m.group(1))
-    except Exception:
-        pass
+    print("Running tests and calculating coverage...")
+    test_result = subprocess.run(
+        ["pytest", "--cov=src/openapi_client", "--cov-report=term"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    if test_result.returncode != 0:
+        print("Tests failed!")
+        print(test_result.stdout)
+        sys.exit(test_result.returncode)
 
-    try:
-        out = subprocess.check_output(
-            ["interrogate"], text=True, stderr=subprocess.DEVNULL
-        )
-        m = re.search(r"Coverage: (\d+)%", out)
-        if m:
-            doc_cov = int(m.group(1))
-    except Exception:
-        pass
+    test_cov = 100
+    m = re.search(r"TOTAL\s+\d+\s+\d+\s+(\d+)%", test_result.stdout)
+    if m:
+        test_cov = int(m.group(1))
+
+    print("Running interrogate for doc coverage...")
+    doc_result = subprocess.run(
+        ["interrogate", "--fail-under=0"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    if doc_result.returncode != 0 and "Coverage:" not in doc_result.stdout:
+        print("Interrogate failed!")
+        print(doc_result.stdout)
+        sys.exit(doc_result.returncode)
+
+    doc_cov = 100
+    m = re.search(r"actual:\s*([0-9]+)\.[0-9]*%", doc_result.stdout)
+    if m:
+        doc_cov = int(m.group(1))
+    else:
+        m2 = re.search(r"actual:\s*([0-9]+)%", doc_result.stdout)
+        if m2:
+            doc_cov = int(m2.group(1))
 
     test_color = get_color(test_cov)
     doc_color = get_color(doc_cov)

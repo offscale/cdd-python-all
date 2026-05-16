@@ -36,3 +36,8 @@ packages = ["src/openapi_client"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "test"]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.13",
+]
