@@ -6,5 +6,5 @@ from client import Client
 
 @pytest.fixture
 def client():
-    return Client(os.getenv("API_URL", "http://localhost:8080/v2"))
+    return Client(os.getenv("API_URL", "http://localhost:8080/v2"), api_key = "special-key")
 

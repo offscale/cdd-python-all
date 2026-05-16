@@ -205,8 +205,8 @@ def test_emit_tests_exception():
 
     # Bypass pydantic validation to force an exception in the try block
     class Bad:
-        def __bool__(self):
-            return True
+        def __contains__(self, item):
+            raise Exception("Mock error")
 
     rb = RequestBody.model_construct(content=Bad())
     op = Operation(operationId="err", requestBody=rb)

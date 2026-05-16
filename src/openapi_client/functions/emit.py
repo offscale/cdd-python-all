@@ -36,6 +36,8 @@ def emit_function(method: str, path: str, operation: Operation) -> cst.FunctionD
     has_query = False
     has_body_param = False
     body_param_name = "body"
+    has_form_data = False
+    form_data_params = []
 
     # Process query, header, path, cookie parameters
     if operation.parameters:
@@ -86,6 +88,10 @@ def emit_function(method: str, path: str, operation: Operation) -> cst.FunctionD
 
                 # Process query params
                 p_in = getattr(param, "in_", getattr(param, "in", None))
+                if p_in in ("formData", "form"):
+                    has_form_data = True
+                    form_data_params.append((param.name, param_name))
+
                 if p_in == "query":
                     style = getattr(param, "style", "form")
                     delim = (
@@ -203,11 +209,14 @@ def emit_function(method: str, path: str, operation: Operation) -> cst.FunctionD
         )
     body_statements.extend(query_statements)
 
-    url_value = cst.BinaryOperation(
-        left=cst.Attribute(value=cst.Name("self"), attr=cst.Name("base_url")),
-        operator=cst.Add(),
-        right=cst.SimpleString(f'"{path}"'),
-    )
+    if "{" in path and "}" in path:
+        url_value = cst.parse_expression(f'self.base_url + f"{path}"')
+    else:
+        url_value = cst.BinaryOperation(
+            left=cst.Attribute(value=cst.Name("self"), attr=cst.Name("base_url")),
+            operator=cst.Add(),
+            right=cst.SimpleString(f'"{path}"'),
+        )
     if has_query:
         url_value = cst.BinaryOperation(
             left=url_value,
@@ -281,7 +290,23 @@ def emit_function(method: str, path: str, operation: Operation) -> cst.FunctionD
                                     )
                                 ]
                                 if operation.requestBody or has_body_param
-                                else []
+                                else (
+                                    [
+                                        cst.Arg(
+                                            keyword=cst.Name("fields"),
+                                            value=cst.Dict(
+                                                elements=[
+                                                    cst.DictElement(
+                                                        key=cst.SimpleString(f'"{k}"'),
+                                                        value=cst.Name(v)
+                                                    )
+                                                    for k, v in form_data_params
+                                                ]
+                                            )
+                                        )
+                                    ]
+                                    if has_form_data else []
+                                )
                             ),
                         ),
                     )

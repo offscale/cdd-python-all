@@ -31,13 +31,21 @@ def get_dummy_value_for_schema(schema_obj) -> cst.BaseExpression:
     elif ann.startswith("dict"):
         return cst.Dict(elements=[])
     else:
+        # Fallback to a string instead of None so urllib3 doesn't crash on encode_multipart_formdata
+        t = getattr(schema_obj, "type", None) if schema_obj else None
+        if t == "file":
+            return cst.SimpleString('b"dummy_content"')
         return cst.Name("None")
 
 
-def get_stub_body(schema_obj):
+def get_stub_body(schema_obj, spec=None):
     """
     Generate a stub body AST node based on an OpenAPI schema object.
     """
+    if schema_obj and getattr(schema_obj, "ref", None) and spec and spec.components and spec.components.schemas:
+        ref_name = schema_obj.ref.split('/')[-1]
+        schema_obj = spec.components.schemas.get(ref_name, schema_obj)
+
     if schema_obj and getattr(schema_obj, "properties", None):
         elements = []
         for prop_name, prop_schema in schema_obj.properties.items():
@@ -48,7 +56,10 @@ def get_stub_body(schema_obj):
                     elements=[cst.Element(cst.SimpleString('"http://dummy"'))]
                 )
             else:
-                val = get_dummy_value_for_schema(prop_schema)
+                if getattr(prop_schema, "ref", None) or getattr(prop_schema, "type", None) in ("object", "array"):
+                    val = get_stub_body(prop_schema, spec)
+                else:
+                    val = get_dummy_value_for_schema(prop_schema)
             elements.append(
                 cst.DictElement(
                     key=cst.SimpleString(f'"{prop_name}"'), value=val
@@ -60,7 +71,7 @@ def get_stub_body(schema_obj):
         if items_schema and getattr(items_schema, "type", None) in ("string", "integer", "number", "boolean"):
             item_val = get_dummy_value_for_schema(items_schema)
         else:
-            item_val = get_stub_body(items_schema)
+            item_val = get_stub_body(items_schema, spec)
         return cst.List(
             elements=[
                 cst.Element(item_val)
@@ -70,7 +81,7 @@ def get_stub_body(schema_obj):
         return cst.Dict(elements=[])
 
 def emit_operation_test(
-    method: str, path: str, operation: Operation, composable: bool = False
+    method: str, path: str, operation: Operation, composable: bool = False, spec=None
 ) -> cst.FunctionDef:
     """
     Emit a pytest unit test for an API operation.
@@ -96,11 +107,13 @@ def emit_operation_test(
                     schema_obj = getattr(
                         param, "schema_", getattr(param, "schema", None)
                     )
-                    val = get_stub_body(schema_obj)
+                    val = get_stub_body(schema_obj, spec)
                 else:
                     schema_obj = getattr(
                         param, "schema_", getattr(param, "schema", None)
                     )
+                    if not schema_obj and getattr(param, "type", None):
+                        schema_obj = param
                     val = get_dummy_value_for_schema(schema_obj)
                 args.append(cst.Arg(keyword=cst.Name(param_name), value=val))
 
@@ -129,7 +142,7 @@ def emit_operation_test(
                     getattr(content[first_key], "schema", None),
                 )
 
-            val = get_stub_body(schema_obj)
+            val = get_stub_body(schema_obj, spec)
         except Exception:
             val = cst.Dict(elements=[])
 
@@ -463,7 +476,7 @@ def emit_tests(spec: OpenAPI, composable: bool = False) -> cst.Module:
                     if operation:
                         body.append(
                             emit_operation_test(
-                                method, path, operation, composable=composable
+                                method, path, operation, composable=composable, spec=spec
                             )
                         )
                         body.append(cst.EmptyLine())

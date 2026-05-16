@@ -151,3 +151,11 @@ celerybeat.pid
 # Pyenv / Misc
 .python-version
 *.snapshot.json
+
+# Profiling and Patching
+*.patch
+*.diff
+*.pyprof
+*.lprof
+*.pstats
+*.cprof
