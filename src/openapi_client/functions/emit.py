@@ -34,9 +34,17 @@ def emit_function(method: str, path: str, operation: Operation) -> cst.FunctionD
 
     query_statements = []
     has_query = False
+    has_body_param = False
+    body_param_name = "body"
 
     # Process query, header, path, cookie parameters
     if operation.parameters:
+        for p in operation.parameters:
+            if getattr(p, "in_", getattr(p, "in", None)) == "body":
+                has_body_param = True
+                if hasattr(p, "name"):
+                    body_param_name = p.name.replace("-", "_")
+
         has_query_params = any(
             getattr(p, "in_", getattr(p, "in", None)) == "query"
             for p in operation.parameters
@@ -242,14 +250,37 @@ def emit_function(method: str, path: str, operation: Operation) -> cst.FunctionD
                             args=[
                                 cst.Arg(value=cst.SimpleString(f'"{method.upper()}"')),
                                 cst.Arg(value=cst.Name("url")),
+                                cst.Arg(
+                                    keyword=cst.Name("headers"),
+                                    value=cst.IfExp(
+                                        test=cst.Attribute(value=cst.Name("self"), attr=cst.Name("api_key")),
+                                        body=cst.Dict(
+                                            elements=[
+                                                cst.DictElement(
+                                                    key=cst.SimpleString('"api_key"'),
+                                                    value=cst.Attribute(value=cst.Name("self"), attr=cst.Name("api_key"))
+                                                ),
+                                                cst.DictElement(
+                                                    key=cst.SimpleString('"Authorization"'),
+                                                    value=cst.BinaryOperation(
+                                                        left=cst.SimpleString('"Bearer "'),
+                                                        operator=cst.Add(),
+                                                        right=cst.Attribute(value=cst.Name("self"), attr=cst.Name("api_key"))
+                                                    )
+                                                )
+                                            ]
+                                        ),
+                                        orelse=cst.Dict(elements=[])
+                                    )
+                                ),
                             ]
                             + (
                                 [
                                     cst.Arg(
-                                        keyword=cst.Name("json"), value=cst.Name("body")
+                                        keyword=cst.Name("json"), value=cst.Name(body_param_name)
                                     )
                                 ]
-                                if operation.requestBody
+                                if operation.requestBody or has_body_param
                                 else []
                             ),
                         ),
@@ -295,6 +326,11 @@ def emit_functions(spec: OpenAPI) -> list[cst.FunctionDef]:
             cst.Param(
                 name=cst.Name("base_url"), annotation=cst.Annotation(cst.Name("str"))
             ),
+            cst.Param(
+                name=cst.Name("api_key"),
+                annotation=cst.Annotation(cst.Name("str")),
+                default=cst.SimpleString('""')
+            ),
         ]
     )
     init_body = cst.IndentedBlock(
@@ -310,6 +346,20 @@ def emit_functions(spec: OpenAPI) -> list[cst.FunctionDef]:
                             )
                         ],
                         value=cst.Name("base_url"),
+                    )
+                ]
+            ),
+            cst.SimpleStatementLine(
+                [
+                    cst.Assign(
+                        targets=[
+                            cst.AssignTarget(
+                                cst.Attribute(
+                                    value=cst.Name("self"), attr=cst.Name("api_key")
+                                )
+                            )
+                        ],
+                        value=cst.Name("api_key"),
                     )
                 ]
             ),

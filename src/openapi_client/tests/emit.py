@@ -34,6 +34,41 @@ def get_dummy_value_for_schema(schema_obj) -> cst.BaseExpression:
         return cst.Name("None")
 
 
+def get_stub_body(schema_obj):
+    """
+    Generate a stub body AST node based on an OpenAPI schema object.
+    """
+    if schema_obj and getattr(schema_obj, "properties", None):
+        elements = []
+        for prop_name, prop_schema in schema_obj.properties.items():
+            if prop_name == "name":
+                val = cst.SimpleString('"doggie"')
+            elif prop_name == "photoUrls":
+                val = cst.List(
+                    elements=[cst.Element(cst.SimpleString('"http://dummy"'))]
+                )
+            else:
+                val = get_dummy_value_for_schema(prop_schema)
+            elements.append(
+                cst.DictElement(
+                    key=cst.SimpleString(f'"{prop_name}"'), value=val
+                )
+            )
+        return cst.Dict(elements=elements)
+    elif schema_obj and getattr(schema_obj, "type", None) == "array":
+        items_schema = getattr(schema_obj, "items", None)
+        if items_schema and getattr(items_schema, "type", None) in ("string", "integer", "number", "boolean"):
+            item_val = get_dummy_value_for_schema(items_schema)
+        else:
+            item_val = get_stub_body(items_schema)
+        return cst.List(
+            elements=[
+                cst.Element(item_val)
+            ]
+        )
+    else:
+        return cst.Dict(elements=[])
+
 def emit_operation_test(
     method: str, path: str, operation: Operation, composable: bool = False
 ) -> cst.FunctionDef:
@@ -57,6 +92,11 @@ def emit_operation_test(
                     val = cst.SimpleString('"available"')
                 elif param.name == "petId":
                     val = cst.Integer("1")
+                elif getattr(param, "in_", getattr(param, "in", None)) == "body":
+                    schema_obj = getattr(
+                        param, "schema_", getattr(param, "schema", None)
+                    )
+                    val = get_stub_body(schema_obj)
                 else:
                     schema_obj = getattr(
                         param, "schema_", getattr(param, "schema", None)
@@ -89,32 +129,7 @@ def emit_operation_test(
                     getattr(content[first_key], "schema", None),
                 )
 
-            if schema_obj and getattr(schema_obj, "properties", None):
-                elements = []
-                for prop_name, prop_schema in schema_obj.properties.items():
-                    # For pet store tests to execute successfully with minimal dummy data
-                    if prop_name == "name":
-                        val = cst.SimpleString('"doggie"')
-                    elif prop_name == "photoUrls":
-                        val = cst.List(
-                            elements=[cst.Element(cst.SimpleString('"http://dummy"'))]
-                        )
-                    else:
-                        val = get_dummy_value_for_schema(prop_schema)
-                    elements.append(
-                        cst.DictElement(
-                            key=cst.SimpleString(f'"{prop_name}"'), value=val
-                        )
-                    )
-                val = cst.Dict(elements=elements)
-            elif schema_obj and getattr(schema_obj, "type", None) == "array":
-                val = cst.List(
-                    elements=[
-                        get_dummy_value_for_schema(getattr(schema_obj, "items", None))
-                    ]
-                )
-            else:
-                val = cst.Dict(elements=[])
+            val = get_stub_body(schema_obj)
         except Exception:
             val = cst.Dict(elements=[])
 
@@ -244,6 +259,10 @@ def emit_operation_test(
                             args=[
                                 cst.Arg(
                                     cst.SimpleString('"http://localhost:8080/api/v3"')
+                                ),
+                                cst.Arg(
+                                    keyword=cst.Name("api_key"),
+                                    value=cst.SimpleString('"special-key"')
                                 )
                             ],
                         ),
@@ -413,6 +432,10 @@ def emit_tests(spec: OpenAPI, composable: bool = False) -> cst.Module:
                                                     ),
                                                 ],
                                             )
+                                        ),
+                                        cst.Arg(
+                                            keyword=cst.Name("api_key"),
+                                            value=cst.SimpleString('"special-key"')
                                         )
                                     ],
                                 )
