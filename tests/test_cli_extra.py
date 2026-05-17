@@ -212,6 +212,7 @@ def test_cli_missing_coverage(monkeypatch, tmp_path):
     def mock_mkdir(*args, **kwargs):  # pragma: no cover
         pass
 
+    monkeypatch.chdir(tmp_path)
     spec = {"openapi": "3.2.0", "info": {"title": "T", "version": "1"}, "paths": {}}
     input_file = tmp_path / "dummy.json"
     input_file.write_text(json.dumps(spec))
