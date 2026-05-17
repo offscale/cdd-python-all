@@ -21,7 +21,7 @@ def test_openapi_parse_external_refs_pointer_exception():
         }
         p1.write_text(json.dumps(spec), encoding="utf-8")
         parsed = parse_openapi_json(p1.read_text(encoding="utf-8"))
-        assert parsed.components.schemas["MySchema"].type == None
+        assert parsed.components.schemas["MySchema"].type is None
     finally:
         if p1.exists():
             p1.unlink()

@@ -84,7 +84,7 @@ def test_emit_tests_body_param_exception():
         operationId="test_body_param_exception", parameters=[BadParameter()]
     )
     try:
-        func = emit_operation_test("post", "/test", op)
+        emit_operation_test("post", "/test", op)
     except Exception:
         pass
 
@@ -137,6 +137,6 @@ def test_emit_tests_other_param_exception():
         operationId="test_other_param_exception", parameters=[BadParameter3()]
     )
     try:
-        func = emit_operation_test("post", "/test", op)
+        emit_operation_test("post", "/test", op)
     except Exception:
         pass

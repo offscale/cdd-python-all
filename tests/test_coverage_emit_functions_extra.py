@@ -1,5 +1,17 @@
-from openapi_client.models import Operation, Parameter, Schema
+from openapi_client.models import (
+    Operation,
+    Parameter,
+    Schema,
+    OpenAPI,
+    Components,
+    Reference,
+)
 from openapi_client.functions.emit import emit_function
+from openapi_client.tests.emit import (
+    get_dummy_value_for_schema,
+    get_stub_body,
+    emit_operation_test,
+)
 
 
 def test_emit_function_formData_and_no_path_vars():
@@ -20,14 +32,6 @@ def test_emit_function_formData_and_no_path_vars():
     func_node = emit_function(method, path, op)
     assert func_node is not None
     assert func_node.name.value == "test_formData_op"
-
-
-from openapi_client.tests.emit import (
-    get_dummy_value_for_schema,
-    get_stub_body,
-    emit_operation_test,
-)
-from openapi_client.models import OpenAPI, Components, Reference
 
 
 def test_get_dummy_value_for_file():
