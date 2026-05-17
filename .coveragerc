@@ -1,4 +1,4 @@
 [run]
-omit = 
+omit =
     src/client.py
     src/mock_server.py

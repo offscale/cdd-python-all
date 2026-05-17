@@ -262,31 +262,45 @@ def emit_function(method: str, path: str, operation: Operation) -> cst.FunctionD
                                 cst.Arg(
                                     keyword=cst.Name("headers"),
                                     value=cst.IfExp(
-                                        test=cst.Attribute(value=cst.Name("self"), attr=cst.Name("api_key")),
+                                        test=cst.Attribute(
+                                            value=cst.Name("self"),
+                                            attr=cst.Name("api_key"),
+                                        ),
                                         body=cst.Dict(
                                             elements=[
                                                 cst.DictElement(
                                                     key=cst.SimpleString('"api_key"'),
-                                                    value=cst.Attribute(value=cst.Name("self"), attr=cst.Name("api_key"))
+                                                    value=cst.Attribute(
+                                                        value=cst.Name("self"),
+                                                        attr=cst.Name("api_key"),
+                                                    ),
                                                 ),
                                                 cst.DictElement(
-                                                    key=cst.SimpleString('"Authorization"'),
+                                                    key=cst.SimpleString(
+                                                        '"Authorization"'
+                                                    ),
                                                     value=cst.BinaryOperation(
-                                                        left=cst.SimpleString('"Bearer "'),
+                                                        left=cst.SimpleString(
+                                                            '"Bearer "'
+                                                        ),
                                                         operator=cst.Add(),
-                                                        right=cst.Attribute(value=cst.Name("self"), attr=cst.Name("api_key"))
-                                                    )
-                                                )
+                                                        right=cst.Attribute(
+                                                            value=cst.Name("self"),
+                                                            attr=cst.Name("api_key"),
+                                                        ),
+                                                    ),
+                                                ),
                                             ]
                                         ),
-                                        orelse=cst.Dict(elements=[])
-                                    )
+                                        orelse=cst.Dict(elements=[]),
+                                    ),
                                 ),
                             ]
                             + (
                                 [
                                     cst.Arg(
-                                        keyword=cst.Name("json"), value=cst.Name(body_param_name)
+                                        keyword=cst.Name("json"),
+                                        value=cst.Name(body_param_name),
                                     )
                                 ]
                                 if operation.requestBody or has_body_param
@@ -298,14 +312,15 @@ def emit_function(method: str, path: str, operation: Operation) -> cst.FunctionD
                                                 elements=[
                                                     cst.DictElement(
                                                         key=cst.SimpleString(f'"{k}"'),
-                                                        value=cst.Name(v)
+                                                        value=cst.Name(v),
                                                     )
                                                     for k, v in form_data_params
                                                 ]
-                                            )
+                                            ),
                                         )
                                     ]
-                                    if has_form_data else []
+                                    if has_form_data
+                                    else []
                                 )
                             ),
                         ),
@@ -354,7 +369,7 @@ def emit_functions(spec: OpenAPI) -> list[cst.FunctionDef]:
             cst.Param(
                 name=cst.Name("api_key"),
                 annotation=cst.Annotation(cst.Name("str")),
-                default=cst.SimpleString('""')
+                default=cst.SimpleString('""'),
             ),
         ]
     )

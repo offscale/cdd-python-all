@@ -3,7 +3,7 @@
 The integration tests for this toolchain currently fail when running natively against the Stoplight Prism mock server (`./local-test.sh only-test` with `ONLY_TEST=cdd-python-all`).
 
 ## Instructions
-1. Run the test locally for this specific language using: 
+1. Run the test locally for this specific language using:
    `cd .. && ONLY_TEST=cdd-python-all ./local-test.sh only-test`
 2. Observe the output. The failure is typically caused by one of the following:
    * **401 Unauthorized:** The generated SDK tests are not injecting the required `api_key` or OAuth headers that the Swagger Petstore schema demands. Prism enforces security constraints strictly.

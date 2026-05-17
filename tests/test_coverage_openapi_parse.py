@@ -17,14 +17,17 @@ def test_openapi_parse_external_refs_pointer_exception():
                         "$ref": "temp_spec8.json#/SomeSchema/non_existent_key/more"
                     }
                 }
-            }
+            },
         }
         p1.write_text(json.dumps(spec), encoding="utf-8")
         parsed = parse_openapi_json(p1.read_text(encoding="utf-8"))
         assert parsed.components.schemas["MySchema"].type == None
     finally:
-        if p1.exists(): p1.unlink()
-        if p2.exists(): p2.unlink()
+        if p1.exists():
+            p1.unlink()
+        if p2.exists():
+            p2.unlink()
+
 
 def test_openapi_parse_external_refs_pointer_exception_2():
     import json
@@ -41,15 +44,18 @@ def test_openapi_parse_external_refs_pointer_exception_2():
             "paths": {},
             "components": {
                 "schemas": {
-                    "MySchema": {
-                        "$ref": "temp_spec12.json#/SomeSchema/invalid_attr"
-                    }
+                    "MySchema": {"$ref": "temp_spec12.json#/SomeSchema/invalid_attr"}
                 }
-            }
+            },
         }
         p1.write_text(json.dumps(spec), encoding="utf-8")
         parsed = parse_openapi_json(p1.read_text(encoding="utf-8"))
-        assert parsed.components.schemas["MySchema"].ref == "temp_spec12.json#/SomeSchema/invalid_attr"
+        assert (
+            parsed.components.schemas["MySchema"].ref
+            == "temp_spec12.json#/SomeSchema/invalid_attr"
+        )
     finally:
-        if p1.exists(): p1.unlink()
-        if p2.exists(): p2.unlink()
+        if p1.exists():
+            p1.unlink()
+        if p2.exists():
+            p2.unlink()

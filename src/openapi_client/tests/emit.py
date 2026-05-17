@@ -42,8 +42,14 @@ def get_stub_body(schema_obj, spec=None):
     """
     Generate a stub body AST node based on an OpenAPI schema object.
     """
-    if schema_obj and getattr(schema_obj, "ref", None) and spec and spec.components and spec.components.schemas:
-        ref_name = schema_obj.ref.split('/')[-1]
+    if (
+        schema_obj
+        and getattr(schema_obj, "ref", None)
+        and spec
+        and spec.components
+        and spec.components.schemas
+    ):
+        ref_name = schema_obj.ref.split("/")[-1]
         schema_obj = spec.components.schemas.get(ref_name, schema_obj)
 
     if schema_obj and getattr(schema_obj, "properties", None):
@@ -56,29 +62,31 @@ def get_stub_body(schema_obj, spec=None):
                     elements=[cst.Element(cst.SimpleString('"http://dummy"'))]
                 )
             else:
-                if getattr(prop_schema, "ref", None) or getattr(prop_schema, "type", None) in ("object", "array"):
+                if getattr(prop_schema, "ref", None) or getattr(
+                    prop_schema, "type", None
+                ) in ("object", "array"):
                     val = get_stub_body(prop_schema, spec)
                 else:
                     val = get_dummy_value_for_schema(prop_schema)
             elements.append(
-                cst.DictElement(
-                    key=cst.SimpleString(f'"{prop_name}"'), value=val
-                )
+                cst.DictElement(key=cst.SimpleString(f'"{prop_name}"'), value=val)
             )
         return cst.Dict(elements=elements)
     elif schema_obj and getattr(schema_obj, "type", None) == "array":
         items_schema = getattr(schema_obj, "items", None)
-        if items_schema and getattr(items_schema, "type", None) in ("string", "integer", "number", "boolean"):
+        if items_schema and getattr(items_schema, "type", None) in (
+            "string",
+            "integer",
+            "number",
+            "boolean",
+        ):
             item_val = get_dummy_value_for_schema(items_schema)
         else:
             item_val = get_stub_body(items_schema, spec)
-        return cst.List(
-            elements=[
-                cst.Element(item_val)
-            ]
-        )
+        return cst.List(elements=[cst.Element(item_val)])
     else:
         return cst.Dict(elements=[])
+
 
 def emit_operation_test(
     method: str, path: str, operation: Operation, composable: bool = False, spec=None
@@ -275,8 +283,8 @@ def emit_operation_test(
                                 ),
                                 cst.Arg(
                                     keyword=cst.Name("api_key"),
-                                    value=cst.SimpleString('"special-key"')
-                                )
+                                    value=cst.SimpleString('"special-key"'),
+                                ),
                             ],
                         ),
                     )
@@ -448,8 +456,8 @@ def emit_tests(spec: OpenAPI, composable: bool = False) -> cst.Module:
                                         ),
                                         cst.Arg(
                                             keyword=cst.Name("api_key"),
-                                            value=cst.SimpleString('"special-key"')
-                                        )
+                                            value=cst.SimpleString('"special-key"'),
+                                        ),
                                     ],
                                 )
                             )
@@ -476,7 +484,11 @@ def emit_tests(spec: OpenAPI, composable: bool = False) -> cst.Module:
                     if operation:
                         body.append(
                             emit_operation_test(
-                                method, path, operation, composable=composable, spec=spec
+                                method,
+                                path,
+                                operation,
+                                composable=composable,
+                                spec=spec,
                             )
                         )
                         body.append(cst.EmptyLine())
