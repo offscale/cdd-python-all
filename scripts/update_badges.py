@@ -43,7 +43,7 @@ def main():
 
     print("Running interrogate for doc coverage...")
     doc_result = subprocess.run(
-        ["interrogate", "--fail-under=0"],
+        ["interrogate", "--fail-under=0", "src/openapi_client"],
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
