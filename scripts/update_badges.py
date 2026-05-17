@@ -83,6 +83,9 @@ def main():
     with open(readme_path, "w") as f:
         f.write(content)
 
+    # Attempt to un-format test directory if it was formatted, as pre-commit fights over it
+    subprocess.run(["ruff", "format", "test/mock_server.py", "test/test_client.py"])
+
 
 if __name__ == "__main__":
     main()
