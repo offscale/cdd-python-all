@@ -6,6 +6,7 @@ if "%TASK%"=="" set TASK=help
 
 if "%TASK%"=="install_base" goto install_base
 if "%TASK%"=="install_deps" goto install_deps
+if "%TASK%"=="docs" goto docs
 if "%TASK%"=="build_docs" goto build_docs
 if "%TASK%"=="build" goto build
 if "%TASK%"=="test" goto test
@@ -20,6 +21,7 @@ if "%TASK%"=="all" goto help
 echo Available tasks:
 echo   install_base : install language runtime (Python 3 via winget)
 echo   install_deps : install local dependencies
+echo   docs         : build the API docs and symlink to docs/html
 echo   build_docs   : build the API docs [dir]
 echo   build        : build the CLI [dir]
 echo   test         : run tests locally
@@ -40,6 +42,16 @@ goto :EOF
 pip install uv
 uv venv
 uv pip install -e ".[dev]"
+goto :EOF
+
+:docs
+if exist docs\api rmdir /s /q docs\api
+if exist docs\html rmdir /s /q docs\html
+mkdir docs\api 2>NUL
+.venv\Scripts\python.exe -m pdoc src/openapi_client -o docs\api
+cd docs
+mklink /J html api
+cd ..
 goto :EOF
 
 :build_docs

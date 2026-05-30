@@ -30,9 +30,7 @@ def get_version() -> str:
         return "0.0.1"
 
 
-def apply_env_vars_to_parser(
-    parser: argparse.ArgumentParser, prefix: str = "CDD_PYTHON_"
-):
+def apply_env_vars_to_parser(parser: argparse.ArgumentParser, prefix: str = "CDD_"):
     """Recursively set argparse default values from environment variables."""
     for action in parser._actions:
         if action.dest and action.dest != "help" and action.dest != "==SUPPRESS==":
@@ -175,36 +173,40 @@ packages = ["src"]
         )
 
 
-def scaffold_github_actions(out_dir: Path):
+def scaffold_github_actions(out_dir: Path, tests: bool = False):
     """Scaffold GitHub actions CI file."""
     workflows_dir = out_dir / ".github" / "workflows"
     workflows_dir.mkdir(parents=True, exist_ok=True)
 
     ci_yml = workflows_dir / "ci.yml"
     if not ci_yml.exists():
+        test_step = ""
+        if tests:
+            test_step = """
+      - name: Run tests
+        run: pytest test/"""
+
         ci_yml.write_text(
-            """name: CI
+            f"""name: CI
 on: [push, pull_request]
 
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
       - name: Install dependencies
-        run: pip install -e .[dev]
-      - name: Run tests
-        run: pytest test/
+        run: pip install -e .[dev]{test_step}
 """,
             encoding="utf-8",
         )
 
 
-def process_from_openapi(
+def generate_from_openapi(
     subcommand: str,
     input_path: str,
     input_dir: str,
@@ -259,18 +261,18 @@ def process_from_openapi(
                 emit_openapi_json(spec, indent=2), encoding="utf-8"
             )
 
-            # Always emit tests for to_sdk
-            test_dir = out_dir / "test"
-            test_dir.mkdir(parents=True, exist_ok=True)
-            (test_dir / "__init__.py").touch()
-            (test_dir / "test_client.py").write_text(
-                emit_tests(spec, composable=True).code, encoding="utf-8"
-            )
-            from openapi_client.mocks.emit import emit_mock_server
+            if tests:
+                test_dir = out_dir / "test"
+                test_dir.mkdir(parents=True, exist_ok=True)
+                (test_dir / "__init__.py").touch()
+                (test_dir / "test_client.py").write_text(
+                    emit_tests(spec, composable=True).code, encoding="utf-8"
+                )
+                from openapi_client.mocks.emit import emit_mock_server
 
-            (test_dir / "mock_server.py").write_text(
-                emit_mock_server(spec).code, encoding="utf-8"
-            )
+                (test_dir / "mock_server.py").write_text(
+                    emit_mock_server(spec).code, encoding="utf-8"
+                )
         elif subcommand == "to_sdk_cli":
             from openapi_client.classes.emit import emit_models_module
 
@@ -292,6 +294,19 @@ def process_from_openapi(
             from openapi_client.cli_sdk_cdd.emit import emit_cli_sdk
 
             (src_dir / "cli_main.py").write_text(emit_cli_sdk(spec), encoding="utf-8")
+
+            if tests:
+                test_dir = out_dir / "test"
+                test_dir.mkdir(parents=True, exist_ok=True)
+                (test_dir / "__init__.py").touch()
+                (test_dir / "test_client.py").write_text(
+                    emit_tests(spec, composable=True).code, encoding="utf-8"
+                )
+                from openapi_client.mocks.emit import emit_mock_server
+
+                (test_dir / "mock_server.py").write_text(
+                    emit_mock_server(spec).code, encoding="utf-8"
+                )
         elif subcommand == "to_server":
             from openapi_client.fastapi.emit import emit_fastapi
             from openapi_client.sqlalchemy_cdd.emit import emit_sqlalchemy
@@ -311,12 +326,12 @@ def process_from_openapi(
         scaffold_package(out_dir)
 
     if not no_github_actions:
-        scaffold_github_actions(out_dir)
+        scaffold_github_actions(out_dir, tests=tests)
 
     print(f"Successfully generated {subcommand} in {out_dir}")
 
 
-def sync_to_openapi(input_path: str, output_path: str) -> None:
+def generate_to_openapi(input_path: str, output_path: str) -> None:
     """Extract an OpenAPI spec from a Python module or directory."""
     if not output_path:
         output_path = "openapi.json"
@@ -516,7 +531,7 @@ def sync_dir(project_dir: str) -> None:
     print(f"Successfully synced {project_dir}")
 
 
-def run_json_rpc_server(port: int, listen: str):
+def serve_json_rpc(port: int, listen: str):
     """Run a JSON-RPC 2.0 server exposing the CLI subcommands."""
     from http.server import BaseHTTPRequestHandler, HTTPServer
     import traceback
@@ -548,11 +563,16 @@ def run_json_rpc_server(port: int, listen: str):
 
             try:
                 if method == "to_openapi":
-                    sync_to_openapi(params.get("file"), params.get("output"))
+                    generate_to_openapi(params.get("input"), params.get("output"))
                     result = "Success"
-                elif method == "from_openapi":
-                    process_from_openapi(
-                        params.get("subcommand"),
+                elif method in (
+                    "from_openapi_to_sdk",
+                    "from_openapi_to_sdk_cli",
+                    "from_openapi_to_server",
+                ):
+                    subcommand = method.replace("from_openapi_", "")
+                    generate_from_openapi(
+                        subcommand,
                         params.get("input"),
                         params.get("input_dir"),
                         params.get("output"),
@@ -606,36 +626,38 @@ def main() -> None:
     parser.add_argument(
         "--version",
         action="version",
-        version=f"cdd-python {get_version()}",
+        version=get_version(),
     )
     subparsers = parser.add_subparsers(dest="command")
 
     from_openapi_parser = subparsers.add_parser(
-        "from_openapi", help="Generate code from OpenAPI"
+        "from_openapi", help="Generate code from an OpenAPI specification."
     )
 
     group = from_openapi_parser.add_mutually_exclusive_group(required=False)
-    group.add_argument("-i", "--input", type=str, help="Path to OpenAPI JSON file")
     group.add_argument(
-        "--input-dir", type=str, help="Directory containing OpenAPI specs"
+        "-i", "--input", type=str, help="Path or URL to the OpenAPI specification."
+    )
+    group.add_argument(
+        "--input-dir", type=str, help="Directory containing OpenAPI specifications."
     )
     from_openapi_parser.add_argument(
-        "-o", "--output", type=str, default=".", help="Output directory"
+        "-o", "--output", type=str, default=".", help="Output file or directory path."
     )
     from_openapi_parser.add_argument(
         "--no-github-actions",
         action="store_true",
-        help="Do not generate GitHub Actions",
+        help="Do not generate GitHub Actions scaffolding.",
     )
     from_openapi_parser.add_argument(
         "--no-installable-package",
         action="store_true",
-        help="Do not generate installable package scaffolding",
+        help="Do not generate installable package scaffolding.",
     )
     from_openapi_parser.add_argument(
         "--tests",
         action="store_true",
-        help="Create composable tests & mocks",
+        help="Generate integration tests and mocks.",
     )
 
     from_openapi_subparsers = from_openapi_parser.add_subparsers(
@@ -645,35 +667,43 @@ def main() -> None:
     for subcmd in ["to_sdk", "to_sdk_cli", "to_server"]:
         p = from_openapi_subparsers.add_parser(subcmd)
         group = p.add_mutually_exclusive_group(required=False)
-        group.add_argument("-i", "--input", type=str, help="Path to OpenAPI JSON file")
         group.add_argument(
-            "--input-dir", type=str, help="Directory containing OpenAPI specs"
+            "-i", "--input", type=str, help="Path or URL to the OpenAPI specification."
         )
-        p.add_argument("-o", "--output", type=str, default=".", help="Output directory")
+        group.add_argument(
+            "--input-dir", type=str, help="Directory containing OpenAPI specifications."
+        )
+        p.add_argument(
+            "-o",
+            "--output",
+            type=str,
+            default=".",
+            help="Output file or directory path.",
+        )
         p.add_argument(
             "--no-github-actions",
             action="store_true",
-            help="Do not generate GitHub Actions",
+            help="Do not generate GitHub Actions scaffolding.",
         )
         p.add_argument(
             "--no-installable-package",
             action="store_true",
-            help="Do not generate installable package scaffolding",
+            help="Do not generate installable package scaffolding.",
         )
         p.add_argument(
             "--tests",
             action="store_true",
-            help="Create composable tests & mocks",
+            help="Generate integration tests and mocks.",
         )
 
     to_openapi_parser = subparsers.add_parser(
-        "to_openapi", help="Extract OpenAPI from code"
+        "to_openapi", help="Generate an OpenAPI specification from source code."
     )
     to_openapi_parser.add_argument(
         "-i",
         "--input",
         type=str,
-        help="Path to Python source file or directory",
+        help="Path to source code directory or file",
         required=True,
     )
     to_openapi_parser.add_argument(
@@ -681,7 +711,7 @@ def main() -> None:
         "--output",
         type=str,
         default="openapi.json",
-        help="Output OpenAPI JSON file",
+        help="Output file or directory path",
     )
 
     sync_parser = subparsers.add_parser(
@@ -696,31 +726,34 @@ def main() -> None:
     )
 
     docs_parser = subparsers.add_parser(
-        "to_docs_json", help="Generate JSON documentation"
+        "to_docs_json",
+        help="Generate JSON documentation with code snippets for an OpenAPI specification.",
     )
     docs_parser.add_argument(
         "-i",
         "--input",
         type=str,
         required=True,
-        help="Path or URL to the OpenAPI specification",
+        help="Path or URL to the OpenAPI specification.",
     )
     docs_parser.add_argument(
-        "--no-imports", action="store_true", help="Omit the imports field"
+        "--no-imports", action="store_true", help="Omit the imports field."
     )
     docs_parser.add_argument(
-        "--no-wrapping", action="store_true", help="Omit the wrapper fields"
+        "--no-wrapping", action="store_true", help="Omit the wrapper fields."
     )
     docs_parser.add_argument(
-        "-o", "--output", type=str, help="Output JSON file (defaults to stdout)"
+        "-o", "--output", type=str, help="Output file or directory path."
     )
 
-    server_parser = subparsers.add_parser("server_json_rpc", help="Run JSON-RPC server")
-    server_parser.add_argument(
-        "--port", type=int, default=8080, help="Port to listen on"
+    server_parser = subparsers.add_parser(
+        "serve_json_rpc", help="Expose CLI interface as a JSON-RPC server."
     )
     server_parser.add_argument(
-        "--listen", type=str, default="0.0.0.0", help="Address to listen on"
+        "-p", "--port", type=int, default=8080, help="Port to listen on"
+    )
+    server_parser.add_argument(
+        "-l", "--listen", type=str, default="0.0.0.0", help="Address to listen on"
     )
 
     apply_env_vars_to_parser(parser)
@@ -737,7 +770,7 @@ def main() -> None:
         if not args.input and not getattr(args, "input_dir", None):
             from_openapi_parser.print_help()
             sys.exit(1)
-        process_from_openapi(
+        generate_from_openapi(
             subcmd,
             args.input,
             getattr(args, "input_dir", None),
@@ -748,11 +781,11 @@ def main() -> None:
         )
     elif args.command == "to_openapi":
         in_path = args.input
-        sync_to_openapi(in_path, args.output)
+        generate_to_openapi(in_path, args.output)
     elif args.command == "to_docs_json":
         generate_docs_json(args.input, args.no_imports, args.no_wrapping, args.output)
-    elif args.command == "server_json_rpc":
-        run_json_rpc_server(args.port, args.listen)
+    elif args.command == "serve_json_rpc":
+        serve_json_rpc(args.port, args.listen)
 
 
 if __name__ == "__main__":  # pragma: no cover

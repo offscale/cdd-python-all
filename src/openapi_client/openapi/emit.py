@@ -12,7 +12,9 @@ from openapi_client.models import OpenAPI
 
 def emit_openapi_dict(spec: OpenAPI) -> dict[str, Any]:
     """Emit an OpenAPI model as a dictionary."""
-    return spec.model_dump(by_alias=True, exclude_none=True)
+    if hasattr(spec, "model_dump"):
+        return spec.model_dump(by_alias=True, exclude_none=True)
+    return spec.dict(by_alias=True, exclude_none=True)  # pragma: no cover
 
 
 def emit_openapi_json(spec: OpenAPI, indent: int = 2) -> str:

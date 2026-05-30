@@ -1,4 +1,4 @@
-.PHONY: install_base install_deps build_docs build test run help all build_wasm build_docker run_docker
+.PHONY: install_base install_deps docs build_docs build test run help all build_wasm build_docker run_docker
 
 .DEFAULT_GOAL := help
 
@@ -36,10 +36,16 @@ install_deps:
 	uv venv || python3 -m venv .venv
 	uv pip install -e ".[dev]" || pip install -e ".[dev]"
 
+docs:
+	@rm -rf docs/api docs/html
+	@mkdir -p docs/api
+	uv run pdoc src/openapi_client -o docs/api
+	@cd docs && ln -sf api html
+
 build_docs:
 	@echo "Building docs in $(DOCS_DIR)"
 	@mkdir -p $(DOCS_DIR)
-	pdoc src/openapi_client -o $(DOCS_DIR)
+	uv run pdoc src/openapi_client -o $(DOCS_DIR)
 
 build:
 	@echo "Building binary/package in $(BIN_DIR)"
@@ -48,8 +54,7 @@ build:
 
 build_wasm:
 	@echo "Building WASM to bin/"
-	@mkdir -p bin
-	uv run py2wasm src/openapi_client/cli.py -o bin/cdd-python-all.wasm || (echo "WASI build failed. Falling back to Pyodide zip bundle." && rm -f bin/cdd-python-all.wasm && zip -r bin/cdd-python-all.wasm src pyproject.toml)
+	uv run python scripts/build_wasm.py
 test:
 	uv run pytest tests/
 run: build
@@ -59,6 +64,7 @@ help:
 	@echo "Available tasks:"
 	@echo "  install_base : install language runtime (Python 3)"
 	@echo "  install_deps : install local dependencies"
+	@echo "  docs         : build the API docs and symlink to docs/html"
 	@echo "  build_docs   : build the API docs [dir]"
 	@echo "  build        : build the CLI [dir]"
 	@echo "  test         : run tests locally"

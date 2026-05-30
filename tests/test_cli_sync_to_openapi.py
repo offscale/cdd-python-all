@@ -1,9 +1,9 @@
 import json
 from pathlib import Path
-from openapi_client.cli import sync_to_openapi
+from openapi_client.cli import generate_to_openapi
 
 
-def test_sync_to_openapi_dir(tmp_path: Path) -> None:
+def test_generate_to_openapi_dir(tmp_path: Path) -> None:
     project_dir = tmp_path / "project"
     project_dir.mkdir()
 
@@ -20,14 +20,14 @@ def test_sync_to_openapi_dir(tmp_path: Path) -> None:
     cli_py.write_text("import argparse\n")
 
     out_file = tmp_path / "openapi.json"
-    sync_to_openapi(str(project_dir), str(out_file))
+    generate_to_openapi(str(project_dir), str(out_file))
 
     assert out_file.exists()
     data = json.loads(out_file.read_text())
     assert "openapi" in data
 
 
-def test_sync_to_openapi_empty_output(tmp_path: Path) -> None:
+def test_generate_to_openapi_empty_output(tmp_path: Path) -> None:
     # Test when output_path is not given (it defaults to "openapi.json")
     import os
 
@@ -38,7 +38,7 @@ def test_sync_to_openapi_empty_output(tmp_path: Path) -> None:
         project_dir.mkdir()
         client_py = project_dir / "client.py"
         client_py.write_text("class Client:\n    pass\n")
-        sync_to_openapi(str(project_dir), "")
+        generate_to_openapi(str(project_dir), "")
         assert (tmp_path / "openapi.json").exists()
     finally:
         os.chdir(old_cwd)

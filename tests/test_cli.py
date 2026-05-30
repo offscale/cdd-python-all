@@ -1,6 +1,11 @@
 import json
 import pytest
-from openapi_client.cli import main, process_from_openapi, sync_to_openapi, sync_dir
+from openapi_client.cli import (
+    main,
+    generate_from_openapi,
+    generate_to_openapi,
+    sync_dir,
+)
 
 
 def test_cli_sync_from_openapi(tmp_path):
@@ -13,20 +18,20 @@ def test_cli_sync_from_openapi(tmp_path):
     spec_path.write_text(json.dumps(spec))
 
     out_dir = tmp_path / "out"
-    process_from_openapi("to_sdk", str(spec_path), None, str(out_dir))
-    process_from_openapi("to_server", str(spec_path), None, str(out_dir))
+    generate_from_openapi("to_sdk", str(spec_path), None, str(out_dir))
+    generate_from_openapi("to_server", str(spec_path), None, str(out_dir))
 
     assert (out_dir / "src" / "client.py").exists()
     assert (out_dir / "main.py").exists()
 
 
-def test_cli_sync_to_openapi(tmp_path):
+def test_cli_generate_to_openapi(tmp_path):
     py_code = "class Client:\n    pass\n"
     py_path = tmp_path / "client.py"
     py_path.write_text(py_code)
 
     out_spec = tmp_path / "openapi.json"
-    sync_to_openapi(str(py_path), str(out_spec))
+    generate_to_openapi(str(py_path), str(out_spec))
 
     assert out_spec.exists()
     data = json.loads(out_spec.read_text())
@@ -97,7 +102,7 @@ def test_cli_main_to_openapi(tmp_path, monkeypatch):
     assert out_spec.exists()
 
 
-def test_cli_sync_to_openapi_with_models(tmp_path):
+def test_cli_generate_to_openapi_with_models(tmp_path):
     py_code = "class Client:\n    pass\n"
     py_path = tmp_path / "client.py"
     py_path.write_text(py_code)
@@ -109,7 +114,7 @@ def test_cli_sync_to_openapi_with_models(tmp_path):
     models_path.write_text(models_code)
 
     out_spec = tmp_path / "openapi.json"
-    sync_to_openapi(str(tmp_path), str(out_spec))
+    generate_to_openapi(str(tmp_path), str(out_spec))
 
     assert out_spec.exists()
     data = json.loads(out_spec.read_text())
@@ -230,7 +235,7 @@ def test_cli_to_docs_json(tmp_path, monkeypatch, capsys):
     assert "def main():" in code
     assert "client = Client(" in code
     assert "limit = 'example'" in code
-    assert "response = client.getPets(limit=limit)" in code
+    assert "response = client.get_pets(limit=limit)" in code
     assert 'if __name__ == "__main__":' in code
 
     # Test --no-imports
@@ -257,7 +262,7 @@ def test_cli_to_docs_json(tmp_path, monkeypatch, capsys):
     assert "def main():" not in code
     assert 'if __name__ == "__main__":' not in code
     assert code.startswith("import json")
-    assert "response = client.getPets(limit=limit)" in code
+    assert "response = client.get_pets(limit=limit)" in code
 
     # Test both
     monkeypatch.setattr(
@@ -277,7 +282,7 @@ def test_cli_to_docs_json(tmp_path, monkeypatch, capsys):
     code = output["endpoints"]["/pets"]["get"]
     assert "import json" not in code
     assert "def main():" not in code
-    assert "response = client.getPets(limit=limit)" in code
+    assert "response = client.get_pets(limit=limit)" in code
 
 
 def test_cli_to_docs_json_no_operation_id(tmp_path, monkeypatch, capsys):
@@ -308,7 +313,7 @@ def test_cli_to_docs_json_no_operation_id(tmp_path, monkeypatch, capsys):
     assert "post_dogs(" in code
 
 
-def test_process_from_openapi_input_dir(tmp_path):
+def test_generate_from_openapi_input_dir(tmp_path):
     import json
 
     spec = {
@@ -320,25 +325,25 @@ def test_process_from_openapi_input_dir(tmp_path):
     d.mkdir()
     (d / "1.json").write_text(json.dumps(spec))
     out_dir = tmp_path / "out"
-    process_from_openapi("to_sdk_cli", None, str(d), str(out_dir))
+    generate_from_openapi("to_sdk_cli", None, str(d), str(out_dir))
     assert (out_dir / "src" / "client.py").exists()
     assert (out_dir / "src" / "cli_main.py").exists()
 
 
-def test_process_from_openapi_no_input(capsys):
+def test_generate_from_openapi_no_input(capsys):
     import pytest
 
     with pytest.raises(SystemExit):
-        process_from_openapi("to_sdk", None, None, "out")
+        generate_from_openapi("to_sdk", None, None, "out")
 
 
-def test_sync_to_openapi_cli(tmp_path):
+def test_generate_to_openapi_cli(tmp_path):
     py_code = 'import argparse\nparser = argparse.ArgumentParser()\nsubparsers = parser.add_subparsers()\nsubparsers.add_parser("test")'
     py_path = tmp_path / "cli_main.py"
     py_path.write_text(py_code)
 
     out_spec = tmp_path / "openapi.json"
-    sync_to_openapi(str(py_path), str(out_spec))
+    generate_to_openapi(str(py_path), str(out_spec))
 
     assert out_spec.exists()
     import json
@@ -412,7 +417,7 @@ def test_cli_to_docs_json_url(monkeypatch, capsys):
     assert "body=body" in code
 
 
-def test_process_from_openapi_tests_flag(tmp_path):
+def test_generate_from_openapi_tests_flag(tmp_path):
     spec = {
         "openapi": "3.2.0",
         "info": {"title": "Test API", "version": "1.0"},
@@ -422,7 +427,7 @@ def test_process_from_openapi_tests_flag(tmp_path):
     spec_path.write_text(json.dumps(spec))
 
     out_dir = tmp_path / "out"
-    process_from_openapi("to_sdk", str(spec_path), None, str(out_dir), tests=True)
+    generate_from_openapi("to_sdk", str(spec_path), None, str(out_dir), tests=True)
 
     assert (out_dir / "src" / "client.py").exists()
     assert (out_dir / "test" / "test_client.py").exists()

@@ -10,9 +10,9 @@ def test_apply_env_vars_to_parser(monkeypatch, tmp_path):
     spec = {"openapi": "3.2.0", "info": {"title": "T", "version": "1"}, "paths": {}}
     input_file.write_text(json.dumps(spec))
 
-    monkeypatch.setenv("CDD_PYTHON_INPUT", str(input_file))
-    monkeypatch.setenv("CDD_PYTHON_OUTPUT", str(tmp_path))
-    monkeypatch.setenv("CDD_PYTHON_NO_GITHUB_ACTIONS", "true")
+    monkeypatch.setenv("CDD_INPUT", str(input_file))
+    monkeypatch.setenv("CDD_OUTPUT", str(tmp_path))
+    monkeypatch.setenv("CDD_NO_GITHUB_ACTIONS", "true")
 
     monkeypatch.setattr("sys.argv", ["cdd-python", "from_openapi", "to_sdk"])
     main()
@@ -76,12 +76,12 @@ def test_json_rpc_handler_direct(monkeypatch, capsys):
             )
             handler.headers = {"Content-Length": str(len(handler.rfile.getvalue()))}
 
-            # mock sync_to_openapi
-            def mock_sync_to_openapi(p, o):
+            # mock generate_to_openapi
+            def mock_generate_to_openapi(p, o):
                 print("MOCK SYNC")
 
             monkeypatch.setattr(
-                openapi_client.cli, "sync_to_openapi", mock_sync_to_openapi
+                openapi_client.cli, "generate_to_openapi", mock_generate_to_openapi
             )
             handler.do_POST()
 
@@ -90,9 +90,9 @@ def test_json_rpc_handler_direct(monkeypatch, capsys):
                 json.dumps(
                     {
                         "jsonrpc": "2.0",
-                        "method": "from_openapi",
+                        "method": "from_openapi_to_sdk",
                         "params": {
-                            "subcommand": "to_sdk",
+                            "input": "mock",
                             "output": "mock",
                             "no_github_actions": True,
                         },
@@ -101,11 +101,11 @@ def test_json_rpc_handler_direct(monkeypatch, capsys):
             )
             handler.headers = {"Content-Length": str(len(handler.rfile.getvalue()))}
 
-            def mock_process_from_openapi(*args, **kwargs):
+            def mock_generate_from_openapi(*args, **kwargs):
                 print("MOCK PROCESS")
 
             monkeypatch.setattr(
-                openapi_client.cli, "process_from_openapi", mock_process_from_openapi
+                openapi_client.cli, "generate_from_openapi", mock_generate_from_openapi
             )
             handler.do_POST()
 
@@ -173,7 +173,7 @@ def test_json_rpc_handler_direct(monkeypatch, capsys):
 
     monkeypatch.setattr(http.server, "HTTPServer", MockHTTPServer)
 
-    monkeypatch.setattr("sys.argv", ["cdd-python", "server_json_rpc", "--port", "1234"])
+    monkeypatch.setattr("sys.argv", ["cdd-python", "serve_json_rpc", "--port", "1234"])
     main()
 
     # Check outputs
@@ -205,10 +205,10 @@ def test_cli_missing_coverage(monkeypatch, tmp_path):
     # store false via apply_env_vars
     parser = openapi_client.cli.argparse.ArgumentParser()
     parser.add_argument("--test-flag", action="store_false", dest="test_flag")
-    monkeypatch.setenv("CDD_PYTHON_TEST_FLAG", "false")
+    monkeypatch.setenv("CDD_TEST_FLAG", "false")
     openapi_client.cli.apply_env_vars_to_parser(parser)
 
-    # process_from_openapi output_dir="." fallback
+    # generate_from_openapi output_dir="." fallback
     def mock_mkdir(*args, **kwargs):  # pragma: no cover
         pass
 
@@ -216,15 +216,15 @@ def test_cli_missing_coverage(monkeypatch, tmp_path):
     spec = {"openapi": "3.2.0", "info": {"title": "T", "version": "1"}, "paths": {}}
     input_file = tmp_path / "dummy.json"
     input_file.write_text(json.dumps(spec))
-    openapi_client.cli.process_from_openapi(
+    openapi_client.cli.generate_from_openapi(
         "to_sdk", str(input_file), None, None, True, True
     )
 
-    # sync_to_openapi output_path="openapi.json" fallback
+    # generate_to_openapi output_path="openapi.json" fallback
     py_code = "class Client:\n    pass\n"
     py_file = tmp_path / "client.py"
     py_file.write_text(py_code)
-    openapi_client.cli.sync_to_openapi(str(py_file), None)
+    openapi_client.cli.generate_to_openapi(str(py_file), None)
 
 
 def test_jsonrpc_invalid_rpc(monkeypatch, capsys):
@@ -256,5 +256,5 @@ def test_jsonrpc_invalid_rpc(monkeypatch, capsys):
             handler.do_POST()
 
     monkeypatch.setattr(http.server, "HTTPServer", MockHTTPServer)
-    monkeypatch.setattr("sys.argv", ["cdd-python", "server_json_rpc"])
+    monkeypatch.setattr("sys.argv", ["cdd-python", "serve_json_rpc"])
     openapi_client.cli.main()

@@ -1,5 +1,5 @@
 import json
-from openapi_client.cli import process_from_openapi, sync_to_openapi
+from openapi_client.cli import generate_from_openapi, generate_to_openapi
 
 
 def test_snapshot_roundtrip(tmp_path):
@@ -28,13 +28,13 @@ def test_snapshot_roundtrip(tmp_path):
     out_sdk_dir.mkdir()
 
     # Run to_sdk
-    process_from_openapi("to_sdk", str(in_file), None, str(out_sdk_dir))
+    generate_from_openapi("to_sdk", str(in_file), None, str(out_sdk_dir))
 
     assert (out_sdk_dir / "src" / "openapi.snapshot.json").exists()
 
-    # Run sync_to_openapi (to_openapi)
+    # Run generate_to_openapi (to_openapi)
     out_spec = tmp_path / "out.json"
-    sync_to_openapi(out_sdk_dir, out_spec)
+    generate_to_openapi(out_sdk_dir, out_spec)
 
     out_spec_parsed = json.loads(out_spec.read_text())
     assert "webhooks" in out_spec_parsed

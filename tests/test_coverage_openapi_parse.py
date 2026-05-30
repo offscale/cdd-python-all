@@ -23,9 +23,9 @@ def test_openapi_parse_external_refs_pointer_exception():
         parsed = parse_openapi_json(p1.read_text(encoding="utf-8"))
         assert parsed.components.schemas["MySchema"].type is None
     finally:
-        if p1.exists():
+        if p1.exists():  # pragma: no branch
             p1.unlink()
-        if p2.exists():
+        if p2.exists():  # pragma: no branch
             p2.unlink()
 
 
@@ -55,7 +55,7 @@ def test_openapi_parse_external_refs_pointer_exception_2():
             == "temp_spec12.json#/SomeSchema/invalid_attr"
         )
     finally:
-        if p1.exists():
+        if p1.exists():  # pragma: no branch
             p1.unlink()
-        if p2.exists():
+        if p2.exists():  # pragma: no branch
             p2.unlink()

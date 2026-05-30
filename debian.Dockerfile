@@ -22,4 +22,4 @@ COPY --from=builder /app/dist/*.whl ./
 RUN pip install --no-cache-dir ./*.whl
 
 EXPOSE 8080
-ENTRYPOINT ["cdd-python", "server_json_rpc", "--listen", "0.0.0.0", "--port", "8080"]
+ENTRYPOINT ["cdd-python", "serve_json_rpc", "--listen", "0.0.0.0", "--port", "8080"]

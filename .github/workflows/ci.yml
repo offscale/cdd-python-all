@@ -3,9 +3,12 @@ name: CI
 on:
   push:
     branches: [ master, main ]
-    tags: [ 'v*.*.*' ]
+    tags: [ 'v*' ]
   pull_request:
     branches: [ master, main ]
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -13,14 +16,21 @@ jobs:
     steps:
     - uses: actions/checkout@v6
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: '3.11'
+    - name: Checkout Test Harness
+      uses: actions/checkout@v6
+      with:
+        repository: SamuelMarks/cdd-openapi-test-harness
+        path: cdd-openapi-test-harness
     - name: Install dependencies
       run: |
         pip install uv
         make install_deps
     - name: Run pre-commit hooks
+      env:
+        TEST_HARNESS_DIR: ${{ github.workspace }}/cdd-openapi-test-harness
       run: |
         uv tool install pre-commit --with pre-commit-uv
         pre-commit run --all-files
@@ -28,10 +38,19 @@ jobs:
       run: make test
     - name: Build
       run: make build
+    - name: Install binaryen
+      run: sudo apt-get update && sudo apt-get install -y binaryen
     - name: Build WASM
-      run: make build_wasm
+      run: |
+        make build_wasm
+        for f in bin/*.wasm; do
+          if [ -f "$f" ]; then
+            wasm-opt -O3 "$f" -o "$f" || true
+            cp "$f" dist/
+          fi
+        done
     - name: Upload Build Artifacts
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
         name: python-build
         path: dist/
@@ -42,11 +61,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v6
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v8
       with:
         name: python-build
         path: dist/
+    - name: Update latest tag
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git tag -fa latest -m "Update latest tag to ${{ github.ref_name }}"
+        git push origin latest --force
     - name: Release
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@v3
       with:
         files: dist/**/*

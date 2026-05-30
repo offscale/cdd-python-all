@@ -45,9 +45,9 @@ def test_openapi_parse_external_refs():
         parsed = parse_openapi_json(p1.read_text(encoding="utf-8"))
         assert parsed.components.schemas["MySchema"].type == "string"
     finally:
-        if p1.exists():
+        if p1.exists():  # pragma: no branch
             p1.unlink()
-        if p2.exists():
+        if p2.exists():  # pragma: no branch
             p2.unlink()
 
 
@@ -72,9 +72,9 @@ def test_openapi_parse_external_refs_with_pointer():
         parsed = parse_openapi_json(p1.read_text(encoding="utf-8"))
         assert parsed.components.schemas["MySchema"].type == "integer"
     finally:
-        if p1.exists():
+        if p1.exists():  # pragma: no branch
             p1.unlink()
-        if p2.exists():
+        if p2.exists():  # pragma: no branch
             p2.unlink()
 
 

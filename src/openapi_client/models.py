@@ -3,16 +3,24 @@
 from __future__ import annotations
 
 from typing import Any, Union
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, VERSION as PYDANTIC_VERSION
 
 
 class OpenAPIBase(BaseModel):
     """OpenAPI OpenAPIBase model."""
 
-    model_config = ConfigDict(
-        extra="allow",
-        populate_by_name=True,
-    )
+    if PYDANTIC_VERSION.startswith("2"):
+        model_config = ConfigDict(
+            extra="allow",
+            populate_by_name=True,
+        )
+    else:
+
+        class Config:  # pragma: no cover
+            """Pydantic config."""
+
+            extra = "allow"
+            allow_population_by_field_name = True
 
 
 class Contact(OpenAPIBase):

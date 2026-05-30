@@ -2,3 +2,8 @@
 omit =
     src/client.py
     src/mock_server.py
+    update_models.py
+    update_tests.py
+    update_tests2.py
+    update_tests3.py
+    update_tests4.py

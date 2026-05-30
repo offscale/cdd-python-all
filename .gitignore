@@ -159,3 +159,29 @@ celerybeat.pid
 *.lprof
 *.pstats
 *.cprof
+
+# ---------------------------------------------------
+# Custom Scratch and Temporary Files
+# ---------------------------------------------------
+/tmp.txt
+/tmp*.txt
+/update_models.py
+/update_tests*.py
+/fix_*.py
+
+/test_pydantic_v1.py
+
+# Pre-commit test directories
+.tmp_swagger/
+.tmp_oas3/
+.pytest_cache
+bin
+
+# Transient and Lock Files
+*.lock
+prompt*.md
+update_models.py
+update_tests.py
+update_tests2.py
+update_tests3.py
+update_tests4.py

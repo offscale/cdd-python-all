@@ -1,27 +1,46 @@
 repos:
--   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
-    hooks:
-    -   id: trailing-whitespace
-    -   id: check-yaml
-    -   id: check-added-large-files
--   repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.4.4
-    hooks:
-    -   id: ruff
-        args: [ --fix ]
-    -   id: ruff-format
--   repo: local
-    hooks:
-    -   id: build
-        name: Build
-        entry: uv build
-        language: system
-        pass_filenames: false
-        always_run: true
-    -   id: test-and-coverage-badges
-        name: Run Tests and Update Coverage Badges
-        entry: uv run python scripts/update_badges.py
-        language: system
-        pass_filenames: false
-        always_run: true
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v4.5.0
+  hooks:
+  - id: trailing-whitespace
+  - id: check-yaml
+  - id: check-added-large-files
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  rev: v0.4.4
+  hooks:
+  - id: ruff
+    args:
+    - --fix
+  - id: ruff-format
+- repo: local
+  hooks:
+  - id: build
+    name: Build
+    entry: uv build
+    language: system
+    pass_filenames: false
+    always_run: true
+  - id: test-and-coverage-badges
+    name: Run Tests and Update Coverage Badges
+    entry: uv run python scripts/update_badges.py
+    language: system
+    pass_filenames: false
+    always_run: true
+  - id: swagger-2-0-petstore
+    name: Swagger 2.0 Petstore Test
+    entry: uv run python scripts/run_petstore_test.py petstore.json .tmp_swagger
+    language: system
+    pass_filenames: false
+    always_run: true
+  - id: openapi-3-2-0-petstore
+    name: OpenAPI 3.2.0 Petstore Test
+    entry: uv run python scripts/run_petstore_test.py petstore_oas3.json .tmp_oas3
+    language: system
+    pass_filenames: false
+    always_run: true
+  - id: build-wasm
+    name: Build WASM
+    entry: uv run python scripts/build_wasm.py
+    language: system
+    pass_filenames: false
+    always_run: true

@@ -1,5 +1,5 @@
 import json
-from openapi_client.cli import process_from_openapi
+from openapi_client.cli import generate_from_openapi
 
 
 def test_cli_output_file(tmp_path):
@@ -12,7 +12,7 @@ def test_cli_output_file(tmp_path):
     spec_path.write_text(json.dumps(spec))
 
     out_file = tmp_path / "out" / "client.py"
-    process_from_openapi("to_sdk", str(spec_path), None, str(out_file))
+    generate_from_openapi("to_sdk", str(spec_path), None, str(out_file))
 
     assert (tmp_path / "out" / "src" / "client.py").exists()
 
@@ -38,7 +38,7 @@ def test_cli_to_server_with_models(tmp_path):
     spec_path.write_text(json.dumps(spec))
 
     out_dir = tmp_path / "out_server"
-    process_from_openapi("to_server", str(spec_path), None, str(out_dir))
+    generate_from_openapi("to_server", str(spec_path), None, str(out_dir))
 
     assert (out_dir / "main.py").exists()
     assert (out_dir / "models.py").exists()
@@ -71,7 +71,7 @@ def test_cli_to_sdk_cli_cdd(tmp_path, monkeypatch):
     spec_path.write_text(json.dumps(spec))
 
     out_dir = tmp_path / "out_sdk_cli"
-    process_from_openapi("to_sdk_cli", str(spec_path), None, str(out_dir))
+    generate_from_openapi("to_sdk_cli", str(spec_path), None, str(out_dir), tests=True)
 
     assert (out_dir / "src" / "cli_main.py").exists()
 
@@ -80,7 +80,7 @@ def test_cli_to_sdk_cli_cdd(tmp_path, monkeypatch):
         raise Exception("Mock error")
 
     monkeypatch.setattr(ast, "unparse", mock_unparse)
-    process_from_openapi("to_sdk_cli", str(spec_path), None, str(out_dir))
+    generate_from_openapi("to_sdk_cli", str(spec_path), None, str(out_dir))
 
 
 def test_cli_to_server_sqlalchemy_ast_fail(tmp_path, monkeypatch):
@@ -111,7 +111,7 @@ def test_cli_to_server_sqlalchemy_ast_fail(tmp_path, monkeypatch):
         raise Exception("Mock error")
 
     monkeypatch.setattr(ast, "unparse", mock_unparse)
-    process_from_openapi("to_server", str(spec_path), None, str(out_dir))
+    generate_from_openapi("to_server", str(spec_path), None, str(out_dir))
 
 
 def test_fastapi_emit(tmp_path):

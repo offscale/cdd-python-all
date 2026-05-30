@@ -5,12 +5,18 @@ Utility functions for generating API client methods.
 import re
 
 
+def to_snake_case(name: str) -> str:
+    """Convert PascalCase or camelCase to snake_case."""
+    s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
+    return re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
+
+
 def sanitize_name(name: str) -> str:
-    """Sanitize a string to be a valid Python identifier."""
+    """Sanitize a string to be a valid Python identifier in snake_case."""
     if not name:
         return ""
     sanitized = re.sub(r"\W|^(?=\d)", "_", name)
-    return sanitized
+    return to_snake_case(sanitized)
 
 
 def get_annotation_for_schema(s) -> str:

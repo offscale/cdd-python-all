@@ -38,6 +38,7 @@ class ASTTestExtractor(cst.CSTVisitor):
             node.visit(checker)
             if checker.found:
                 pass  # Just placeholder to satisfy that we look for it.
+        return None
 
 
 def extract_tests_from_ast(module: cst.Module, spec: OpenAPI) -> None:

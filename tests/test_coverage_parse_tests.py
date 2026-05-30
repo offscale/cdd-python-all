@@ -8,6 +8,12 @@ def test_parse_tests_coverage():
     code = """
 def test_stream_something():
     response = "text/event-stream"
+
+def test_stream_but_no_event_stream():
+    response = "application/json"
+
+def test_normal_function():
+    pass
 """
     module = cst.parse_module(code)
     extract_tests_from_ast(module, spec)
