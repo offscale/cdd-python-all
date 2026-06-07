@@ -1,3 +1,5 @@
+"""Test Utils"""
+
 from openapi_client.functions.utils import sanitize_name
 
 
@@ -11,6 +13,7 @@ def test_sanitize_name():
 
 
 def test_get_dummy_value_for_schema():
+    """Test test_get_dummy_value_for_schema."""
     from openapi_client.tests.emit import get_dummy_value_for_schema
     from openapi_client.models import Schema
 
@@ -27,6 +30,7 @@ def test_get_dummy_value_for_schema():
 
 
 def test_openapi_parse_external_refs():
+    """Test test_openapi_parse_external_refs."""
     import json
     from openapi_client.openapi.parse import parse_openapi_json
     from pathlib import Path
@@ -52,6 +56,7 @@ def test_openapi_parse_external_refs():
 
 
 def test_openapi_parse_external_refs_with_pointer():
+    """Test test_openapi_parse_external_refs_with_pointer."""
     import json
     from openapi_client.openapi.parse import parse_openapi_json
     from pathlib import Path
@@ -79,6 +84,7 @@ def test_openapi_parse_external_refs_with_pointer():
 
 
 def test_emit_function_body_param():
+    """Test test_emit_function_body_param."""
     from openapi_client.functions.emit import emit_function
     from openapi_client.models import Operation, Parameter, Schema
 
@@ -93,6 +99,7 @@ def test_emit_function_body_param():
 
 
 def test_openapi_parse_external_refs_exception():
+    """Test test_openapi_parse_external_refs_exception."""
     import json
     from openapi_client.openapi.parse import parse_openapi_json
 
@@ -107,6 +114,7 @@ def test_openapi_parse_external_refs_exception():
 
 
 def test_openapi_parse_external_refs_array():
+    """Test test_openapi_parse_external_refs_array."""
     import json
     from openapi_client.openapi.parse import parse_openapi_json
 

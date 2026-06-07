@@ -1,4 +1,8 @@
+"""Tests for test_coverage_more_branches_4.py."""
+
+
 def test_coverage_emit_branches_4():
+    """Test test_coverage_emit_branches_4."""
     from openapi_client.tests.emit import emit_tests
     from openapi_client.models import OpenAPI, PathItem, Operation, Parameter, Reference
 

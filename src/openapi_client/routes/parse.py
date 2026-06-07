@@ -21,7 +21,7 @@ def extract_from_code(code: str) -> OpenAPI:
     spec = OpenAPI(
         **{
             "openapi": "3.2.0",
-            "info": Info(title="Extracted API", version="0.0.1"),
+            "info": Info(title="Extracted API", version="0.0.2"),
             "paths": {},
             "components": Components(schemas={}),
         }

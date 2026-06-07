@@ -11,6 +11,7 @@ from openapi_client.sdk import (
     generate_docs_json,
     serve_json_rpc,
 )
+from openapi_client import mcp
 
 __all__ = [
     "ClientGenerator",
@@ -20,4 +21,5 @@ __all__ = [
     "generate_to_openapi",
     "generate_docs_json",
     "serve_json_rpc",
+    "mcp",
 ]

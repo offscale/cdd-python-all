@@ -1,3 +1,5 @@
+"""Tests for test_coverage_emit_functions_extra.py."""
+
 from openapi_client.models import (
     Operation,
     Parameter,
@@ -16,6 +18,7 @@ from openapi_client.tests.emit import (
 
 def test_emit_function_formData_and_no_path_vars():
     # Test path without "{}"
+    """Test test_emit_function_formData_and_no_path_vars."""
     path = "/no/vars/here"
     method = "post"
 
@@ -35,12 +38,14 @@ def test_emit_function_formData_and_no_path_vars():
 
 
 def test_get_dummy_value_for_file():
+    """Test test_get_dummy_value_for_file."""
     schema = Schema(type="file")
     val = get_dummy_value_for_schema(schema)
     assert val.value == 'b"dummy_content"'
 
 
 def test_get_stub_body_ref():
+    """Test test_get_stub_body_ref."""
     ref_schema = Reference(ref="#/components/schemas/Target")
     target_schema = Schema(
         type="object", properties={"some_prop": Schema(type="string")}
@@ -56,6 +61,7 @@ def test_get_stub_body_ref():
 
 
 def test_get_stub_body_prop_ref():
+    """Test test_get_stub_body_prop_ref."""
     ref_schema = Reference(ref="#/components/schemas/Target")
     target_schema = Schema(
         type="object", properties={"some_prop": Schema(type="string")}
@@ -80,6 +86,7 @@ def test_get_stub_body_prop_ref():
 
 
 def test_emit_operation_test_param_no_schema():
+    """Test test_emit_operation_test_param_no_schema."""
     param = Parameter(name="p", in_="query", type="string")
     op = Operation(operationId="test_param_type", parameters=[param])
     node = emit_operation_test("get", "/test", op)
@@ -87,6 +94,7 @@ def test_emit_operation_test_param_no_schema():
 
 
 def test_emit_function_with_path_vars():
+    """Test test_emit_function_with_path_vars."""
     path = "/users/{id}"
     method = "get"
 

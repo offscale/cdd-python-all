@@ -89,6 +89,12 @@ def emit_cli_sdk(spec: OpenAPI) -> str:
         f'    parser = argparse.ArgumentParser(description="{spec.info.title if spec.info else "API"} CLI")'
     )
     body.append('    subparsers = parser.add_subparsers(dest="command")')
+    body.append(
+        '    mcp_parser = subparsers.add_parser("mcp", help="Start the Model Context Protocol (MCP) server")'
+    )
+    body.append(
+        '    mcp_sse_parser = subparsers.add_parser("mcp_sse", help="Start the Model Context Protocol (MCP) SSE server")'
+    )
 
     for op_id, desc in operations:
         body.append(
@@ -101,6 +107,16 @@ def emit_cli_sdk(spec: OpenAPI) -> str:
     body.append("    c = Client()")
     body.append("    if not args.command:")
     body.append("        parser.print_help()")
+    body.append("        sys.exit(0)")
+    body.append("")
+    body.append('    if args.command == "mcp":')
+    body.append("        from mcp_server import start_mcp_server")
+    body.append("        start_mcp_server(c)")
+    body.append("        sys.exit(0)")
+    body.append("")
+    body.append('    if args.command == "mcp_sse":')
+    body.append("        from mcp_sse_server import start_mcp_sse_server")
+    body.append("        start_mcp_sse_server(c)")
     body.append("        sys.exit(0)")
     body.append("")
     body.append("    method = getattr(c, args.command)")

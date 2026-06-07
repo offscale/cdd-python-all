@@ -80,6 +80,56 @@ def emit_cli(spec: OpenAPI) -> cst.Module:
         )
     )
 
+    # mcp_parser = subparsers.add_parser("mcp", help="Start the Model Context Protocol (MCP) server")
+    main_body.append(
+        cst.SimpleStatementLine(
+            [
+                cst.Assign(
+                    targets=[cst.AssignTarget(target=cst.Name("mcp_parser"))],
+                    value=cst.Call(
+                        func=cst.Attribute(
+                            value=cst.Name("subparsers"), attr=cst.Name("add_parser")
+                        ),
+                        args=[
+                            cst.Arg(value=cst.SimpleString('"mcp"')),
+                            cst.Arg(
+                                value=cst.SimpleString(
+                                    '"Start the Model Context Protocol (MCP) server"'
+                                ),
+                                keyword=cst.Name("help"),
+                            ),
+                        ],
+                    ),
+                )
+            ]
+        )
+    )
+
+    # mcp_sse_parser = subparsers.add_parser("mcp_sse", help="Start the Model Context Protocol (MCP) SSE server")
+    main_body.append(
+        cst.SimpleStatementLine(
+            [
+                cst.Assign(
+                    targets=[cst.AssignTarget(target=cst.Name("mcp_sse_parser"))],
+                    value=cst.Call(
+                        func=cst.Attribute(
+                            value=cst.Name("subparsers"), attr=cst.Name("add_parser")
+                        ),
+                        args=[
+                            cst.Arg(value=cst.SimpleString('"mcp_sse"')),
+                            cst.Arg(
+                                value=cst.SimpleString(
+                                    '"Start the Model Context Protocol (MCP) SSE server"'
+                                ),
+                                keyword=cst.Name("help"),
+                            ),
+                        ],
+                    ),
+                )
+            ]
+        )
+    )
+
     if spec.paths:
         for path, path_item in spec.paths.items():
             for method in ["get", "post", "put", "delete", "patch"]:
@@ -212,6 +262,108 @@ def emit_cli(spec: OpenAPI) -> cst.Module:
                                         value=cst.Name("parser"),
                                         attr=cst.Name("print_help"),
                                     )
+                                )
+                            )
+                        ]
+                    ),
+                    cst.SimpleStatementLine(
+                        [
+                            cst.Expr(
+                                value=cst.Call(
+                                    func=cst.Attribute(
+                                        value=cst.Name("sys"), attr=cst.Name("exit")
+                                    ),
+                                    args=[cst.Arg(value=cst.Integer("0"))],
+                                )
+                            )
+                        ]
+                    ),
+                ]
+            ),
+        )
+    )
+
+    # if args.command == "mcp": ...
+    main_body.append(
+        cst.If(
+            test=cst.Comparison(
+                left=cst.Attribute(value=cst.Name("args"), attr=cst.Name("command")),
+                comparisons=[
+                    cst.ComparisonTarget(
+                        operator=cst.Equal(), comparator=cst.SimpleString('"mcp"')
+                    )
+                ],
+            ),
+            body=cst.IndentedBlock(
+                body=[
+                    cst.SimpleStatementLine(
+                        [
+                            cst.ImportFrom(
+                                module=cst.Name("mcp_server"),
+                                names=[
+                                    cst.ImportAlias(name=cst.Name("start_mcp_server"))
+                                ],
+                            )
+                        ]
+                    ),
+                    cst.SimpleStatementLine(
+                        [
+                            cst.Expr(
+                                value=cst.Call(
+                                    func=cst.Name("start_mcp_server"),
+                                    args=[cst.Arg(value=cst.Name("c"))],
+                                )
+                            )
+                        ]
+                    ),
+                    cst.SimpleStatementLine(
+                        [
+                            cst.Expr(
+                                value=cst.Call(
+                                    func=cst.Attribute(
+                                        value=cst.Name("sys"), attr=cst.Name("exit")
+                                    ),
+                                    args=[cst.Arg(value=cst.Integer("0"))],
+                                )
+                            )
+                        ]
+                    ),
+                ]
+            ),
+        )
+    )
+
+    # if args.command == "mcp_sse": ...
+    main_body.append(
+        cst.If(
+            test=cst.Comparison(
+                left=cst.Attribute(value=cst.Name("args"), attr=cst.Name("command")),
+                comparisons=[
+                    cst.ComparisonTarget(
+                        operator=cst.Equal(), comparator=cst.SimpleString('"mcp_sse"')
+                    )
+                ],
+            ),
+            body=cst.IndentedBlock(
+                body=[
+                    cst.SimpleStatementLine(
+                        [
+                            cst.ImportFrom(
+                                module=cst.Name("mcp_sse_server"),
+                                names=[
+                                    cst.ImportAlias(
+                                        name=cst.Name("start_mcp_sse_server")
+                                    )
+                                ],
+                            )
+                        ]
+                    ),
+                    cst.SimpleStatementLine(
+                        [
+                            cst.Expr(
+                                value=cst.Call(
+                                    func=cst.Name("start_mcp_sse_server"),
+                                    args=[cst.Arg(value=cst.Name("c"))],
                                 )
                             )
                         ]

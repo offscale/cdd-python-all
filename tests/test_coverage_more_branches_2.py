@@ -1,9 +1,12 @@
+"""Tests for test_coverage_more_branches_2.py."""
+
 import libcst as cst
 from openapi_client.models import OpenAPI, PathItem, Operation, Parameter
 from openapi_client.cli_sdk.parse import extract_cli_from_ast
 
 
 def test_cli_sdk_parse_branches():
+    """Test test_cli_sdk_parse_branches."""
     code = """
 parser.add_parser(var)
 parser.add_argument(var)
@@ -44,6 +47,7 @@ parser.add_argument("--noparams", help="desc")
 
 
 def test_cli_sdk_parse_branches_58_exit():
+    """Test test_cli_sdk_parse_branches_58_exit."""
     code = """
 parser.add_parser("test1")
 parser.add_argument("positional", help="desc")

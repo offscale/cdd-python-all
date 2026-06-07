@@ -1,3 +1,5 @@
+"""Tests for test_openapi.py."""
+
 import json
 from openapi_client.openapi.parse import parse_openapi_dict, parse_openapi_json
 from openapi_client.openapi.emit import emit_openapi_dict, emit_openapi_json
@@ -5,6 +7,7 @@ from openapi_client.models import OpenAPI
 
 
 def test_openapi_parse_emit():
+    """Test test_openapi_parse_emit."""
     spec_dict = {"openapi": "3.2.0", "info": {"title": "Test", "version": "1.0"}}
     spec_json = json.dumps(spec_dict)
 
@@ -27,6 +30,7 @@ def test_openapi_parse_emit():
 
 
 def test_openapi_swagger2_parse():
+    """Test test_openapi_swagger2_parse."""
     spec_dict = {
         "swagger": "2.0",
         "info": {"title": "Swagger 2", "version": "1.0"},

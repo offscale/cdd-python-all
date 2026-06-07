@@ -1,3 +1,5 @@
+"""Tests for test_scripts_and_utils.py."""
+
 import sys
 import runpy
 from unittest import mock
@@ -6,6 +8,7 @@ import pytest
 
 def test_fix_cli_extra():
     # Running the script directly
+    """Test test_fix_cli_extra."""
     with mock.patch(
         "builtins.open",
         mock.mock_open(
@@ -19,10 +22,12 @@ def test_fix_cli_extra():
 
 
 def test_run_manual_test():
+    """Test test_run_manual_test."""
     runpy.run_path("run_manual_test.py")
 
 
 def test_build_wasm(monkeypatch):
+    """Test test_build_wasm."""
     import scripts.build_wasm as bw
 
     # Test successful subprocess
@@ -46,6 +51,7 @@ def test_build_wasm(monkeypatch):
 
 
 def test_doc_coverage(tmp_path):
+    """Test test_doc_coverage."""
     import scripts.doc_coverage as dc
 
     # Create dummy files
@@ -72,6 +78,7 @@ def test_doc_coverage(tmp_path):
 
 
 def test_run_petstore_test(monkeypatch, tmp_path):
+    """Test test_run_petstore_test."""
     import scripts.run_petstore_test as rp
 
     # No args
@@ -100,6 +107,7 @@ def test_run_petstore_test(monkeypatch, tmp_path):
 
 
 def test_update_badges(monkeypatch):
+    """Test test_update_badges."""
     import scripts.update_badges as ub
 
     assert ub.get_color(95) == "brightgreen"
@@ -115,6 +123,8 @@ def test_update_badges(monkeypatch):
     with mock.patch("os.path.exists", return_value=True):
         # test failure
         class MockResult:
+            """Test MockResult."""
+
             returncode = 1
             stdout = "error"
 
@@ -124,10 +134,14 @@ def test_update_badges(monkeypatch):
 
         # interrogate failure
         class MockResult2:
+            """Test MockResult2."""
+
             returncode = 0
             stdout = "TOTAL 10 0 100%"
 
         class MockResult3:
+            """Test MockResult3."""
+
             returncode = 1
             stdout = "error"
 
@@ -137,10 +151,14 @@ def test_update_badges(monkeypatch):
 
         # success branch with actual: x%
         class MockResult4:
+            """Test MockResult4."""
+
             returncode = 0
             stdout = "TOTAL 10 0 100%"
 
         class MockResult5:
+            """Test MockResult5."""
+
             returncode = 0
             stdout = "actual: 80%"
 
@@ -155,6 +173,8 @@ def test_update_badges(monkeypatch):
 
         # success branch with actual: x.x%
         class MockResult6:
+            """Test MockResult6."""
+
             returncode = 0
             stdout = "actual: 80.5%"
 
@@ -164,6 +184,7 @@ def test_update_badges(monkeypatch):
 
 
 def test_build_wasm_more(monkeypatch):
+    """Test test_build_wasm_more."""
     import scripts.build_wasm as bw
 
     with mock.patch(
@@ -187,6 +208,7 @@ def test_build_wasm_more(monkeypatch):
 
 
 def test_run_petstore_test_no_tmp(monkeypatch, tmp_path):
+    """Test test_run_petstore_test_no_tmp."""
     import scripts.run_petstore_test as rp
 
     f = tmp_path / "dummy.json"
@@ -202,11 +224,14 @@ def test_run_petstore_test_no_tmp(monkeypatch, tmp_path):
 
 
 def test_update_badges_no_match(monkeypatch):
+    """Test test_update_badges_no_match."""
     import scripts.update_badges as ub
 
     with mock.patch("os.path.exists", return_value=True):
 
         class MockResult:
+            """Test MockResult."""
+
             returncode = 0
             stdout = "NO MATCH HERE"
 

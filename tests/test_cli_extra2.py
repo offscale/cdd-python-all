@@ -1,8 +1,11 @@
+"""Tests for test_cli_extra2.py."""
+
 import json
 from openapi_client.cli import generate_from_openapi
 
 
 def test_cli_output_file(tmp_path):
+    """Test test_cli_output_file."""
     spec = {
         "openapi": "3.0.0",
         "info": {"title": "Test API", "version": "1.0"},
@@ -18,6 +21,7 @@ def test_cli_output_file(tmp_path):
 
 
 def test_cli_to_server_with_models(tmp_path):
+    """Test test_cli_to_server_with_models."""
     spec = {
         "openapi": "3.0.0",
         "info": {"title": "Test API", "version": "1.0"},
@@ -45,6 +49,7 @@ def test_cli_to_server_with_models(tmp_path):
 
 
 def test_cli_to_sdk_cli_cdd(tmp_path, monkeypatch):
+    """Test test_cli_to_sdk_cli_cdd."""
     import ast
 
     spec = {
@@ -77,6 +82,7 @@ def test_cli_to_sdk_cli_cdd(tmp_path, monkeypatch):
 
     # Now make ast.unparse fail to cover the except block in cli_sdk_cdd/emit.py
     def mock_unparse(*args, **kwargs):
+        """Test mock_unparse."""
         raise Exception("Mock error")
 
     monkeypatch.setattr(ast, "unparse", mock_unparse)
@@ -84,6 +90,7 @@ def test_cli_to_sdk_cli_cdd(tmp_path, monkeypatch):
 
 
 def test_cli_to_server_sqlalchemy_ast_fail(tmp_path, monkeypatch):
+    """Test test_cli_to_server_sqlalchemy_ast_fail."""
     import ast
 
     spec = {
@@ -108,6 +115,7 @@ def test_cli_to_server_sqlalchemy_ast_fail(tmp_path, monkeypatch):
     out_dir = tmp_path / "out_server2"
 
     def mock_unparse(*args, **kwargs):
+        """Test mock_unparse."""
         raise Exception("Mock error")
 
     monkeypatch.setattr(ast, "unparse", mock_unparse)
@@ -115,6 +123,7 @@ def test_cli_to_server_sqlalchemy_ast_fail(tmp_path, monkeypatch):
 
 
 def test_fastapi_emit(tmp_path):
+    """Test test_fastapi_emit."""
     from openapi_client.fastapi.emit import emit_fastapi
     from openapi_client.models import OpenAPI, Info, PathItem, Operation
 
@@ -135,6 +144,7 @@ def test_fastapi_emit(tmp_path):
 
 
 def test_fastapi_parse():
+    """Test test_fastapi_parse."""
     import libcst as cst
     from openapi_client.fastapi.parse import extract_fastapi_from_ast
     from openapi_client.models import OpenAPI
@@ -156,6 +166,7 @@ def hello():
 
 
 def test_sqlalchemy_cdd_emit_no_components(tmp_path):
+    """Test test_sqlalchemy_cdd_emit_no_components."""
     from openapi_client.sqlalchemy_cdd.emit import emit_sqlalchemy
     from openapi_client.models import OpenAPI
 

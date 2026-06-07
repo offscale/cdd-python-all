@@ -1,3 +1,5 @@
+"""Tests for test_cli.py."""
+
 import json
 import pytest
 from openapi_client.cli import (
@@ -9,6 +11,7 @@ from openapi_client.cli import (
 
 
 def test_cli_sync_from_openapi(tmp_path):
+    """Test test_cli_sync_from_openapi."""
     spec = {
         "openapi": "3.2.0",
         "info": {"title": "Test API", "version": "1.0"},
@@ -26,6 +29,7 @@ def test_cli_sync_from_openapi(tmp_path):
 
 
 def test_cli_generate_to_openapi(tmp_path):
+    """Test test_cli_generate_to_openapi."""
     py_code = "class Client:\n    pass\n"
     py_path = tmp_path / "client.py"
     py_path.write_text(py_code)
@@ -39,6 +43,7 @@ def test_cli_generate_to_openapi(tmp_path):
 
 
 def test_cli_main_from_openapi(tmp_path, monkeypatch):
+    """Test test_cli_main_from_openapi."""
     spec = {
         "openapi": "3.2.0",
         "info": {"title": "Test API", "version": "1.0"},
@@ -89,6 +94,7 @@ def test_cli_main_from_openapi(tmp_path, monkeypatch):
 
 
 def test_cli_main_to_openapi(tmp_path, monkeypatch):
+    """Test test_cli_main_to_openapi."""
     py_code = "class Client:\n    pass\n"
     py_path = tmp_path / "client.py"
     py_path.write_text(py_code)
@@ -103,6 +109,7 @@ def test_cli_main_to_openapi(tmp_path, monkeypatch):
 
 
 def test_cli_generate_to_openapi_with_models(tmp_path):
+    """Test test_cli_generate_to_openapi_with_models."""
     py_code = "class Client:\n    pass\n"
     py_path = tmp_path / "client.py"
     py_path.write_text(py_code)
@@ -123,6 +130,7 @@ def test_cli_generate_to_openapi_with_models(tmp_path):
 
 
 def test_cli_sync_dir(tmp_path):
+    """Test test_cli_sync_dir."""
     project_dir = tmp_path / "project"
     project_dir.mkdir()
 
@@ -181,6 +189,7 @@ def test_get_pets():
 
 
 def test_cli_main_sync(tmp_path, monkeypatch):
+    """Test test_cli_main_sync."""
     project_dir = tmp_path / "project"
     project_dir.mkdir()
     client_py = project_dir / "client.py"
@@ -192,12 +201,14 @@ def test_cli_main_sync(tmp_path, monkeypatch):
 
 
 def test_cli_main_invalid(monkeypatch):
+    """Test test_cli_main_invalid."""
     monkeypatch.setattr("sys.argv", ["cdd-python"])
     with pytest.raises(SystemExit):
         main()
 
 
 def test_cli_to_docs_json(tmp_path, monkeypatch, capsys):
+    """Test test_cli_to_docs_json."""
     import json
 
     spec = {
@@ -286,6 +297,7 @@ def test_cli_to_docs_json(tmp_path, monkeypatch, capsys):
 
 
 def test_cli_to_docs_json_no_operation_id(tmp_path, monkeypatch, capsys):
+    """Test test_cli_to_docs_json_no_operation_id."""
     import json
 
     spec = {
@@ -314,6 +326,7 @@ def test_cli_to_docs_json_no_operation_id(tmp_path, monkeypatch, capsys):
 
 
 def test_generate_from_openapi_input_dir(tmp_path):
+    """Test test_generate_from_openapi_input_dir."""
     import json
 
     spec = {
@@ -331,6 +344,7 @@ def test_generate_from_openapi_input_dir(tmp_path):
 
 
 def test_generate_from_openapi_no_input(capsys):
+    """Test test_generate_from_openapi_no_input."""
     import pytest
 
     with pytest.raises(SystemExit):
@@ -338,6 +352,7 @@ def test_generate_from_openapi_no_input(capsys):
 
 
 def test_generate_to_openapi_cli(tmp_path):
+    """Test test_generate_to_openapi_cli."""
     py_code = 'import argparse\nparser = argparse.ArgumentParser()\nsubparsers = parser.add_subparsers()\nsubparsers.add_parser("test")'
     py_path = tmp_path / "cli_main.py"
     py_path.write_text(py_code)
@@ -353,6 +368,7 @@ def test_generate_to_openapi_cli(tmp_path):
 
 
 def test_sync_dir_with_cli(tmp_path):
+    """Test test_sync_dir_with_cli."""
     project_dir = tmp_path / "project"
     project_dir.mkdir()
     (project_dir / "cli_main.py").write_text(
@@ -364,6 +380,7 @@ def test_sync_dir_with_cli(tmp_path):
 
 
 def test_cli_main_from_openapi_missing_subcmd(monkeypatch, capsys):
+    """Test test_cli_main_from_openapi_missing_subcmd."""
     import pytest
 
     monkeypatch.setattr("sys.argv", ["cdd-python", "from_openapi"])
@@ -372,6 +389,7 @@ def test_cli_main_from_openapi_missing_subcmd(monkeypatch, capsys):
 
 
 def test_cli_to_docs_json_url(monkeypatch, capsys):
+    """Test test_cli_to_docs_json_url."""
     import json
 
     spec = {
@@ -389,16 +407,22 @@ def test_cli_to_docs_json_url(monkeypatch, capsys):
     }
 
     class MockResponse:
+        """Test MockResponse."""
+
         def read(self):
+            """Test read."""
             return json.dumps(spec).encode("utf-8")
 
         def __enter__(self):
+            """Test __enter__."""
             return self
 
         def __exit__(self, exc_type, exc_val, exc_tb):
+            """Test __exit__."""
             pass
 
     def mock_urlopen(req):
+        """Test mock_urlopen."""
         return MockResponse()
 
     import urllib.request
@@ -418,6 +442,7 @@ def test_cli_to_docs_json_url(monkeypatch, capsys):
 
 
 def test_generate_from_openapi_tests_flag(tmp_path):
+    """Test test_generate_from_openapi_tests_flag."""
     spec = {
         "openapi": "3.2.0",
         "info": {"title": "Test API", "version": "1.0"},

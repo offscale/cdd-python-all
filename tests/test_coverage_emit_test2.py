@@ -1,4 +1,8 @@
+"""Tests for test_coverage_emit_test2.py."""
+
+
 def test_emit_tests_other_param_exception_real():
+    """Test test_emit_tests_other_param_exception_real."""
     from openapi_client.tests.emit import emit_operation_test
     from openapi_client.models import Operation, Parameter
 
@@ -11,6 +15,7 @@ def test_emit_tests_other_param_exception_real():
 
 
 def test_emit_tests_body_param_exception_real():
+    """Test test_emit_tests_body_param_exception_real."""
     from openapi_client.tests.emit import emit_operation_test
     from openapi_client.models import Operation, Parameter
 

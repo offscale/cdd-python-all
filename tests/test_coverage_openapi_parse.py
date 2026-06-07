@@ -1,4 +1,8 @@
+"""Tests for test_coverage_openapi_parse.py."""
+
+
 def test_openapi_parse_external_refs_pointer_exception():
+    """Test test_openapi_parse_external_refs_pointer_exception."""
     import json
     from openapi_client.openapi.parse import parse_openapi_json
     from pathlib import Path
@@ -30,6 +34,7 @@ def test_openapi_parse_external_refs_pointer_exception():
 
 
 def test_openapi_parse_external_refs_pointer_exception_2():
+    """Test test_openapi_parse_external_refs_pointer_exception_2."""
     import json
     from openapi_client.openapi.parse import parse_openapi_json
     from pathlib import Path

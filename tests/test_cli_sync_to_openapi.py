@@ -1,9 +1,12 @@
+"""Tests for test_cli_sync_to_openapi.py."""
+
 import json
 from pathlib import Path
 from openapi_client.cli import generate_to_openapi
 
 
 def test_generate_to_openapi_dir(tmp_path: Path) -> None:
+    """Test test_generate_to_openapi_dir."""
     project_dir = tmp_path / "project"
     project_dir.mkdir()
 
@@ -28,7 +31,9 @@ def test_generate_to_openapi_dir(tmp_path: Path) -> None:
 
 
 def test_generate_to_openapi_empty_output(tmp_path: Path) -> None:
+    """Test test_generate_to_openapi_empty_output."""
     # Test when output_path is not given (it defaults to "openapi.json")
+    """Test test_generate_to_openapi_empty_output."""
     import os
 
     old_cwd = os.getcwd()

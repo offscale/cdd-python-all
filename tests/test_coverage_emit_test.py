@@ -1,4 +1,8 @@
+"""Tests for test_coverage_emit_test.py."""
+
+
 def test_emit_tests_xml_array():
+    """Test test_emit_tests_xml_array."""
     from openapi_client.tests.emit import emit_operation_test
     from openapi_client.models import Operation, RequestBody, MediaType, Schema
 
@@ -17,6 +21,7 @@ def test_emit_tests_xml_array():
 
 
 def test_emit_tests_empty_content():
+    """Test test_emit_tests_empty_content."""
     from openapi_client.tests.emit import emit_operation_test
     from openapi_client.models import Operation, RequestBody
 
@@ -26,6 +31,7 @@ def test_emit_tests_empty_content():
 
 
 def test_emit_tests_other_content():
+    """Test test_emit_tests_other_content."""
     from openapi_client.tests.emit import emit_operation_test
     from openapi_client.models import Operation, RequestBody, MediaType, Schema
 
@@ -40,6 +46,7 @@ def test_emit_tests_other_content():
 
 
 def test_get_stub_body_array_of_objects():
+    """Test test_get_stub_body_array_of_objects."""
     from openapi_client.tests.emit import get_stub_body
     from openapi_client.models import Schema
 
@@ -53,11 +60,15 @@ def test_get_stub_body_array_of_objects():
 
 
 def test_emit_tests_exception_content():
+    """Test test_emit_tests_exception_content."""
     from openapi_client.tests.emit import emit_operation_test
     from openapi_client.models import Operation, RequestBody
 
     class BadDict:
+        """Test BadDict."""
+
         def __contains__(self, item):
+            """Test __contains__."""
             raise Exception("Mock error")
 
     op = Operation.model_construct(
@@ -69,15 +80,19 @@ def test_emit_tests_exception_content():
 
 
 def test_emit_tests_body_param_exception():
+    """Test test_emit_tests_body_param_exception."""
     from openapi_client.tests.emit import emit_operation_test
     from openapi_client.models import Operation
 
     class BadParameter:
+        """Test BadParameter."""
+
         name = "body_param"
         in_ = "body"
 
         @property
         def schema_(self):
+            """Test schema_."""
             raise Exception("Mock error")
 
     op = Operation.model_construct(
@@ -90,6 +105,7 @@ def test_emit_tests_body_param_exception():
 
 
 def test_emit_tests_other_param():
+    """Test test_emit_tests_other_param."""
     from openapi_client.tests.emit import emit_operation_test
     from openapi_client.models import Operation, Parameter, Schema
 
@@ -104,14 +120,18 @@ def test_emit_tests_other_param():
 
 
 def test_emit_tests_request_body_exception():
+    """Test test_emit_tests_request_body_exception."""
     from openapi_client.tests.emit import emit_operation_test
     from openapi_client.models import Operation
 
     class BadRequestBody:
+        """Test BadRequestBody."""
+
         pass
 
         @property
         def content(self):
+            """Test content."""
             raise Exception("Mock error")
 
     op = Operation.model_construct(
@@ -122,15 +142,19 @@ def test_emit_tests_request_body_exception():
 
 
 def test_emit_tests_other_param_exception():
+    """Test test_emit_tests_other_param_exception."""
     from openapi_client.tests.emit import emit_operation_test
     from openapi_client.models import Operation
 
     class BadParameter3:
+        """Test BadParameter3."""
+
         name = "other_param_3"
         in_ = "query"
 
         @property
         def schema_(self):
+            """Test schema_."""
             raise Exception("Mock error")
 
     op = Operation.model_construct(

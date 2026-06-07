@@ -27,7 +27,7 @@ def get_version() -> str:
     try:
         return version("openapi-python-client")
     except PackageNotFoundError:  # pragma: no cover
-        return "0.0.1"
+        return "0.0.2"
 
 
 def apply_env_vars_to_parser(parser: argparse.ArgumentParser, prefix: str = "CDD_"):
@@ -153,7 +153,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "generated-client"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
     "pydantic==2.12.5",
     "pydantic-core==2.41.5",
@@ -292,8 +292,20 @@ def generate_from_openapi(
                 )
 
             from openapi_client.cli_sdk_cdd.emit import emit_cli_sdk
+            from openapi_client.cli_sdk.emit_mcp import emit_mcp_server
+            from openapi_client.cli_sdk.emit_mcp_sse import emit_mcp_sse_server
+            from openapi_client.cli_sdk.emit_mcp_adapter import emit_mcp_adapter
 
             (src_dir / "cli_main.py").write_text(emit_cli_sdk(spec), encoding="utf-8")
+            (src_dir / "mcp_server.py").write_text(
+                emit_mcp_server(spec), encoding="utf-8"
+            )
+            (src_dir / "mcp_sse_server.py").write_text(
+                emit_mcp_sse_server(spec), encoding="utf-8"
+            )
+            (src_dir / "mcp_adapter.py").write_text(
+                emit_mcp_adapter(spec), encoding="utf-8"
+            )
 
             if tests:
                 test_dir = out_dir / "test"
@@ -352,7 +364,7 @@ def generate_to_openapi(input_path: str, output_path: str) -> None:
             spec = OpenAPI(
                 **{
                     "openapi": "3.2.0",
-                    "info": Info(title="Extracted API", version="0.0.1"),
+                    "info": Info(title="Extracted API", version="0.0.2"),
                     "paths": {},
                     "components": Components(schemas={}),
                 }
@@ -414,7 +426,7 @@ def generate_to_openapi(input_path: str, output_path: str) -> None:
         spec = OpenAPI(
             **{
                 "openapi": "3.2.0",
-                "info": Info(title="Extracted API", version="0.0.1"),
+                "info": Info(title="Extracted API", version="0.0.2"),
                 "paths": {},
                 "components": Components(schemas={}),
             }
@@ -457,7 +469,7 @@ def sync_dir(project_dir: str) -> None:
     spec = OpenAPI(
         **{
             "openapi": "3.2.0",
-            "info": Info(title="Extracted API", version="0.0.1"),
+            "info": Info(title="Extracted API", version="0.0.2"),
             "paths": {},
             "components": Components(schemas={}),
         }
@@ -529,6 +541,214 @@ def sync_dir(project_dir: str) -> None:
             cli_py.write_text(emit_cli_sdk(spec), encoding="utf-8")
 
     print(f"Successfully synced {project_dir}")
+
+
+def run_mcp_server():
+    """Run an MCP server exposing generator commands over stdio."""
+
+    def send_response(id, result=None, error=None):
+        """Send a JSON-RPC response."""
+        resp = {"jsonrpc": "2.0", "id": id}
+        if error:
+            resp["error"] = error
+        else:
+            resp["result"] = result
+        sys.stdout.write(json.dumps(resp) + "\n")
+        sys.stdout.flush()
+
+    for line in sys.stdin:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            req = json.loads(line)
+            method = req.get("method")
+            params = req.get("params", {})
+            req_id = req.get("id")
+
+            if method == "initialize":
+                send_response(
+                    req_id,
+                    result={
+                        "protocolVersion": "2024-11-05",
+                        "capabilities": {"tools": {}, "resources": {}},
+                        "serverInfo": {
+                            "name": "cdd-generator",
+                            "version": get_version(),
+                        },
+                    },
+                )
+            elif method == "notifications/initialized":
+                pass
+            elif method == "notifications/cancelled":
+                # Cancellation of an ongoing request
+                pass
+            elif method == "notifications/progress":
+                # Progress tracking updates
+                pass
+            elif method == "close":
+                # Graceful Disconnect / Close
+                send_response(req_id, result={})
+                break
+            elif method == "ping":
+                send_response(req_id, result={})
+            elif method == "resources/list":
+                cursor = params.get("cursor")
+                send_response(
+                    req_id,
+                    result={
+                        "resources": [
+                            {
+                                "uri": "schema://current",
+                                "name": "Current OpenAPI Schema",
+                                "mimeType": "application/json",
+                            }
+                        ],
+                        "nextCursor": None,
+                    },
+                )
+            elif method == "resources/read":
+                uri = params.get("uri")
+                if uri == "schema://current":
+                    # For now just mock returning a schema structure since this is a meta layer
+                    send_response(
+                        req_id,
+                        result={
+                            "contents": [
+                                {
+                                    "uri": uri,
+                                    "mimeType": "application/json",
+                                    "text": '{"openapi": "3.0.0", "info": {"title": "cdd", "version": "1"}}',
+                                }
+                            ]
+                        },
+                    )
+                else:
+                    send_response(
+                        req_id, error={"code": -32602, "message": "Resource not found"}
+                    )
+            elif method == "tools/list":
+                cursor = params.get("cursor")
+                send_response(
+                    req_id,
+                    result={
+                        "tools": [
+                            {
+                                "name": "generate_to_openapi",
+                                "description": "Extract an OpenAPI spec from source code",
+                                "inputSchema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "input_path": {
+                                            "type": "string",
+                                            "description": "Path to source code",
+                                        },
+                                        "output_path": {
+                                            "type": "string",
+                                            "description": "Output path",
+                                        },
+                                    },
+                                    "required": ["input_path"],
+                                },
+                            },
+                            {
+                                "name": "generate_from_openapi",
+                                "description": "Generate SDK from OpenAPI specification",
+                                "inputSchema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "subcommand": {"type": "string"},
+                                        "input_path": {"type": "string"},
+                                        "output_dir": {"type": "string"},
+                                    },
+                                    "required": ["input_path"],
+                                },
+                            },
+                            {
+                                "name": "sync_dir",
+                                "description": "Sync code and spec in directory",
+                                "inputSchema": {
+                                    "type": "object",
+                                    "properties": {"project_dir": {"type": "string"}},
+                                    "required": ["project_dir"],
+                                },
+                            },
+                            {
+                                "name": "generate_docs_json",
+                                "description": "Generate Documentation JSON",
+                                "inputSchema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "input_path": {"type": "string"},
+                                        "output_file": {"type": "string"},
+                                    },
+                                    "required": ["input_path"],
+                                },
+                            },
+                        ],
+                        "nextCursor": None,
+                    },
+                )
+            elif method == "tools/call":
+                tool_name = params.get("name")
+                args = params.get("arguments", {})
+
+                from io import StringIO
+                import contextlib
+
+                buffer = StringIO()
+
+                try:
+                    with contextlib.redirect_stdout(buffer):
+                        if tool_name == "generate_to_openapi":
+                            generate_to_openapi(
+                                args.get("input_path"), args.get("output_path")
+                            )
+                        elif tool_name == "generate_from_openapi":
+                            generate_from_openapi(
+                                args.get("subcommand", "to_sdk"),
+                                args.get("input_path"),
+                                None,
+                                args.get("output_dir", "."),
+                            )
+                        elif tool_name == "sync_dir":
+                            sync_dir(args.get("project_dir"))
+                        elif tool_name == "generate_docs_json":
+                            generate_docs_json(
+                                args.get("input_path"),
+                                False,
+                                False,
+                                args.get("output_file"),
+                            )
+                        else:
+                            send_response(
+                                req_id,
+                                error={"code": -32601, "message": "Tool not found"},
+                            )
+                            continue
+
+                    send_response(
+                        req_id,
+                        result={
+                            "content": [{"type": "text", "text": buffer.getvalue()}]
+                        },
+                    )
+                except Exception as e:
+                    send_response(
+                        req_id,
+                        result={
+                            "content": [{"type": "text", "text": str(e)}],
+                            "isError": True,
+                        },
+                    )
+            else:
+                if req_id is not None:
+                    send_response(
+                        req_id, error={"code": -32601, "message": "Method not found"}
+                    )
+        except Exception as e:
+            if "req_id" in locals() and req_id is not None:
+                send_response(req_id, error={"code": -32603, "message": str(e)})
 
 
 def serve_json_rpc(port: int, listen: str):
@@ -756,6 +976,8 @@ def main() -> None:
         "-l", "--listen", type=str, default="0.0.0.0", help="Address to listen on"
     )
 
+    subparsers.add_parser("mcp", help="Run the generator as an MCP server over stdio.")
+
     apply_env_vars_to_parser(parser)
     args = parser.parse_args()
 
@@ -786,6 +1008,8 @@ def main() -> None:
         generate_docs_json(args.input, args.no_imports, args.no_wrapping, args.output)
     elif args.command == "serve_json_rpc":
         serve_json_rpc(args.port, args.listen)
+    elif args.command == "mcp":
+        run_mcp_server()
 
 
 if __name__ == "__main__":  # pragma: no cover

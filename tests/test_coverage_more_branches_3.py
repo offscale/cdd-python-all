@@ -1,8 +1,11 @@
+"""Tests for test_coverage_more_branches_3.py."""
+
 from openapi_client.models import OpenAPI, PathItem, Operation, Parameter, Schema
 from openapi_client.cli_sdk_cdd.emit import emit_cli_sdk
 
 
 def test_cli_sdk_cdd_emit_branches():
+    """Test test_cli_sdk_cdd_emit_branches."""
     spec = OpenAPI(openapi="3.1.0", info={"title": "Test", "version": "1.0.0"})
 
     # test1: no parameters (58->78)

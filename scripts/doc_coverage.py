@@ -23,7 +23,7 @@ def calculate_doc_coverage(directory):
             if ast.get_docstring(tree):
                 with_docs += 1
             else:
-                pass  # print(f"Missing docstring: Module {path}")
+                print(f"Missing docstring: Module {path}")
 
             for node in ast.walk(tree):
                 if isinstance(
@@ -38,7 +38,7 @@ def calculate_doc_coverage(directory):
                     if ast.get_docstring(node):
                         with_docs += 1
                     else:
-                        pass  # pragma: no cover
+                        print(f"Missing docstring: {path} :: {node.name}")
 
     percent = (with_docs / total * 100) if total > 0 else 0
     return percent, with_docs, total

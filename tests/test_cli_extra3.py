@@ -1,3 +1,5 @@
+"""Tests for test_cli_extra3.py."""
+
 import json
 from openapi_client.cli import generate_from_openapi, generate_to_openapi
 

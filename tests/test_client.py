@@ -1,3 +1,5 @@
+"""Tests for test_client.py."""
+
 import libcst as cst
 from openapi_client.models import OpenAPI
 from openapi_client.routes.emit import ClientGenerator
@@ -9,18 +11,19 @@ from openapi_client.tests.parse import extract_tests_from_ast
 
 
 def test_extract_mock_and_test():
-    mock_code = """
+    """Test test_extract_mock_and_test."""
+    mock_code = '''
 from fastapi import FastAPI
 app = FastAPI()
 
 @app.get("/pets")
 def get_pets():
-    \"\"\"Summary
+    """Summary
 
     Description
-    \"\"\"
+    """
     pass
-"""
+'''
     mock_module = cst.parse_module(mock_code)
     spec = OpenAPI(openapi="3.2.0", info={"title": "Test", "version": "1.0"})
     extract_mocks_from_ast(mock_module, spec)
@@ -28,15 +31,17 @@ def get_pets():
     assert spec.paths["/pets"].get.summary == "Summary"
     assert spec.paths["/pets"].get.description == "Description"
 
-    test_code = """
+    test_code = '''
 def test_get_pets():
+    """Test test_get_pets."""
     pass
-"""
+'''
     test_module = cst.parse_module(test_code)
     extract_tests_from_ast(test_module, spec)
 
 
 def test_parse_openapi():
+    """Test test_parse_openapi."""
     spec_dict = {
         "openapi": "3.2.0",
         "info": {"title": "Example API", "version": "1.0.0"},
@@ -57,6 +62,7 @@ def test_parse_openapi():
 
 
 def test_generate_code():
+    """Test test_generate_code."""
     spec_dict = {
         "openapi": "3.2.0",
         "info": {"title": "Example API", "version": "1.0.0"},
@@ -109,12 +115,13 @@ def test_generate_code():
 
 
 def test_extract_code():
-    code = """
+    """Test test_extract_code."""
+    code = '''
 class Pet(BaseModel):
-    \"\"\"A pet
+    """A pet
 
     This represents a pet in the system.
-    \"\"\"
+    """
     id: Optional[int] = None
     name: Optional[str] = None
     price: Optional[float] = None
@@ -122,15 +129,15 @@ class Pet(BaseModel):
 
 class Client:
     def get_pets(self):
-        \"\"\"Get all pets
+        """Get all pets
 
         Returns all pets.
-        \"\"\"
+        """
         pass
 
     def post_pets(self):
         pass
-"""
+'''
     spec = extract_from_code(code)
     assert spec.openapi == "3.2.0"
     assert spec.paths["/pets"].post.operationId == "post_pets"
@@ -158,6 +165,7 @@ class Client:
 
 
 def test_emit_tests_and_mocks():
+    """Test test_emit_tests_and_mocks."""
     spec_dict = {
         "openapi": "3.2.0",
         "info": {"title": "Example API", "version": "1.0.0"},

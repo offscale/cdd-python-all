@@ -1,3 +1,5 @@
+"""Tests for test_coverage_more_branches.py."""
+
 import libcst as cst
 from unittest.mock import patch
 from openapi_client.classes.parse import ClassExtractor, extract_classes_from_ast
@@ -11,6 +13,7 @@ from openapi_client.models import Schema
 
 def test_classes_emit_branches():
     # 67->71: empty schemas
+    """Test test_classes_emit_branches."""
     emit_classes({})
 
     # 69->68: non-object schema
@@ -22,7 +25,9 @@ def test_classes_emit_branches():
 
 
 def test_classes_parse_branches():
+    """Test test_classes_parse_branches."""
     # We will construct a cst.Module with various class definitions to hit the branches.
+    """Test test_classes_parse_branches."""
     code = """
 class MyClass:
     # 45->44: statement is not SimpleStatementLine (it's a FunctionDef)
@@ -49,6 +54,7 @@ class MyClass:
 
 
 def test_classes_parse_schema_properties_none():
+    """Test test_classes_parse_schema_properties_none."""
     code = "class MyClass:\n    prop: int\n"
     module = cst.parse_module(code)
     spec = OpenAPI(openapi="3.1.0", info={"title": "Test", "version": "1.0.0"})
@@ -63,6 +69,7 @@ def test_classes_parse_schema_properties_none():
 
 
 def test_classes_parse_components_none():
+    """Test test_classes_parse_components_none."""
     code = "class MyClass:\n    pass\n"
     module = cst.parse_module(code)
     spec = OpenAPI(openapi="3.1.0", info={"title": "Test", "version": "1.0.0"})
@@ -72,20 +79,26 @@ def test_classes_parse_components_none():
 
 
 class MockSchemaForProperties:
+    """Test MockSchemaForProperties."""
+
     def __init__(self, **kwargs):
+        """Test __init__."""
         self._properties = None
 
     @property
     def properties(self):
+        """Test properties."""
         return self._properties
 
     @properties.setter
     def properties(self, value):
         # ignore assignment
+        """Test properties."""
         pass
 
 
 def test_classes_parse_schema_properties_none_fix():
+    """Test test_classes_parse_schema_properties_none_fix."""
     code = "class MyClass:\n    prop: int\n"
     module = cst.parse_module(code)
     spec = OpenAPI(openapi="3.1.0", info={"title": "Test", "version": "1.0.0"})
@@ -95,6 +108,7 @@ def test_classes_parse_schema_properties_none_fix():
 
 
 def test_cli_sdk_emit_branches():
+    """Test test_cli_sdk_emit_branches."""
     spec = OpenAPI(openapi="3.1.0", info={"title": "Test", "version": "1.0.0"})
 
     # Path with an operation that has NO parameters (hits 127->85)

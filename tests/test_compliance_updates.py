@@ -1,3 +1,5 @@
+"""Tests for test_compliance_updates.py."""
+
 import libcst as cst
 from openapi_client.models import OpenAPI, Operation, Parameter, Schema
 from openapi_client.functions.emit import emit_function
@@ -6,6 +8,7 @@ from openapi_client.mocks.parse import MockServerExtractor
 
 def test_emit_complex_query_parameter():
     # spaceDelimited, pipeDelimited
+    """Test test_emit_complex_query_parameter."""
     op = Operation(
         operationId="get_things",
         parameters=[
@@ -32,6 +35,7 @@ def test_emit_complex_query_parameter():
 
 
 def test_mock_streaming_extraction():
+    """Test test_mock_streaming_extraction."""
     spec = OpenAPI(openapi="3.2.0", info={"title": "test", "version": "1.0"})
     extractor = MockServerExtractor(spec)
     module = cst.parse_module(
@@ -44,6 +48,7 @@ def test_mock_streaming_extraction():
 
 
 def test_parse_sqlalchemy_cdd():
+    """Test test_parse_sqlalchemy_cdd."""
     from openapi_client.sqlalchemy_cdd.parse import parse_sqlalchemy_cdd
     from openapi_client.models import OpenAPI
     import libcst as cst
@@ -55,6 +60,7 @@ def test_parse_sqlalchemy_cdd():
 
 
 def test_parse_cli_sdk_cdd():
+    """Test test_parse_cli_sdk_cdd."""
     from openapi_client.cli_sdk_cdd.parse import parse_cli_sdk_cdd
     from openapi_client.models import OpenAPI
     import libcst as cst
@@ -66,6 +72,7 @@ def test_parse_cli_sdk_cdd():
 
 
 def test_emit_function_requestBody():
+    """Test test_emit_function_requestBody."""
     from openapi_client.models import Operation, RequestBody
     from openapi_client.functions.emit import emit_function
 
@@ -78,6 +85,7 @@ def test_emit_function_requestBody():
 
 
 def test_emit_tests():
+    """Test test_emit_tests."""
     from openapi_client.models import (
         OpenAPI,
         Operation,
@@ -126,6 +134,7 @@ def test_emit_tests():
 
 
 def test_get_dummy_value_for_schema():
+    """Test test_get_dummy_value_for_schema."""
     from openapi_client.tests.emit import get_dummy_value_for_schema
     from openapi_client.models import Schema
 
@@ -147,6 +156,7 @@ def test_get_dummy_value_for_schema():
 
 
 def test_emit_tests_more():
+    """Test test_emit_tests_more."""
     from openapi_client.models import (
         OpenAPI,
         Operation,
@@ -200,12 +210,16 @@ def test_emit_tests_more():
 
 
 def test_emit_tests_exception():
+    """Test test_emit_tests_exception."""
     from openapi_client.models import OpenAPI, Operation, RequestBody, PathItem
     from openapi_client.tests.emit import emit_tests
 
     # Bypass pydantic validation to force an exception in the try block
     class Bad:
+        """Test Bad."""
+
         def __contains__(self, item):
+            """Test __contains__."""
             raise Exception("Mock error")
 
     rb = RequestBody.model_construct(content=Bad())

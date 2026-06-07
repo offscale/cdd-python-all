@@ -1,9 +1,12 @@
+"""Tests for test_coverage_more_branches_8.py."""
+
 from openapi_client.cli import generate_from_openapi
 from openapi_client.openapi.parse import parse_openapi_dict
 import json
 
 
 def test_cli_loop_skip(tmp_path):
+    """Test test_cli_loop_skip."""
     spec = {
         "openapi": "3.0.0",
         "info": {"title": "Test", "version": "1.0"},
@@ -23,6 +26,7 @@ def test_cli_loop_skip(tmp_path):
 
 
 def test_openapi_parse_empty_part(tmp_path):
+    """Test test_openapi_parse_empty_part."""
     external_file = tmp_path / "ext.json"
     external_file.write_text(
         json.dumps({"components": {"schemas": {"A": {"type": "string"}}}})
@@ -43,6 +47,7 @@ def test_openapi_parse_empty_part(tmp_path):
 
 
 def test_openapi_parse_parameters_list(tmp_path):
+    """Test test_openapi_parse_parameters_list."""
     from openapi_client.openapi.parse import parse_openapi_dict
 
     spec = {

@@ -1,3 +1,5 @@
+"""Tests for test_coverage_more_branches_6.py."""
+
 import pytest
 import libcst as cst
 from openapi_client.models import OpenAPI, PathItem, Operation, Parameter
@@ -12,6 +14,7 @@ from pathlib import Path
 
 
 def test_fastapi_parse_edge_cases():
+    """Test test_fastapi_parse_edge_cases."""
     code = """
 @app.get() # No args
 @app.get(path_var) # Not a simple string
@@ -40,6 +43,7 @@ def existing(): pass
 
 def test_functions_emit_edge_cases():
     # param with empty name and in=body
+    """Test test_functions_emit_edge_cases."""
     p1 = Parameter(name="", **{"in": "body"})
     # param with empty name and in=query
     p2 = Parameter(name="", **{"in": "query"})
@@ -64,6 +68,7 @@ def test_functions_emit_edge_cases():
 
 
 def test_functions_parse_edge_cases():
+    """Test test_functions_parse_edge_cases."""
     code = """
 from typing import List, Dict, Tuple
 
@@ -87,6 +92,7 @@ def get_something(
 
 
 def test_mocks_parse_edge_cases():
+    """Test test_mocks_parse_edge_cases."""
     code = """
 @app.get() # No args
 @app.get(path_var) # Not a string
@@ -110,6 +116,7 @@ def something():
 
 
 def test_cli_edge_cases():
+    """Test test_cli_edge_cases."""
     import unittest.mock as mock
 
     # Run serve_json_rpc to cover that branch
@@ -156,7 +163,9 @@ def test_cli_edge_cases():
 
 
 def test_cli_param_no_name():
+    """Test test_cli_param_no_name."""
     # To cover 112->111 in cli.py, operation with parameter with no name
+    """Test test_cli_param_no_name."""
     from openapi_client.cli import generate_from_openapi
 
     spec_json = """
@@ -188,15 +197,20 @@ def test_cli_param_no_name():
 
 
 def test_openapi_parse_edge_cases():
+    """Test test_openapi_parse_edge_cases."""
     # missing branches in openapi/parse.py: 19->37, 32->31, 55->57
+    """Test test_openapi_parse_edge_cases."""
     pass
 
 
 def test_sqlalchemy_emit_edge_cases():
+    """Test test_sqlalchemy_emit_edge_cases."""
     # missing branches in sqlalchemy_cdd/emit.py: 36->35
+    """Test test_sqlalchemy_emit_edge_cases."""
     pass
 
 
 def test_mocks_emit_edge_cases():
     # missing branches in mocks/emit.py: 43->42
+    """Test test_mocks_emit_edge_cases."""
     pass

@@ -1,3 +1,5 @@
+"""Tests for test_coverage_more_branches_7.py."""
+
 import json
 import pytest
 from unittest.mock import patch, MagicMock
@@ -7,6 +9,7 @@ from openapi_client.models import OpenAPI, PathItem, Operation, Schema, Info, Co
 
 
 def test_cli_docs_json_missing_branches(tmp_path):
+    """Test test_cli_docs_json_missing_branches."""
     from openapi_client.cli import generate_docs_json
 
     spec = {
@@ -29,6 +32,7 @@ def test_cli_docs_json_missing_branches(tmp_path):
 
 
 def test_openapi_to_cdd_project_invalid_subcommand(tmp_path):
+    """Test test_openapi_to_cdd_project_invalid_subcommand."""
     from openapi_client.cli import main
 
     spec = {
@@ -46,6 +50,7 @@ def test_openapi_to_cdd_project_invalid_subcommand(tmp_path):
 
 
 def test_generate_to_openapi_snapshot_exists(tmp_path):
+    """Test test_generate_to_openapi_snapshot_exists."""
     from openapi_client.cli import generate_to_openapi
 
     snapshot = tmp_path / "openapi.snapshot.json"
@@ -63,6 +68,7 @@ def test_generate_to_openapi_snapshot_exists(tmp_path):
 
 
 def test_generate_to_openapi_no_client_py_but_models_py(tmp_path):
+    """Test test_generate_to_openapi_no_client_py_but_models_py."""
     from openapi_client.cli import generate_to_openapi
 
     models_py = tmp_path / "models.py"
@@ -72,6 +78,7 @@ def test_generate_to_openapi_no_client_py_but_models_py(tmp_path):
 
 
 def test_sync_project_src_exists_cli_missing(tmp_path):
+    """Test test_sync_project_src_exists_cli_missing."""
     from openapi_client.cli import sync_dir
 
     (tmp_path / "src").mkdir()
@@ -89,6 +96,7 @@ def test_sync_project_src_exists_cli_missing(tmp_path):
 
 
 def test_cli_main_invalid_command():
+    """Test test_cli_main_invalid_command."""
     from openapi_client.cli import main
 
     with patch("argparse.ArgumentParser.parse_args") as mock_parse:
@@ -99,6 +107,7 @@ def test_cli_main_invalid_command():
 
 
 def test_functions_emit_missing_branches():
+    """Test test_functions_emit_missing_branches."""
     from openapi_client.functions.emit import emit_functions
     from unittest.mock import Mock
 
@@ -124,6 +133,7 @@ def test_functions_emit_missing_branches():
 
 
 def test_functions_parse_missing_branches():
+    """Test test_functions_parse_missing_branches."""
     from openapi_client.functions.parse import FunctionExtractor
 
     spec = OpenAPI(
@@ -154,6 +164,7 @@ class MyClient:
 
 
 def test_mocks_emit_missing_branches():
+    """Test test_mocks_emit_missing_branches."""
     from openapi_client.mocks.emit import emit_mock_server
 
     spec = OpenAPI(
@@ -165,6 +176,7 @@ def test_mocks_emit_missing_branches():
 
 
 def test_mocks_parse_missing_branches():
+    """Test test_mocks_parse_missing_branches."""
     from openapi_client.mocks.parse import MockServerExtractor
 
     spec = OpenAPI(openapi="3.0", info=Info(title="t", version="1"))
@@ -192,6 +204,7 @@ def route3():
 
 
 def test_openapi_parse_missing_branches(tmp_path):
+    """Test test_openapi_parse_missing_branches."""
     from openapi_client.openapi.parse import parse_openapi_dict
 
     external_file = tmp_path / "ext.json"
@@ -214,6 +227,7 @@ def test_openapi_parse_missing_branches(tmp_path):
 
 
 def test_sqlalchemy_cdd_emit_missing_branches():
+    """Test test_sqlalchemy_cdd_emit_missing_branches."""
     from openapi_client.sqlalchemy_cdd.emit import emit_sqlalchemy
 
     spec = OpenAPI(
