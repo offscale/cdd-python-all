@@ -34,7 +34,7 @@ def test_emit_function_formData_and_no_path_vars():
 
     func_node = emit_function(method, path, op)
     assert func_node is not None
-    assert func_node.name.value == "test_formData_op"
+    assert func_node.name.value == "test_form_data_op"
 
 
 def test_get_dummy_value_for_file():

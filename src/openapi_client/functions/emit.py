@@ -333,12 +333,12 @@ def emit_function(method: str, path: str, operation: Operation) -> cst.FunctionD
 
     req_body = cst.IndentedBlock(body=body_statements)
 
-    import re
-
     # Use the operationId as the method name if present, else synthesize
     raw_op_id = operation.operationId or f"{method}_{path.replace('/', '_').strip('_')}"
     # Sanitize for valid python identifier
-    operation_id = re.sub(r"\W|^(?=\d)", "_", raw_op_id)
+    from openapi_client.functions.utils import sanitize_name
+
+    operation_id = sanitize_name(raw_op_id)
 
     return cst.FunctionDef(
         name=cst.Name(operation_id),

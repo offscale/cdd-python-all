@@ -214,6 +214,7 @@ def generate_from_openapi(
     no_github_actions: bool = False,
     no_installable_package: bool = False,
     tests: bool = False,
+    mcp: bool = False,
 ) -> None:
     """Process from_openapi subcommands."""
     if not output_dir:
@@ -297,15 +298,16 @@ def generate_from_openapi(
             from openapi_client.cli_sdk.emit_mcp_adapter import emit_mcp_adapter
 
             (src_dir / "cli_main.py").write_text(emit_cli_sdk(spec), encoding="utf-8")
-            (src_dir / "mcp_server.py").write_text(
-                emit_mcp_server(spec), encoding="utf-8"
-            )
-            (src_dir / "mcp_sse_server.py").write_text(
-                emit_mcp_sse_server(spec), encoding="utf-8"
-            )
-            (src_dir / "mcp_adapter.py").write_text(
-                emit_mcp_adapter(spec), encoding="utf-8"
-            )
+            if mcp:
+                (src_dir / "mcp_server.py").write_text(
+                    emit_mcp_server(spec), encoding="utf-8"
+                )
+                (src_dir / "mcp_sse_server.py").write_text(
+                    emit_mcp_sse_server(spec), encoding="utf-8"
+                )
+                (src_dir / "mcp_adapter.py").write_text(
+                    emit_mcp_adapter(spec), encoding="utf-8"
+                )
 
             if tests:
                 test_dir = out_dir / "test"
@@ -879,6 +881,11 @@ def main() -> None:
         action="store_true",
         help="Generate integration tests and mocks.",
     )
+    from_openapi_parser.add_argument(
+        "--mcp",
+        action="store_true",
+        help="Generate Model Context Protocol (MCP) server and adapter.",
+    )
 
     from_openapi_subparsers = from_openapi_parser.add_subparsers(
         dest="from_openapi_command", required=False
@@ -914,6 +921,11 @@ def main() -> None:
             "--tests",
             action="store_true",
             help="Generate integration tests and mocks.",
+        )
+        p.add_argument(
+            "--mcp",
+            action="store_true",
+            help="Generate Model Context Protocol (MCP) server and adapter.",
         )
 
     to_openapi_parser = subparsers.add_parser(

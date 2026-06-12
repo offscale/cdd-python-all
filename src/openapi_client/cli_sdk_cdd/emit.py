@@ -75,7 +75,9 @@ def emit_cli_sdk(spec: OpenAPI) -> str:
                             }
 
                     # Call python-cdd to emit argument_parser function
-                    arg_ast = argparse_function(ir, "set_cli_args_" + op_id)
+                    arg_ast = argparse_function(
+                        ir, function_name="set_cli_args_" + op_id
+                    )
                     try:
                         code = ast.unparse(arg_ast)
                         body.append(code)
@@ -104,7 +106,14 @@ def emit_cli_sdk(spec: OpenAPI) -> str:
 
     body.append("")
     body.append("    args = parser.parse_args()")
-    body.append("    c = Client()")
+    body.append("    import os")
+    if getattr(spec, "servers", None) and len(spec.servers) > 0:
+        default_url = spec.servers[0].url
+    else:
+        default_url = "http://localhost:8080/v2"
+    body.append(
+        f'    c = Client(base_url=os.environ.get("API_BASE_URL", "{default_url}"))'
+    )
     body.append("    if not args.command:")
     body.append("        parser.print_help()")
     body.append("        sys.exit(0)")
@@ -128,7 +137,7 @@ def emit_cli_sdk(spec: OpenAPI) -> str:
     body.append("    main()")
     body.append("")
 
-    return "\\n".join(body)
+    return "\n".join(body)
 
 
 # OpenAPI 3.2.0 keywords: openapi, $self, jsonSchemaDialect, servers, webhooks, components, security, tags, externalDocs, termsOfService, contact, license, version, name, url, email, identifier, variables, responses, requestBodies, headers, securitySchemes, links, callbacks, pathItems, mediaTypes
