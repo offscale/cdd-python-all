@@ -457,3 +457,40 @@ def test_generate_from_openapi_tests_flag(tmp_path):
     assert (out_dir / "src" / "client.py").exists()
     assert (out_dir / "test" / "test_client.py").exists()
     assert (out_dir / "test" / "mock_server.py").exists()
+
+
+def test_generate_from_openapi_to_sdk_cli_tests(tmp_path):
+    """Test to_sdk_cli with tests."""
+    spec = {
+        "openapi": "3.2.0",
+        "info": {"title": "Test API", "version": "1.0"},
+        "paths": {},
+    }
+    spec_path = tmp_path / "openapi.json"
+    spec_path.write_text(json.dumps(spec))
+
+    out_dir = tmp_path / "out_cli_tests"
+    generate_from_openapi("to_sdk_cli", str(spec_path), None, str(out_dir), tests=True)
+
+    assert (out_dir / "src" / "cli_main.py").exists()
+    assert (out_dir / "test" / "test_client.py").exists()
+    assert (out_dir / "test" / "mock_server.py").exists()
+
+
+def test_generate_from_openapi_to_sdk_cli_mcp(tmp_path):
+    """Test to_sdk_cli with mcp."""
+    spec = {
+        "openapi": "3.2.0",
+        "info": {"title": "Test API", "version": "1.0"},
+        "paths": {},
+    }
+    spec_path = tmp_path / "openapi.json"
+    spec_path.write_text(json.dumps(spec))
+
+    out_dir = tmp_path / "out_cli_mcp"
+    generate_from_openapi("to_sdk_cli", str(spec_path), None, str(out_dir), mcp=True)
+
+    assert (out_dir / "src" / "cli_main.py").exists()
+    assert (out_dir / "src" / "mcp_server.py").exists()
+    assert (out_dir / "src" / "mcp_sse_server.py").exists()
+    assert (out_dir / "src" / "mcp_adapter.py").exists()

@@ -14,13 +14,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
     - name: Set up Python
       uses: actions/setup-python@v6
       with:
         python-version: '3.11'
     - name: Checkout Test Harness
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       with:
         repository: SamuelMarks/cdd-openapi-test-harness
         path: cdd-openapi-test-harness
@@ -60,7 +60,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
     - uses: actions/download-artifact@v8
       with:
         name: python-build

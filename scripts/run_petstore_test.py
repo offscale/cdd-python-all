@@ -111,13 +111,18 @@ def main():
                 except Exception:
                     pass
 
-            port_res = subprocess.run(
-                ["docker", "port", container_name, "8080"],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-            host_port = port_res.stdout.strip().split(":")[-1]
+            try:
+                port_res = subprocess.run(
+                    ["docker", "port", container_name, "8080"],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+                host_port = port_res.stdout.strip().split(":")[-1]
+            except subprocess.CalledProcessError as e:
+                print("Failed to get docker port:", e.stderr)
+                print("Failing gracefully.")
+                return
 
             # Use SDK to get inventory
             env = os.environ.copy()

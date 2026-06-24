@@ -27,7 +27,7 @@ def get_version() -> str:
     try:
         return version("openapi-python-client")
     except PackageNotFoundError:  # pragma: no cover
-        return "0.0.2"
+        return "0.0.3"
 
 
 def apply_env_vars_to_parser(parser: argparse.ArgumentParser, prefix: str = "CDD_"):
@@ -139,26 +139,45 @@ def generate_docs_json(
         print(json.dumps(result, indent=2))
 
 
-def scaffold_package(out_dir: Path):
+def scaffold_package(out_dir: Path, is_server: bool = False):
     """Generate pyproject.toml and github actions."""
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Base dependencies
+    deps = [
+        '    "pydantic==2.12.5",',
+        '    "pydantic-core==2.41.5",',
+        '    "urllib3",',
+        '    "eval_type_backport",',
+    ]
+
+    if is_server:
+        deps.extend(
+            [
+                '    "fastapi",',
+                '    "uvicorn",',
+                '    "sqlalchemy",',
+                '    "faker",',
+                '    "pytest",',
+                '    "httpx",',
+            ]
+        )
+
+    deps_str = "\n".join(deps)
 
     # Generate pyproject.toml
     pyproject_toml = out_dir / "pyproject.toml"
     if not pyproject_toml.exists():
         pyproject_toml.write_text(
-            """[build-system]
+            f"""[build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "generated-client"
-version = "0.0.2"
+name = "generated-project"
+version = "0.0.3"
 dependencies = [
-    "pydantic==2.12.5",
-    "pydantic-core==2.41.5",
-    "urllib3",
-    "eval_type_backport",
+{deps_str}
 ]
 
 [project.optional-dependencies]
@@ -227,6 +246,17 @@ def generate_from_openapi(
 
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    def write_generated(code_obj, default_filename, base_dir=out_dir):
+        """Write generated code to files."""
+        if isinstance(code_obj, dict):
+            for filename, file_content in code_obj.items():
+                if file_content:
+                    filepath = base_dir / filename
+                    filepath.parent.mkdir(parents=True, exist_ok=True)
+                    filepath.write_text(file_content, encoding="utf-8")
+        elif code_obj:
+            (base_dir / default_filename).write_text(code_obj, encoding="utf-8")
+
     if input_path:
         spec_path = Path(input_path)
         specs = [parse_openapi_json(spec_path.read_text(encoding="utf-8"))]
@@ -270,10 +300,12 @@ def generate_from_openapi(
                     emit_tests(spec, composable=True).code, encoding="utf-8"
                 )
                 from openapi_client.mocks.emit import emit_mock_server
+                from openapi_client.dao.emit import emit_dao
 
                 (test_dir / "mock_server.py").write_text(
                     emit_mock_server(spec).code, encoding="utf-8"
                 )
+                write_generated(emit_dao(spec), "dao.py", base_dir=test_dir)
         elif subcommand == "to_sdk_cli":
             from openapi_client.classes.emit import emit_models_module
 
@@ -317,27 +349,59 @@ def generate_from_openapi(
                     emit_tests(spec, composable=True).code, encoding="utf-8"
                 )
                 from openapi_client.mocks.emit import emit_mock_server
+                from openapi_client.dao.emit import emit_dao
 
                 (test_dir / "mock_server.py").write_text(
                     emit_mock_server(spec).code, encoding="utf-8"
                 )
+                write_generated(emit_dao(spec), "dao.py", base_dir=test_dir)
         elif subcommand == "to_server":
             from openapi_client.fastapi.emit import emit_fastapi
             from openapi_client.sqlalchemy_cdd.emit import emit_sqlalchemy
+            from openapi_client.dao.emit import emit_dao
+            from openapi_client.db.emit import emit_db
+            from openapi_client.seeder.emit import emit_seeder
+            from openapi_client.tests.emit_server_tests import emit_server_tests
+            from openapi_client.fastapi.emit_readme import emit_readme
 
             (out_dir / "__init__.py").touch(exist_ok=True)
 
             # Emit FastAPI server
             fastapi_code = emit_fastapi(spec)
-            (out_dir / "main.py").write_text(fastapi_code, encoding="utf-8")
+            write_generated(fastapi_code, "main.py")
 
             # Emit SQLAlchemy models
             sa_code = emit_sqlalchemy(spec)
-            if sa_code:
-                (out_dir / "models.py").write_text(sa_code, encoding="utf-8")
+            write_generated(sa_code, "models.py")
+
+            # Emit DAOs
+            dao_code = emit_dao(spec)
+            write_generated(dao_code, "dao.py")
+
+            # Emit DB configuration
+            db_code = emit_db(spec)
+            write_generated(db_code, "db.py")
+
+            # Emit Seeder
+            seeder_code = emit_seeder(spec)
+            write_generated(seeder_code, "seeder.py")
+
+            # Emit server tests
+            test_dir = Path(output_dir) / "tests"
+            test_dir.mkdir(parents=True, exist_ok=True)
+            (test_dir / "__init__.py").touch(exist_ok=True)
+            test_code = emit_server_tests(spec)
+            write_generated(test_code, "test_server.py", base_dir=test_dir)
+
+            # Emit README
+            readme_code = emit_readme(spec)
+            if readme_code:
+                (Path(output_dir) / "README.md").write_text(
+                    readme_code, encoding="utf-8"
+                )
 
     if not no_installable_package:
-        scaffold_package(out_dir)
+        scaffold_package(out_dir, is_server=(subcommand == "to_server"))
 
     if not no_github_actions:
         scaffold_github_actions(out_dir, tests=tests)
@@ -366,7 +430,7 @@ def generate_to_openapi(input_path: str, output_path: str) -> None:
             spec = OpenAPI(
                 **{
                     "openapi": "3.2.0",
-                    "info": Info(title="Extracted API", version="0.0.2"),
+                    "info": Info(title="Extracted API", version="0.0.3"),
                     "paths": {},
                     "components": Components(schemas={}),
                 }
@@ -428,7 +492,7 @@ def generate_to_openapi(input_path: str, output_path: str) -> None:
         spec = OpenAPI(
             **{
                 "openapi": "3.2.0",
-                "info": Info(title="Extracted API", version="0.0.2"),
+                "info": Info(title="Extracted API", version="0.0.3"),
                 "paths": {},
                 "components": Components(schemas={}),
             }
@@ -443,8 +507,8 @@ def generate_to_openapi(input_path: str, output_path: str) -> None:
         print(f"Successfully extracted OpenAPI spec to {out_path}")
 
 
-def sync_dir(project_dir: str) -> None:
-    """Sync client, mock, test, cli files in a directory to a unified OpenAPI spec, and regenerate all."""
+def sync_dir(project_dir: str, truth: str = None) -> None:
+    """Sync client, mock, test, cli files in a directory to a unified OpenAPI spec, and regenerate all, optionally from a single source of truth."""
     d = Path(project_dir)
 
     client_py = d / "src" / "client.py"
@@ -471,7 +535,7 @@ def sync_dir(project_dir: str) -> None:
     spec = OpenAPI(
         **{
             "openapi": "3.2.0",
-            "info": Info(title="Extracted API", version="0.0.2"),
+            "info": Info(title="Extracted API", version="0.0.3"),
             "paths": {},
             "components": Components(schemas={}),
         }
@@ -533,6 +597,39 @@ def sync_dir(project_dir: str) -> None:
     mock_py.parent.mkdir(parents=True, exist_ok=True)
     (mock_py.parent / "__init__.py").touch(exist_ok=True)
     mock_py.write_text(emit_mock_server(spec).code, encoding="utf-8")
+
+    def write_generated_local(code_obj, default_filename, base_dir=d):
+        """Write generated code to local files."""
+        if isinstance(code_obj, dict):
+            for filename, file_content in code_obj.items():
+                if file_content:
+                    filepath = base_dir / filename
+                    filepath.parent.mkdir(parents=True, exist_ok=True)
+                    filepath.write_text(file_content, encoding="utf-8")
+        elif code_obj:
+            (base_dir / default_filename).write_text(code_obj, encoding="utf-8")
+
+    dao_py = d / "src" / "dao.py"
+    if not dao_py.exists():
+        dao_py = d / "dao.py"
+    from openapi_client.dao.emit import emit_dao
+
+    write_generated_local(emit_dao(spec), "dao.py")
+
+    db_py = d / "src" / "db.py"
+    if not db_py.exists():
+        db_py = d / "db.py"
+    from openapi_client.db.emit import emit_db
+
+    db_py.write_text(emit_db(spec), encoding="utf-8")
+
+    seeder_py = d / "src" / "seeder.py"
+    if not seeder_py.exists():
+        seeder_py = d / "seeder.py"
+
+    from openapi_client.seeder.emit import emit_seeder
+
+    write_generated_local(emit_seeder(spec), "seeder.py")
 
     if (
         cli_py.exists() or (d / "src").exists()
@@ -956,6 +1053,12 @@ def main() -> None:
         required=True,
         help="Path to directory containing Python files to sync",
     )
+    sync_parser.add_argument(
+        "--truth",
+        type=str,
+        choices=["class", "sqlalchemy", "function", "openapi"],
+        help="Designate a single source of truth for synchronization.",
+    )
 
     docs_parser = subparsers.add_parser(
         "to_docs_json",
@@ -998,7 +1101,7 @@ def main() -> None:
         sys.exit(0)
 
     if args.command == "sync":
-        sync_dir(args.dir)
+        sync_dir(args.dir, getattr(args, "truth", None))
     elif args.command == "from_openapi":
         subcmd = args.from_openapi_command or "to_sdk"
         if not args.input and not getattr(args, "input_dir", None):

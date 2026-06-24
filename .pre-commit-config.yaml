@@ -38,6 +38,18 @@ repos:
     language: system
     pass_filenames: false
     always_run: true
+  - id: swagger-2-0-generated-server-test
+    name: Swagger 2.0 Generated Server Test
+    entry: uv run python scripts/run_generated_server_test.py petstore.json .tmp_gen_swagger
+    language: system
+    pass_filenames: false
+    always_run: true
+  - id: openapi-3-2-0-generated-server-test
+    name: OpenAPI 3.2.0 Generated Server Test
+    entry: uv run python scripts/run_generated_server_test.py petstore_oas3.json .tmp_gen_oas3
+    language: system
+    pass_filenames: false
+    always_run: true
   - id: build-wasm
     name: Build WASM
     entry: uv run python scripts/build_wasm.py

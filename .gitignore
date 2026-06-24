@@ -185,3 +185,4 @@ update_tests.py
 update_tests2.py
 update_tests3.py
 update_tests4.py
+.tmp_*

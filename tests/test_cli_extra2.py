@@ -45,7 +45,7 @@ def test_cli_to_server_with_models(tmp_path):
     generate_from_openapi("to_server", str(spec_path), None, str(out_dir))
 
     assert (out_dir / "main.py").exists()
-    assert (out_dir / "models.py").exists()
+    assert (out_dir / "models" / "pet.py").exists()
 
 
 def test_cli_to_sdk_cli_cdd(tmp_path, monkeypatch):
@@ -138,9 +138,11 @@ def test_fastapi_emit(tmp_path):
         },
     )
     code = emit_fastapi(spec)
-    assert "@app.get('/test')" in code
-    assert "def get_test():" in code
-    assert "def post_test():" in code
+    assert "main.py" in code
+    assert "@router.get('/test')" in code["routes/test.py"]
+
+    assert "def get_test():" in code["routes/test.py"]
+    assert "def post_test():" in code["routes/test.py"]
 
 
 def test_fastapi_parse():
@@ -172,4 +174,4 @@ def test_sqlalchemy_cdd_emit_no_components(tmp_path):
 
     spec = OpenAPI(openapi="3.0.0", info={"title": "Test", "version": "1.0"})
     res = emit_sqlalchemy(spec)
-    assert res == ""
+    assert res == {}

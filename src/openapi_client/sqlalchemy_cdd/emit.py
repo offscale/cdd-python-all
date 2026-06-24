@@ -13,20 +13,20 @@ def map_openapi_type_to_python(openapi_type: str) -> str:
         "integer": "int",
         "number": "float",
         "boolean": "bool",
-        "array": "list",
+        "array": "dict",  # Maps to JSON in cdd's sqlalchemy emitter
         "object": "dict",
     }
     return type_map.get(openapi_type, "str")
 
 
-def emit_sqlalchemy(spec: OpenAPI) -> str:
-    """Generate SQLAlchemy models from OpenAPI using cdd."""
+def emit_sqlalchemy(spec: OpenAPI) -> dict[str, str]:
+    """Generate SQLAlchemy models from OpenAPI using cdd in a modular way."""
     if not spec.components or not spec.components.schemas:
-        return ""
+        return {}
 
-    body = [
+    files = {}
+    init_body = [
         "from sqlalchemy.orm import declarative_base",
-        "from sqlalchemy import Column, Integer, String, Float, Boolean, JSON",
         "",
         "Base = declarative_base()",
         "",
@@ -71,13 +71,24 @@ def emit_sqlalchemy(spec: OpenAPI) -> str:
             # Convert AST back to string
             try:
                 code = ast.unparse(sa_ast)
-                body.append(code)
-                body.append("")
+                model_code = [
+                    "from sqlalchemy import Column, Integer, String, Float, Boolean, JSON, Identity",
+                    "from . import Base",
+                    "",
+                    code,
+                    "",
+                ]
+                filename = f"models/{class_name.lower()}.py"
+                files[filename] = "\n".join(model_code)
+
+                init_body.append(f"from .{class_name.lower()} import {class_name}")
             except Exception:
                 # Fallback if unparse fails (e.g. older python)
                 pass
 
-    return "\\n".join(body)
+    files["models/__init__.py"] = "\n".join(init_body)
+
+    return files
 
 
 # OpenAPI 3.2.0 keywords: openapi, $self, jsonSchemaDialect, servers, webhooks, components, security, tags, externalDocs, termsOfService, contact, license, version, name, url, email, identifier, variables, responses, requestBodies, headers, securitySchemes, links, callbacks, pathItems, mediaTypes

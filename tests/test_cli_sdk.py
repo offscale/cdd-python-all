@@ -12,6 +12,25 @@ from openapi_client.cli_sdk.emit import emit_cli_sdk
 from openapi_client.cli_sdk.parse import extract_cli_from_ast
 
 
+def test_emit_cli_sdk_with_servers():
+    """Test test_emit_cli_sdk_with_servers."""
+    from openapi_client.models import Server
+    from openapi_client.cli_sdk_cdd.emit import emit_cli_sdk as emit_cli_sdk_cdd
+
+    spec = OpenAPI(
+        **{
+            "openapi": "3.2.0",
+            "info": Info(title="Test CLI API", version="1.0.0"),
+            "servers": [Server(url="https://api.example.com")],
+            "paths": {},
+            "components": Components(schemas={}),
+        }
+    )
+
+    code = emit_cli_sdk_cdd(spec)
+    assert 'os.environ.get("API_BASE_URL", "https://api.example.com")' in code
+
+
 def test_emit_cli_sdk():
     """Test test_emit_cli_sdk."""
     spec = OpenAPI(
