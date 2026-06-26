@@ -1,8 +1,11 @@
+"""Build script for WebAssembly bundle."""
+
 import os
 import subprocess
 
 
 def main():
+    """Build WASI output or fallback to zip bundle."""
     os.makedirs("bin", exist_ok=True)
     wasm_out = os.path.join("bin", "cdd-python-all.wasm")
 

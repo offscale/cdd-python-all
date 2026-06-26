@@ -1,8 +1,11 @@
+"""Module for calculating docstring coverage."""
+
 import ast
 import os
 
 
 def calculate_doc_coverage(directory):
+    """Calculate the percentage of functions, classes, and modules with docstrings."""
     total = 0
     with_docs = 0
 

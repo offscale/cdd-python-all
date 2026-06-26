@@ -1,3 +1,5 @@
+"""Manual test script for AST test extraction."""
+
 import libcst as cst
 from openapi_client.tests.parse import ASTTestExtractor
 from openapi_client.models import OpenAPI

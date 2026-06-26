@@ -1,3 +1,5 @@
+"""Run tests against the Petstore server."""
+
 import os
 import sys
 import shutil
@@ -7,6 +9,7 @@ import socket
 
 
 def find_free_port():
+    """Find a free port on localhost."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("", 0))
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -14,6 +17,7 @@ def find_free_port():
 
 
 def main():
+    """Main execution of the petstore test."""
     test_harness_dir = os.environ.get(
         "TEST_HARNESS_DIR", os.path.expanduser("~/repos/cdd-openapi-test-harness")
     )

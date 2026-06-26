@@ -1,3 +1,5 @@
+"""Run generated server tests."""
+
 import os
 import sys
 import shutil
@@ -8,6 +10,7 @@ import urllib.request
 
 
 def find_free_port():
+    """Find a free port on localhost."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("", 0))
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -15,6 +18,7 @@ def find_free_port():
 
 
 def main():
+    """Main execution of the server test."""
     test_harness_dir = os.environ.get(
         "TEST_HARNESS_DIR", os.path.expanduser("~/repos/cdd-openapi-test-harness")
     )

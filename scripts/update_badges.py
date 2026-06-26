@@ -1,3 +1,5 @@
+"""Update test and doc coverage badges in README.md."""
+
 #!/usr/bin/env python3
 import os
 import re
@@ -6,6 +8,7 @@ import sys
 
 
 def get_color(pct):
+    """Return a color for a given coverage percentage."""
     if pct >= 90:
         return "brightgreen"
     if pct >= 80:
@@ -20,6 +23,7 @@ def get_color(pct):
 
 
 def main():
+    """Run tests, calculate coverage, and update badges in README.md."""
     readme_path = os.path.join(os.path.dirname(__file__), "..", "README.md")
     if not os.path.exists(readme_path):
         return
