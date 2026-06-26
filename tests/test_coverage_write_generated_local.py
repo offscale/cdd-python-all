@@ -1,3 +1,5 @@
+"""Tests for test_coverage_write_generated_local.py."""
+
 import unittest.mock
 from openapi_client.cli import sync_dir
 

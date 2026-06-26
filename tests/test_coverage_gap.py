@@ -168,9 +168,9 @@ def test_mcp_read_resource_error():
 
 
 def test_mcp_client_notifications():
+    """Test building various notifications."""
     from openapi_client.mcp_client.client import MCPClient
 
-    """Test building various notifications."""
     client = MCPClient()
     assert client.build_cancelled_notification(1)["method"] == "notifications/cancelled"
     assert (
@@ -204,9 +204,9 @@ def test_mcp_client_notifications():
 
 
 def test_mcp_client_cursor():
+    """Test building various requests with cursor."""
     from openapi_client.mcp_client.client import MCPClient
 
-    """Test building various requests with cursor."""
     client = MCPClient()
     assert (
         client.build_list_resource_templates_request("cursor")["params"]["cursor"]
@@ -215,9 +215,9 @@ def test_mcp_client_cursor():
 
 
 def test_mcp_client_more_methods():
+    """Test test_mcp_client_more_methods."""
     from openapi_client.mcp_client.client import MCPClient
 
-    """Test test_mcp_client_more_methods."""
     client = MCPClient()
     assert client.build_ping_request()["method"] == "ping"
     assert client.build_initialize_request()["method"] == "initialize"
@@ -270,9 +270,8 @@ def test_mcp_all_methods():
 
 
 def test_mcp_client_more_missing():
-    from openapi_client.mcp_client.client import MCPClient
-
     """Test test_mcp_client_more_missing."""
+    from openapi_client.mcp_client.client import MCPClient
 
     client = MCPClient()
     assert (
@@ -281,9 +280,8 @@ def test_mcp_client_more_missing():
 
 
 def test_mcp_client_cursor_none_no_params():
-    from openapi_client.mcp_client.client import MCPClient
-
     """Test test_mcp_client_cursor_none_no_params."""
+    from openapi_client.mcp_client.client import MCPClient
 
     client = MCPClient()
 

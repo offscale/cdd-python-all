@@ -15,11 +15,11 @@ def test_serve_json_rpc_break(monkeypatch, capsys):
 
 
 def test_apply_env_vars_store_true():
+    """Test test_apply_env_vars_store_true."""
     from openapi_client.cli import apply_env_vars_to_parser
     import argparse
     import os
 
-    """Test test_apply_env_vars_store_true."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--test-true", action="store_true")
     parser.add_argument("--test-false", action="store_false")
