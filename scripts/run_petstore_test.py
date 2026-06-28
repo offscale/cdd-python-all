@@ -62,24 +62,35 @@ def main():
         import urllib.request
 
         default_port = 8081 if is_oas3 else 8080
-        test_url = (
-            f"http://localhost:{default_port}/api/v3/swagger.json"
+        test_urls = (
+            [
+                f"http://localhost:{default_port}/api/v3/openapi.json",
+                f"http://localhost:{default_port}/api/v3/swagger.json",
+                f"http://localhost:{default_port}/v3/openapi.json",
+            ]
             if is_oas3
-            else f"http://localhost:{default_port}/api/swagger.json"
+            else [f"http://localhost:{default_port}/api/swagger.json"]
         )
 
         try:
-            print(f"Checking if existing mock server is pingable at {test_url}...")
-            urllib.request.urlopen(test_url, timeout=2)
-            host_port = str(default_port)
-            print(f"Found active mock server on port {host_port}")
+            print(f"Checking if existing mock server is pingable at {test_urls}...")
+            for t_url in test_urls:
+                try:
+                    urllib.request.urlopen(t_url, timeout=2)
+                    host_port = str(default_port)
+                    print(f"Found active mock server on port {host_port} at {t_url}")
+                    break
+                except Exception:
+                    continue
         except Exception:
             print("No active mock server found.")
 
         if not host_port:
             print("Falling back to Docker JVM Petstore server...")
             container_name = f"petstore_server_{os.getpid()}"
-            image_name = "swaggerapi/petstore-v3" if is_oas3 else "swaggerapi/petstore"
+            image_name = (
+                "openapitools/openapi-petstore" if is_oas3 else "swaggerapi/petstore"
+            )
 
             fallback_image_name = (
                 "openapitools/openapi-petstore"
@@ -133,12 +144,17 @@ def main():
             try:
                 for _ in range(15):
                     time.sleep(2)
-                    try:
-                        urllib.request.urlopen(test_url, timeout=1)
-                        print("Docker mock server is ready.")
+                    success = False
+                    for t_url in test_urls:
+                        try:
+                            urllib.request.urlopen(t_url, timeout=1)
+                            print(f"Docker mock server is ready at {t_url}")
+                            success = True
+                            break
+                        except Exception:
+                            pass
+                    if success:
                         break
-                    except Exception:
-                        pass
                 else:
                     print("Docker mock server failed to become ready.")
                     return
