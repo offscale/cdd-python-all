@@ -195,7 +195,7 @@ def test_cli_main_sync(tmp_path, monkeypatch):
     client_py = project_dir / "client.py"
     client_py.write_text("class Client:\n    pass\n")
 
-    monkeypatch.setattr("sys.argv", ["cdd-python", "sync", "--dir", str(project_dir)])
+    monkeypatch.setattr("sys.argv", ["cdd-python", "sync", "-i", str(project_dir)])
     main()
     assert (project_dir / "openapi.json").exists()
 
@@ -377,6 +377,16 @@ def test_sync_dir_with_cli(tmp_path):
     sync_dir(str(project_dir))
     assert (project_dir / "cli_main.py").exists()
     assert (project_dir / "openapi.json").exists()
+
+
+def test_cli_main_from_openapi_missing_input(monkeypatch, capsys):
+    """Test test_cli_main_from_openapi_missing_input."""
+    import pytest
+
+    monkeypatch.setattr("sys.argv", ["cdd-python", "from_openapi", "to_sdk"])
+    with pytest.raises(SystemExit) as excinfo:
+        main()
+    assert excinfo.value.code == 1
 
 
 def test_cli_main_from_openapi_missing_subcmd(monkeypatch, capsys):

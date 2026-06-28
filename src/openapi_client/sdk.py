@@ -5,6 +5,8 @@ from openapi_client.cli import generate_from_openapi as cli_generate_from_openap
 from openapi_client.cli import generate_to_openapi as cli_generate_to_openapi
 from openapi_client.cli import generate_docs_json as cli_generate_docs_json
 from openapi_client.cli import serve_json_rpc as cli_serve_json_rpc
+from openapi_client.cli import sync_dir as cli_sync_dir
+from openapi_client.cli import run_mcp_server as cli_run_mcp_server
 
 
 def generate_from_openapi(
@@ -44,3 +46,15 @@ def generate_docs_json(
 def serve_json_rpc(port: int = 8080, listen: str = "127.0.0.1") -> None:
     """Expose CLI interface as a JSON-RPC server."""
     cli_serve_json_rpc(port, listen)
+
+
+def run_sync(
+    input_dir: str, truth: Optional[str] = None, output_dir: Optional[str] = None
+) -> None:
+    """Sync a directory containing client.py, mock_server.py, test_client.py, cli_main.py."""
+    cli_sync_dir(input_dir, truth, output_dir)
+
+
+def mcp() -> None:
+    """Run an MCP server exposing generator commands over stdio."""
+    cli_run_mcp_server()

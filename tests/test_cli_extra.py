@@ -316,9 +316,9 @@ def test_openapi_client_mcp(monkeypatch):
     monkeypatch.setattr(sdk, "generate_from_openapi", mock_generate_from_openapi)
     monkeypatch.setattr(sdk, "generate_docs_json", mock_generate_docs_json)
 
-    assert mcp.execute_tool("generate_to_openapi", {}) == "to_openapi"
-    assert mcp.execute_tool("generate_from_openapi", {}) == "from_openapi"
-    assert mcp.execute_tool("generate_docs_json", {}) == "docs_json"
+    assert mcp.execute_tool("to_openapi", {}) == "to_openapi"
+    assert mcp.execute_tool("from_openapi", {}) == "from_openapi"
+    assert mcp.execute_tool("to_docs_json", {}) == "docs_json"
 
     import pytest
 
@@ -361,7 +361,7 @@ def test_cli_mcp_server(monkeypatch, capsys):
                 "jsonrpc": "2.0",
                 "method": "tools/call",
                 "params": {
-                    "name": "generate_to_openapi",
+                    "name": "to_openapi",
                     "arguments": {"input_path": ".", "output_path": "openapi.json"},
                 },
                 "id": 4,
@@ -372,7 +372,7 @@ def test_cli_mcp_server(monkeypatch, capsys):
                 "jsonrpc": "2.0",
                 "method": "tools/call",
                 "params": {
-                    "name": "generate_from_openapi",
+                    "name": "from_openapi",
                     "arguments": {
                         "subcommand": "to_sdk",
                         "input_path": "dummy.json",
@@ -395,7 +395,7 @@ def test_cli_mcp_server(monkeypatch, capsys):
                 "jsonrpc": "2.0",
                 "method": "tools/call",
                 "params": {
-                    "name": "generate_docs_json",
+                    "name": "to_docs_json",
                     "arguments": {
                         "input_path": "dummy.json",
                         "output_file": "docs.json",
@@ -419,7 +419,7 @@ def test_cli_mcp_server(monkeypatch, capsys):
                 "jsonrpc": "2.0",
                 "method": "tools/call",
                 "params": {
-                    "name": "generate_to_openapi",
+                    "name": "to_openapi",
                     "arguments": {"input_path": ".", "output_path": "openapi.json"},
                 },
                 "id": 10,

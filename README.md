@@ -109,49 +109,165 @@ All implementations share a standardized CLI interface (`cdd [subcommand]`), act
 
 A true ecosystem requires standardized tooling. Once a developer learns the CDD toolchain, they can synchronize architecture across the entire polyglot stack.
 
-### Global Arguments
-
-- `--help`: Print help information.
-- `--version`: Print version information.
-- `--input, -i` (or `-f`): Target file, directory, or OpenAPI spec.
-- `--output, -o`: Destination path for generation or sync.
-
 ### Core Subcommands
 
-#### `from_openapi to_sdk_cli`
-Generate a client SDK and a corresponding command-line interface (CLI) from an OpenAPI specification.
-- `--input, -i <spec>`: Path to the OpenAPI specification file.
+#### `cdd-python --help`
+```text
+usage: cdd-python [-h] [--version] {from_openapi,to_openapi,sync,to_docs_json,serve_json_rpc,mcp} ...
 
-#### `from_openapi to_sdk`
-Generate a client SDK from an OpenAPI specification.
-- `--input, -i <spec>`: Path to the OpenAPI specification file.
+Compiler Driven Development (CDD) compiler and transpiler.
 
-#### `from_openapi to_server`
-Generate server boilerplate, models, and routing logic from an OpenAPI specification.
-- `--input, -i <spec>`: Path to the OpenAPI specification file.
+positional arguments:
+  {from_openapi,to_openapi,sync,to_docs_json,serve_json_rpc,mcp}
+    from_openapi        Generate code from an OpenAPI specification.
+    to_openapi          Parse the existing codebase and extract an authoritative OpenAPI
+                        specification.
+    sync                Sync a directory containing client.py, mock_server.py, test_client.py,
+                        cli_main.py
+    to_docs_json        Convert an OpenAPI specification into a localized, documentation-optimized
+                        JSON format.
+    serve_json_rpc      Launch a JSON-RPC server for editor and tool integrations.
+    mcp                 Run the Model Context Protocol server via stdio.
 
-#### `to_openapi`
-Parse the existing codebase and extract an authoritative OpenAPI specification.
-- `--input, -i <path>` (or `-f <path>`): Path to the source code directory or file to parse.
+optional arguments:
+  -h, --help            show this help message and exit
+  --version             show program's version number and exit
+```
 
-#### `to_docs_json`
-Convert an OpenAPI specification into a localized, documentation-optimized JSON format.
-- `--input, -i <spec>`: Path to the OpenAPI specification file.
-- `--no-imports`: Disable import statements in the generated documentation.
-- `--no-wrapping`: Disable line wrapping in the generated documentation.
+#### `cdd-python from_openapi --help`
+```text
+usage: cdd-python from_openapi [-h] {to_sdk,to_sdk_cli,to_server} ...
 
-#### `serve_json_rpc`
-Launch a JSON-RPC server for editor and tool integrations.
-- `--port <port>` (or `-p`): Port to listen on (e.g., `8080`).
-- `--listen <address>` (or `-l`): Address to bind to (e.g., `0.0.0.0`).
+positional arguments:
+  {to_sdk,to_sdk_cli,to_server}
+    to_sdk              Generate a client SDK from an OpenAPI specification.
+    to_sdk_cli          Generate a client SDK and a corresponding command-line interface (CLI) from an
+                        OpenAPI specification.
+    to_server           Generate server boilerplate, models, and routing logic from an OpenAPI
+                        specification.
 
-#### `mcp`
-Run the Model Context Protocol server via stdio.
+optional arguments:
+  -h, --help            show this help message and exit
+```
 
-#### `sync`
-Sync a directory containing client.py, mock_server.py, test_client.py, cli_main.py
-- `--dir <dir>`: Path to directory containing Python files to sync.
-- `--truth {class,sqlalchemy,function,openapi}`: Designate a single source of truth for synchronization.
+#### `cdd-python from_openapi to_sdk --help`
+```text
+usage: cdd-python from_openapi to_sdk [-h] [-i INPUT | -d INPUT_DIR] [-o OUTPUT] [--no-github-actions]
+                                      [--no-installable-package] [--tests] [--mcp]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -i INPUT, -f INPUT, --input INPUT
+                        Path or URL to the OpenAPI specification.
+  -d INPUT_DIR, --input-dir INPUT_DIR
+                        Directory containing OpenAPI specifications.
+  -o OUTPUT, --output OUTPUT
+                        Output file or directory path.
+  --no-github-actions   Do not generate GitHub Actions scaffolding.
+  --no-installable-package
+                        Do not generate installable package scaffolding.
+  --tests               Generate integration tests and mocks.
+  --mcp                 Generate Model Context Protocol (MCP) server and adapter.
+```
+
+#### `cdd-python from_openapi to_sdk_cli --help`
+```text
+usage: cdd-python from_openapi to_sdk_cli [-h] [-i INPUT | -d INPUT_DIR] [-o OUTPUT]
+                                          [--no-github-actions] [--no-installable-package] [--tests]
+                                          [--mcp]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -i INPUT, -f INPUT, --input INPUT
+                        Path or URL to the OpenAPI specification.
+  -d INPUT_DIR, --input-dir INPUT_DIR
+                        Directory containing OpenAPI specifications.
+  -o OUTPUT, --output OUTPUT
+                        Output file or directory path.
+  --no-github-actions   Do not generate GitHub Actions scaffolding.
+  --no-installable-package
+                        Do not generate installable package scaffolding.
+  --tests               Generate integration tests and mocks.
+  --mcp                 Generate Model Context Protocol (MCP) server and adapter.
+```
+
+#### `cdd-python from_openapi to_server --help`
+```text
+usage: cdd-python from_openapi to_server [-h] [-i INPUT | -d INPUT_DIR] [-o OUTPUT]
+                                         [--no-github-actions] [--no-installable-package] [--tests]
+                                         [--mcp]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -i INPUT, -f INPUT, --input INPUT
+                        Path or URL to the OpenAPI specification.
+  -d INPUT_DIR, --input-dir INPUT_DIR
+                        Directory containing OpenAPI specifications.
+  -o OUTPUT, --output OUTPUT
+                        Output file or directory path.
+  --no-github-actions   Do not generate GitHub Actions scaffolding.
+  --no-installable-package
+                        Do not generate installable package scaffolding.
+  --tests               Generate integration tests and mocks.
+  --mcp                 Generate Model Context Protocol (MCP) server and adapter.
+```
+
+#### `cdd-python to_openapi --help`
+```text
+usage: cdd-python to_openapi [-h] -i INPUT [-o OUTPUT]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -i INPUT, -f INPUT, --input INPUT
+                        Path to source code directory or file
+  -o OUTPUT, --output OUTPUT
+                        Output file or directory path
+```
+
+#### `cdd-python sync --help`
+```text
+usage: cdd-python sync [-h] -i INPUT [-t {class,sqlalchemy,function,openapi}]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -i INPUT, -d INPUT, --input INPUT
+                        Path to directory containing Python files to sync
+  -t {class,sqlalchemy,function,openapi}, --truth {class,sqlalchemy,function,openapi}
+                        Designate a single source of truth for synchronization.
+```
+
+#### `cdd-python to_docs_json --help`
+```text
+usage: cdd-python to_docs_json [-h] -i INPUT [--no-imports] [--no-wrapping] [-o OUTPUT]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -i INPUT, -f INPUT, --input INPUT
+                        Path or URL to the OpenAPI specification.
+  --no-imports          Omit the imports field.
+  --no-wrapping         Omit the wrapper fields.
+  -o OUTPUT, --output OUTPUT
+                        Output file or directory path.
+```
+
+#### `cdd-python serve_json_rpc --help`
+```text
+usage: cdd-python serve_json_rpc [-h] [-p PORT] [-l LISTEN]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -p PORT, --port PORT  Port to listen on
+  -l LISTEN, --listen LISTEN
+                        Address to listen on
+```
+
+#### `cdd-python mcp --help`
+```text
+usage: cdd-python mcp [-h]
+
+optional arguments:
+  -h, --help  show this help message and exit
+```
 
 ### Detail Features Beyond Common Subset
 

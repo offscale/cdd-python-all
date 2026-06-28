@@ -10,6 +10,7 @@ from openapi_client.sdk import (
     generate_to_openapi,
     generate_docs_json,
     serve_json_rpc,
+    run_sync,
 )
 from openapi_client import mcp
 
@@ -21,5 +22,6 @@ __all__ = [
     "generate_to_openapi",
     "generate_docs_json",
     "serve_json_rpc",
+    "run_sync",
     "mcp",
 ]

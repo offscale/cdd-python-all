@@ -88,7 +88,7 @@ def emit_cli_sdk(spec: OpenAPI) -> str:
 
     body.append("def main():")
     body.append(
-        f'    parser = argparse.ArgumentParser(description="{spec.info.title if spec.info else "API"} CLI")'
+        '    parser = argparse.ArgumentParser(description="Generated Client SDK CLI")'
     )
     body.append('    subparsers = parser.add_subparsers(dest="command")')
     body.append(

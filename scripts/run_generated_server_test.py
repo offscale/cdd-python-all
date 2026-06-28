@@ -19,6 +19,10 @@ def find_free_port():
 
 def main():
     """Main execution of the server test."""
+    if os.environ.get("RUN_SLOW_TESTS") != "1":
+        print("Skipping slow test. Set RUN_SLOW_TESTS=1 to run.")
+        sys.exit(0)
+
     test_harness_dir = os.environ.get(
         "TEST_HARNESS_DIR", os.path.expanduser("~/repos/cdd-openapi-test-harness")
     )

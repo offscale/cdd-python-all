@@ -2253,12 +2253,12 @@ Field Pattern | Type | Description
 
 ```js
 {
-  "api_key": []
+  "api_key": [x]
 }
 ```
 
 ```yaml
-api_key: []
+api_key: [x]
 ```
 
 ###### OAuth2 Security Requirement

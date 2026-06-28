@@ -255,9 +255,12 @@ def test_mcp_all_methods():
     setattr(sdk, "generate_docs_json", lambda **kwargs: "docs")
 
     try:
-        assert execute_tool("generate_to_openapi", {}) == "to"
-        assert execute_tool("generate_from_openapi", {}) == "from"
-        assert execute_tool("generate_docs_json", {}) == "docs"
+        assert execute_tool("to_openapi", {"input_dir": "test"}) == "to"
+        assert (
+            execute_tool("from_openapi", {"input_path": "test", "output_dir": "test"})
+            == "from"
+        )
+        assert execute_tool("to_docs_json", {"input_path": "test"}) == "docs"
         with pytest.raises(ValueError):
             execute_tool("unknown", {})
     finally:

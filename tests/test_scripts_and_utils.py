@@ -79,6 +79,7 @@ def test_doc_coverage(tmp_path):
 
 def test_run_petstore_test(monkeypatch, tmp_path):
     """Test test_run_petstore_test."""
+    monkeypatch.setenv("RUN_SLOW_TESTS", "1")
     import scripts.run_petstore_test as rp
 
     # No args
@@ -209,6 +210,7 @@ def test_build_wasm_more(monkeypatch):
 
 def test_run_petstore_test_no_tmp(monkeypatch, tmp_path):
     """Test test_run_petstore_test_no_tmp."""
+    monkeypatch.setenv("RUN_SLOW_TESTS", "1")
     import scripts.run_petstore_test as rp
 
     f = tmp_path / "dummy.json"

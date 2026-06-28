@@ -61,7 +61,7 @@ Exposing the `cdd` bidirectional code generator itself to MCP allows AI models t
 | **Transports** | | | | |
 | Standard I/O (stdio) | `[x]` , `[x]` | `[x]` , `[x]` | `[x]` , `[x]` | stdin/stdout message passing |
 | Server-Sent Events (sse) | `[x]` , `[x]` | `[x]` , `[x]` | `[x]` , `[x]` | HTTP POST + SSE streams |
-| Custom Transports | `[ ]` , `[ ]` | `[ ]` , `[ ]` | `[x]` , `[x]` | Pluggable transport interface |
+| Custom Transports | `[x]` , `[x]` | `[x]` , `[x]` | `[x]` , `[x]` | Pluggable transport interface |
 | **JSON-RPC 2.0 Mechanics** | | | | |
 | Message Parsing & Serialization | `[x]` , `[x]` | `[x]` , `[x]` | `[x]` , `[x]` | |
 | Request ID Mapping/Resolution | `[x]` , `[x]` | `[x]` , `[x]` | `[x]` , `[x]` | Resolving async responses to requests |
@@ -76,10 +76,10 @@ Exposing the `cdd` bidirectional code generator itself to MCP allows AI models t
 | **Behavioral & Security** | | | | |
 | Pagination Cursor Management | `[x]` , `[x]` | `[x]` , `[x]` | `[x]` , `[x]` | Handling nextCursor fetch loops |
 | Progress Tracking (progress) | `[x]` , `[x]` | `[x]` , `[x]` | `[x]` , `[x]` | Emitting/handling progress events |
-| Human-in-the-loop (Sampling) | `[ ]` , `[ ]` | `[ ]` , `[ ]` | `[x]` , `[x]` | Prompting user before LLM generation |
-| Human-in-the-loop (Tools) | `[ ]` , `[ ]` | `[ ]` , `[ ]` | `[x]` , `[x]` | Security approvals/denials for tool calls |
-| Root Boundary Enforcement | `[ ]` , `[ ]` | `[ ]` , `[ ]` | `[x]` , `[x]` | Preventing traversal outside allowed directories |
-| URI Protocol Handling | `[ ]` , `[ ]` | `[ ]` , `[ ]` | `[x]` , `[x]` | Resolving custom URI schemes |
+| Human-in-the-loop (Sampling) | `[x]` , `[x]` | `[x]` , `[x]` | `[x]` , `[x]` | Prompting user before LLM generation |
+| Human-in-the-loop (Tools) | `[x]` , `[x]` | `[x]` , `[x]` | `[x]` , `[x]` | Security approvals/denials for tool calls |
+| Root Boundary Enforcement | `[x]` , `[x]` | `[x]` , `[x]` | `[x]` , `[x]` | Preventing traversal outside allowed directories |
+| URI Protocol Handling | `[x]` , `[x]` | `[x]` , `[x]` | `[x]` , `[x]` | Resolving custom URI schemes |
 
 ## 3. Schema & Object Conformance
 

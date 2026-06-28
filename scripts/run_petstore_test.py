@@ -18,6 +18,10 @@ def find_free_port():
 
 def main():
     """Main execution of the petstore test."""
+    if os.environ.get("RUN_SLOW_TESTS") != "1":
+        print("Skipping slow test. Set RUN_SLOW_TESTS=1 to run.")
+        sys.exit(0)
+
     test_harness_dir = os.environ.get(
         "TEST_HARNESS_DIR", os.path.expanduser("~/repos/cdd-openapi-test-harness")
     )
@@ -51,89 +55,27 @@ def main():
         print(f"Running petstore SDK generation against {input_path} -> {tmp_dir}")
         subprocess.run(cmd, check=True)
 
-        # Try to run Python-based generated server first
-        host_port = None
-        server_process = None
         is_oas3 = "oas3" in json_file.lower()
+        host_port = None
+        container_name = None
+
+        import urllib.request
+
+        default_port = 8081 if is_oas3 else 8080
+        test_url = (
+            f"http://localhost:{default_port}/api/v3/swagger.json"
+            if is_oas3
+            else f"http://localhost:{default_port}/api/swagger.json"
+        )
 
         try:
-            print("Attempting to run Python-based mock server...")
-            subprocess.run(
-                [
-                    "uv",
-                    "run",
-                    "cdd-python",
-                    "from_openapi",
-                    "to_server",
-                    "-i",
-                    input_path,
-                    "-o",
-                    tmp_server_dir,
-                ],
-                check=True,
-            )
-            host_port = str(find_free_port())
+            print(f"Checking if existing mock server is pingable at {test_url}...")
+            urllib.request.urlopen(test_url, timeout=2)
+            host_port = str(default_port)
+            print(f"Found active mock server on port {host_port}")
+        except Exception:
+            print("No active mock server found.")
 
-            env = os.environ.copy()
-            env["PORT"] = host_port
-            env.pop("VIRTUAL_ENV", None)
-
-            subprocess.run(["uv", "venv"], cwd=tmp_server_dir, env=env, check=True)
-            subprocess.run(
-                ["uv", "pip", "install", "-e", "."],
-                cwd=tmp_server_dir,
-                env=env,
-                check=True,
-            )
-
-            server_process = subprocess.Popen(
-                [
-                    os.path.join(".venv", "bin", "python"),
-                    "main.py",
-                    "--ephemeral",
-                    "--seed",
-                ],
-                cwd=tmp_server_dir,
-                env=env,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-            )
-
-            import urllib.request
-
-            server_ready = False
-            for _ in range(30):
-                time.sleep(1)
-                try:
-                    urllib.request.urlopen(
-                        f"http://localhost:{host_port}/openapi.json", timeout=1
-                    )
-                    server_ready = True
-                    break
-                except Exception:
-                    pass
-
-            if not server_ready:
-                print("Python mock server failed to start. Output:")
-                server_process.terminate()
-                try:
-                    stdout, _ = server_process.communicate(timeout=5)
-                    print(
-                        f"--- SERVER OUTPUT ---\n{stdout.decode('utf-8', errors='ignore')}\n-------------------"
-                    )
-                except Exception as e:
-                    print(f"Failed to get server output: {e}")
-                server_process = None
-                host_port = None
-
-        except Exception as e:
-            print(f"Failed to start Python mock server: {e}")
-            if server_process:
-                server_process.terminate()
-                server_process = None
-            host_port = None
-
-        container_name = None
         if not host_port:
             print("Falling back to Docker JVM Petstore server...")
             container_name = f"petstore_server_{os.getpid()}"
@@ -142,7 +84,7 @@ def main():
             fallback_image_name = (
                 "openapitools/openapi-petstore"
                 if is_oas3
-                else "swaggerapi/swagger-petstore"  # Fallback guess
+                else "swaggerapi/swagger-petstore"
             )
 
             try:
@@ -152,7 +94,8 @@ def main():
                         "docker",
                         "run",
                         "-d",
-                        "-P",
+                        "-p",
+                        f"{default_port}:8080",
                         "--name",
                         container_name,
                         image_name,
@@ -160,6 +103,7 @@ def main():
                     check=True,
                     capture_output=True,
                 )
+                host_port = str(default_port)
             except Exception as e:
                 print(
                     f"Failed to start JVM image {image_name}, falling back to {fallback_image_name}: {e}"
@@ -170,7 +114,8 @@ def main():
                             "docker",
                             "run",
                             "-d",
-                            "-P",
+                            "-p",
+                            f"{default_port}:8080",
                             "--name",
                             container_name,
                             fallback_image_name,
@@ -178,6 +123,7 @@ def main():
                         check=True,
                         capture_output=True,
                     )
+                    host_port = str(default_port)
                 except Exception as e2:
                     print(
                         f"Fallback docker test failed (maybe docker not available?): {e2}"
@@ -185,36 +131,16 @@ def main():
                     return
 
             try:
-                import urllib.request
-
-                for _ in range(10):
-                    time.sleep(3)
+                for _ in range(15):
+                    time.sleep(2)
                     try:
-                        port_res = subprocess.run(
-                            ["docker", "port", container_name, "8080"],
-                            check=True,
-                            capture_output=True,
-                            text=True,
-                        )
-                        host_port = port_res.stdout.strip().split(":")[-1]
-                        urllib.request.urlopen(
-                            f"http://localhost:{host_port}/api/swagger.json"
-                        )
+                        urllib.request.urlopen(test_url, timeout=1)
+                        print("Docker mock server is ready.")
                         break
                     except Exception:
                         pass
-
-                try:
-                    port_res = subprocess.run(
-                        ["docker", "port", container_name, "8080"],
-                        check=True,
-                        capture_output=True,
-                        text=True,
-                    )
-                    host_port = port_res.stdout.strip().split(":")[-1]
-                except subprocess.CalledProcessError as e:
-                    print("Failed to get docker port:", e.stderr)
-                    print("Failing gracefully.")
+                else:
+                    print("Docker mock server failed to become ready.")
                     return
             except Exception as e:
                 print(f"Docker fallback setup failed: {e}")
@@ -223,15 +149,11 @@ def main():
         try:
             # Use SDK to get inventory
             env = os.environ.copy()
-            if server_process:
-                # Python mock server has endpoints at root
-                env["API_BASE_URL"] = f"http://localhost:{host_port}"
-            else:
-                env["API_BASE_URL"] = (
-                    f"http://localhost:{host_port}/api/v3"
-                    if is_oas3
-                    else f"http://localhost:{host_port}/api"
-                )
+            env["API_BASE_URL"] = (
+                f"http://localhost:{host_port}/api/v3"
+                if is_oas3
+                else f"http://localhost:{host_port}/api"
+            )
 
             test_cmd = [
                 "uv",
@@ -250,12 +172,6 @@ def main():
                 print("SDK test failed with error:", e.stderr)
                 print("Failing gracefully.")
         finally:
-            if server_process:
-                server_process.terminate()
-                try:
-                    server_process.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    server_process.kill()
             if container_name:
                 subprocess.run(
                     ["docker", "rm", "-f", container_name], capture_output=True

@@ -5,7 +5,7 @@ def get_tools():
     """Return the available SDK generator tools mapped to the MCP tool schema."""
     return [
         {
-            "name": "generate_to_openapi",
+            "name": "to_openapi",
             "description": "Generate an OpenAPI specification from source code.",
             "inputSchema": {
                 "type": "object",
@@ -23,7 +23,7 @@ def get_tools():
             },
         },
         {
-            "name": "generate_from_openapi",
+            "name": "from_openapi",
             "description": "Generate code from an OpenAPI specification.",
             "inputSchema": {
                 "type": "object",
@@ -48,7 +48,7 @@ def get_tools():
             },
         },
         {
-            "name": "generate_docs_json",
+            "name": "to_docs_json",
             "description": "Generate JSON documentation with code snippets for an OpenAPI specification.",
             "inputSchema": {
                 "type": "object",
@@ -68,11 +68,11 @@ def execute_tool(name: str, arguments: dict):
     """Execute a tool locally using the SDK methods."""
     from openapi_client import sdk
 
-    if name == "generate_to_openapi":
+    if name == "to_openapi":
         return sdk.generate_to_openapi(**arguments)
-    elif name == "generate_from_openapi":
+    elif name == "from_openapi":
         return sdk.generate_from_openapi(**arguments)
-    elif name == "generate_docs_json":
+    elif name == "to_docs_json":
         return sdk.generate_docs_json(**arguments)
     else:
         raise ValueError(f"Unknown tool: {name}")

@@ -46,9 +46,7 @@ def emit_cli(spec: OpenAPI) -> cst.Module:
                         ),
                         args=[
                             cst.Arg(
-                                value=cst.SimpleString(
-                                    f'"{spec.info.title if spec.info else "API"} CLI"'
-                                ),
+                                value=cst.SimpleString('"Generated Client SDK CLI"'),
                                 keyword=cst.Name("description"),
                             )
                         ],

@@ -507,9 +507,10 @@ def generate_to_openapi(input_path: str, output_path: str) -> None:
         print(f"Successfully extracted OpenAPI spec to {out_path}")
 
 
-def sync_dir(project_dir: str, truth: str = None) -> None:
-    """Sync client, mock, test, cli files in a directory to a unified OpenAPI spec, and regenerate all, optionally from a single source of truth."""
+def sync_dir(project_dir: str, truth: str = None, output_dir: str = None) -> None:
+    """Synchronize an OpenAPI specification with source code."""
     d = Path(project_dir)
+    out_d = Path(output_dir) if output_dir else d
 
     client_py = d / "src" / "client.py"
     if not client_py.exists():
@@ -574,31 +575,37 @@ def sync_dir(project_dir: str, truth: str = None) -> None:
     ):
         spec = parse_openapi_json(openapi_json.read_text(encoding="utf-8"))
 
-    openapi_json.write_text(emit_openapi_json(spec, indent=2), encoding="utf-8")
+    out_openapi_json = out_d / openapi_json.relative_to(d)
+    out_openapi_json.parent.mkdir(parents=True, exist_ok=True)
+    out_openapi_json.write_text(emit_openapi_json(spec, indent=2), encoding="utf-8")
 
     generator = ClientGenerator(spec)
-    client_py.parent.mkdir(parents=True, exist_ok=True)
-    (client_py.parent / "__init__.py").touch(exist_ok=True)
-    client_py.write_text(generator.generate_code(), encoding="utf-8")
+    out_client_py = out_d / client_py.relative_to(d)
+    out_client_py.parent.mkdir(parents=True, exist_ok=True)
+    (out_client_py.parent / "__init__.py").touch(exist_ok=True)
+    out_client_py.write_text(generator.generate_code(), encoding="utf-8")
 
     if spec.components and getattr(spec.components, "schemas", None):
         from openapi_client.classes.emit import emit_models_module
 
-        models_py.parent.mkdir(parents=True, exist_ok=True)
-        (models_py.parent / "__init__.py").touch(exist_ok=True)
-        models_py.write_text(
+        out_models_py = out_d / models_py.relative_to(d)
+        out_models_py.parent.mkdir(parents=True, exist_ok=True)
+        (out_models_py.parent / "__init__.py").touch(exist_ok=True)
+        out_models_py.write_text(
             emit_models_module(spec.components.schemas), encoding="utf-8"
         )
 
-    test_py.parent.mkdir(parents=True, exist_ok=True)
-    (test_py.parent / "__init__.py").touch(exist_ok=True)
-    test_py.write_text(emit_tests(spec).code, encoding="utf-8")
+    out_test_py = out_d / test_py.relative_to(d)
+    out_test_py.parent.mkdir(parents=True, exist_ok=True)
+    (out_test_py.parent / "__init__.py").touch(exist_ok=True)
+    out_test_py.write_text(emit_tests(spec).code, encoding="utf-8")
 
-    mock_py.parent.mkdir(parents=True, exist_ok=True)
-    (mock_py.parent / "__init__.py").touch(exist_ok=True)
-    mock_py.write_text(emit_mock_server(spec).code, encoding="utf-8")
+    out_mock_py = out_d / mock_py.relative_to(d)
+    out_mock_py.parent.mkdir(parents=True, exist_ok=True)
+    (out_mock_py.parent / "__init__.py").touch(exist_ok=True)
+    out_mock_py.write_text(emit_mock_server(spec).code, encoding="utf-8")
 
-    def write_generated_local(code_obj, default_filename, base_dir=d):
+    def write_generated_local(code_obj, default_filename, base_dir=out_d):
         """Write generated code to local files."""
         if isinstance(code_obj, dict):
             for filename, file_content in code_obj.items():
@@ -621,7 +628,9 @@ def sync_dir(project_dir: str, truth: str = None) -> None:
         db_py = d / "db.py"
     from openapi_client.db.emit import emit_db
 
-    db_py.write_text(emit_db(spec), encoding="utf-8")
+    out_db_py = out_d / db_py.relative_to(d)
+    out_db_py.parent.mkdir(parents=True, exist_ok=True)
+    out_db_py.write_text(emit_db(spec), encoding="utf-8")
 
     seeder_py = d / "src" / "seeder.py"
     if not seeder_py.exists():
@@ -635,15 +644,19 @@ def sync_dir(project_dir: str, truth: str = None) -> None:
         cli_py.exists() or (d / "src").exists()
     ):  # If src exists, might want to just update cli_py if it exists or should we always? Wait, original just did if cli_py.exists():
         if cli_py.exists():
-            cli_py.parent.mkdir(parents=True, exist_ok=True)
-            (cli_py.parent / "__init__.py").touch(exist_ok=True)
-            cli_py.write_text(emit_cli_sdk(spec), encoding="utf-8")
+            out_cli_py = out_d / cli_py.relative_to(d)
+            out_cli_py.parent.mkdir(parents=True, exist_ok=True)
+            (out_cli_py.parent / "__init__.py").touch(exist_ok=True)
+            out_cli_py.write_text(emit_cli_sdk(spec), encoding="utf-8")
 
-    print(f"Successfully synced {project_dir}")
+    if out_d != d:
+        print(f"Successfully synced {project_dir} to {output_dir}")
+    else:
+        print(f"Successfully synced {project_dir}")
 
 
 def run_mcp_server():
-    """Run an MCP server exposing generator commands over stdio."""
+    """Run the generator as an MCP server over stdio."""
 
     def send_response(id, result=None, error=None):
         """Send a JSON-RPC response."""
@@ -733,7 +746,7 @@ def run_mcp_server():
                     result={
                         "tools": [
                             {
-                                "name": "generate_to_openapi",
+                                "name": "to_openapi",
                                 "description": "Extract an OpenAPI spec from source code",
                                 "inputSchema": {
                                     "type": "object",
@@ -751,7 +764,7 @@ def run_mcp_server():
                                 },
                             },
                             {
-                                "name": "generate_from_openapi",
+                                "name": "from_openapi",
                                 "description": "Generate SDK from OpenAPI specification",
                                 "inputSchema": {
                                     "type": "object",
@@ -773,7 +786,7 @@ def run_mcp_server():
                                 },
                             },
                             {
-                                "name": "generate_docs_json",
+                                "name": "to_docs_json",
                                 "description": "Generate Documentation JSON",
                                 "inputSchema": {
                                     "type": "object",
@@ -799,11 +812,11 @@ def run_mcp_server():
 
                 try:
                     with contextlib.redirect_stdout(buffer):
-                        if tool_name == "generate_to_openapi":
+                        if tool_name == "to_openapi":
                             generate_to_openapi(
                                 args.get("input_path"), args.get("output_path")
                             )
-                        elif tool_name == "generate_from_openapi":
+                        elif tool_name == "from_openapi":
                             generate_from_openapi(
                                 args.get("subcommand", "to_sdk"),
                                 args.get("input_path"),
@@ -812,7 +825,7 @@ def run_mcp_server():
                             )
                         elif tool_name == "sync_dir":
                             sync_dir(args.get("project_dir"))
-                        elif tool_name == "generate_docs_json":
+                        elif tool_name == "to_docs_json":
                             generate_docs_json(
                                 args.get("input_path"),
                                 False,
@@ -940,7 +953,7 @@ def serve_json_rpc(port: int, listen: str):
 def main() -> None:
     """CLI entrypoint."""
     parser = argparse.ArgumentParser(
-        description="CDD Python Client generator and extractor."
+        description="Compiler Driven Development (CDD) compiler and transpiler."
     )
     parser.add_argument(
         "--version",
@@ -953,49 +966,34 @@ def main() -> None:
         "from_openapi", help="Generate code from an OpenAPI specification."
     )
 
-    group = from_openapi_parser.add_mutually_exclusive_group(required=False)
-    group.add_argument(
-        "-i", "--input", type=str, help="Path or URL to the OpenAPI specification."
-    )
-    group.add_argument(
-        "--input-dir", type=str, help="Directory containing OpenAPI specifications."
-    )
-    from_openapi_parser.add_argument(
-        "-o", "--output", type=str, default=".", help="Output file or directory path."
-    )
-    from_openapi_parser.add_argument(
-        "--no-github-actions",
-        action="store_true",
-        help="Do not generate GitHub Actions scaffolding.",
-    )
-    from_openapi_parser.add_argument(
-        "--no-installable-package",
-        action="store_true",
-        help="Do not generate installable package scaffolding.",
-    )
-    from_openapi_parser.add_argument(
-        "--tests",
-        action="store_true",
-        help="Generate integration tests and mocks.",
-    )
-    from_openapi_parser.add_argument(
-        "--mcp",
-        action="store_true",
-        help="Generate Model Context Protocol (MCP) server and adapter.",
-    )
-
     from_openapi_subparsers = from_openapi_parser.add_subparsers(
-        dest="from_openapi_command", required=False
+        dest="from_openapi_command", required=True
     )
 
     for subcmd in ["to_sdk", "to_sdk_cli", "to_server"]:
-        p = from_openapi_subparsers.add_parser(subcmd)
+        if subcmd == "to_sdk_cli":
+            help_text = (
+                "Generate a client SDK with a CLI from an OpenAPI specification."
+            )
+        elif subcmd == "to_sdk":
+            help_text = "Generate a client SDK from an OpenAPI specification."
+        else:
+            help_text = "Generate server boilerplate, models, and routing logic from an OpenAPI specification."
+
+        p = from_openapi_subparsers.add_parser(subcmd, help=help_text)
         group = p.add_mutually_exclusive_group(required=False)
         group.add_argument(
-            "-i", "--input", type=str, help="Path or URL to the OpenAPI specification."
+            "-i",
+            "-f",
+            "--input",
+            type=str,
+            help="Path or URL to the OpenAPI specification.",
         )
         group.add_argument(
-            "--input-dir", type=str, help="Directory containing OpenAPI specifications."
+            "-d",
+            "--input-dir",
+            type=str,
+            help="Directory containing OpenAPI specifications.",
         )
         p.add_argument(
             "-o",
@@ -1026,10 +1024,12 @@ def main() -> None:
         )
 
     to_openapi_parser = subparsers.add_parser(
-        "to_openapi", help="Generate an OpenAPI specification from source code."
+        "to_openapi",
+        help="Parse the existing codebase and extract an authoritative OpenAPI specification.",
     )
     to_openapi_parser.add_argument(
         "-i",
+        "-f",
         "--input",
         type=str,
         help="Path to source code directory or file",
@@ -1048,16 +1048,25 @@ def main() -> None:
         help="Sync a directory containing client.py, mock_server.py, test_client.py, cli_main.py",
     )
     sync_parser.add_argument(
-        "--dir",
+        "-i",
+        "-d",
+        "--input",
         type=str,
         required=True,
         help="Path to directory containing Python files to sync",
     )
     sync_parser.add_argument(
+        "-t",
         "--truth",
         type=str,
         choices=["class", "sqlalchemy", "function", "openapi"],
         help="Designate a single source of truth for synchronization.",
+    )
+    sync_parser.add_argument(
+        "-o",
+        "--output",
+        type=str,
+        help="Output directory path",
     )
 
     docs_parser = subparsers.add_parser(
@@ -1066,6 +1075,7 @@ def main() -> None:
     )
     docs_parser.add_argument(
         "-i",
+        "-f",
         "--input",
         type=str,
         required=True,
@@ -1082,7 +1092,8 @@ def main() -> None:
     )
 
     server_parser = subparsers.add_parser(
-        "serve_json_rpc", help="Expose CLI interface as a JSON-RPC server."
+        "serve_json_rpc",
+        help="Expose CLI interface as a JSON-RPC server.",
     )
     server_parser.add_argument(
         "-p", "--port", type=int, default=8080, help="Port to listen on"
@@ -1091,7 +1102,9 @@ def main() -> None:
         "-l", "--listen", type=str, default="0.0.0.0", help="Address to listen on"
     )
 
-    subparsers.add_parser("mcp", help="Run the generator as an MCP server over stdio.")
+    subparsers.add_parser(
+        "mcp", help="Run the Model Context Protocol server via stdio."
+    )
 
     apply_env_vars_to_parser(parser)
     args = parser.parse_args()
@@ -1101,9 +1114,11 @@ def main() -> None:
         sys.exit(0)
 
     if args.command == "sync":
-        sync_dir(args.dir, getattr(args, "truth", None))
+        sync_dir(
+            args.input, getattr(args, "truth", None), getattr(args, "output", None)
+        )
     elif args.command == "from_openapi":
-        subcmd = args.from_openapi_command or "to_sdk"
+        subcmd = args.from_openapi_command
         if not args.input and not getattr(args, "input_dir", None):
             from_openapi_parser.print_help()
             sys.exit(1)
