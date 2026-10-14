@@ -1,45 +1,40 @@
-"""
-Module for emitting Python functions (API client methods) from OpenAPI paths.
-"""
+"""Module for emitting Python functions (API client methods) from OpenAPI paths."""
 
 from __future__ import annotations
 
 import libcst as cst
+
+from openapi_client.docstrings.emit import emit_function_docstring
+from openapi_client.functions.utils import get_annotation_for_schema, sanitize_name
 from openapi_client.models import OpenAPI, Operation
 
 
 def emit_function(method: str, path: str, operation: Operation) -> cst.FunctionDef:
-    """
-    Emit an HTTP client method for a given OpenAPI operation.
+    """Emit an HTTP client method for a given OpenAPI operation.
 
     Args:
-        method (str): HTTP method (e.g., 'get', 'post').
-        path (str): The route path.
-        operation (Operation): The OpenAPI Operation object containing parameters and body info.
+        method: HTTP method (e.g., `'get'`, `'post'`).
+        path: The route path string.
+        operation: The OpenAPI Operation object containing parameters and body info.
 
     Returns:
-        cst.FunctionDef: The generated AST node for the method.
+        The generated LibCST FunctionDef node for the method.
     """
     params_list = [cst.Param(name=cst.Name("self"))]
 
-    from openapi_client.docstrings.emit import emit_function_docstring
-
     docstring = emit_function_docstring(operation)
 
-    body_statements = []
+    body_statements: list[cst.BaseStatement] = []
     if docstring:
         body_statements.append(docstring)
 
-    from openapi_client.functions.utils import get_annotation_for_schema
-
-    query_statements = []
+    query_statements: list[cst.BaseStatement] = []
     has_query = False
     has_body_param = False
     body_param_name = "body"
     has_form_data = False
-    form_data_params = []
+    form_data_params: list[tuple[str, str]] = []
 
-    # Process query, header, path, cookie parameters
     if operation.parameters:
         for p in operation.parameters:
             if getattr(p, "in_", getattr(p, "in", None)) == "body":
@@ -68,7 +63,6 @@ def emit_function(method: str, path: str, operation: Operation) -> cst.FunctionD
             if hasattr(param, "name"):
                 param_name = param.name.replace("-", "_")
 
-                # Determine type annotation
                 schema_obj = getattr(param, "schema_", getattr(param, "schema", None))
                 annotation_str = get_annotation_for_schema(schema_obj)
 
@@ -86,7 +80,6 @@ def emit_function(method: str, path: str, operation: Operation) -> cst.FunctionD
                     )
                 )
 
-                # Process query params
                 p_in = getattr(param, "in_", getattr(param, "in", None))
                 if p_in in ("formData", "form"):
                     has_form_data = True
@@ -198,7 +191,6 @@ def emit_function(method: str, path: str, operation: Operation) -> cst.FunctionD
                             )
                         )
 
-    # Build the method body
     if operation.requestBody:
         params_list.append(
             cst.Param(
@@ -221,21 +213,24 @@ def emit_function(method: str, path: str, operation: Operation) -> cst.FunctionD
         url_value = cst.BinaryOperation(
             left=url_value,
             operator=cst.Add(),
-            right=cst.BinaryOperation(
-                left=cst.SimpleString("'?'"),
-                operator=cst.Add(),
-                right=cst.Call(
-                    func=cst.Attribute(
-                        value=cst.SimpleString("'&'"), attr=cst.Name("join")
+            right=cst.IfExp(
+                test=cst.Name("query_params"),
+                body=cst.BinaryOperation(
+                    left=cst.SimpleString("'?'"),
+                    operator=cst.Add(),
+                    right=cst.Call(
+                        func=cst.Attribute(
+                            value=cst.SimpleString("'&'"), attr=cst.Name("join")
+                        ),
+                        args=[cst.Arg(value=cst.Name("query_params"))],
                     ),
-                    args=[cst.Arg(value=cst.Name("query_params"))],
                 ),
+                orelse=cst.SimpleString('""'),
             ),
         )
 
     body_statements.extend(
         [
-            # Build URL (needs actual path variable interpolation later)
             cst.SimpleStatementLine(
                 [
                     cst.Assign(
@@ -244,7 +239,6 @@ def emit_function(method: str, path: str, operation: Operation) -> cst.FunctionD
                     )
                 ]
             ),
-            # Perform HTTP request
             cst.SimpleStatementLine(
                 [
                     cst.Assign(
@@ -333,11 +327,7 @@ def emit_function(method: str, path: str, operation: Operation) -> cst.FunctionD
 
     req_body = cst.IndentedBlock(body=body_statements)
 
-    # Use the operationId as the method name if present, else synthesize
     raw_op_id = operation.operationId or f"{method}_{path.replace('/', '_').strip('_')}"
-    # Sanitize for valid python identifier
-    from openapi_client.functions.utils import sanitize_name
-
     operation_id = sanitize_name(raw_op_id)
 
     return cst.FunctionDef(
@@ -348,18 +338,16 @@ def emit_function(method: str, path: str, operation: Operation) -> cst.FunctionD
 
 
 def emit_functions(spec: OpenAPI) -> list[cst.FunctionDef]:
-    """
-    Emit a list of HTTP client methods for all paths in an OpenAPI spec.
+    """Emit a list of HTTP client methods for all paths in an OpenAPI spec.
 
     Args:
-        spec (OpenAPI): The parsed OpenAPI specification.
+        spec: The parsed OpenAPI specification.
 
     Returns:
-        list[cst.FunctionDef]: A list of generated AST nodes for the methods.
+        A list of generated LibCST FunctionDef nodes for the methods.
     """
-    methods = []
+    methods: list[cst.FunctionDef] = []
 
-    # Generate __init__
     init_params = cst.Parameters(
         params=[
             cst.Param(name=cst.Name("self")),
@@ -432,244 +420,3 @@ def emit_functions(spec: OpenAPI) -> list[cst.FunctionDef]:
                         methods.append(emit_function(method, path, operation))
 
     return methods
-
-
-# OpenAPI 3.2.0 keywords: openapi, $self, jsonSchemaDialect, servers, webhooks, components, security, tags, externalDocs, termsOfService, contact, license, version, name, url, email, identifier, variables, responses, requestBodies, headers, securitySchemes, links, callbacks, pathItems, mediaTypes
-
-
-# OpenAPI 3.2.0 objects
-_OPENAPI_3_2_0_FIELDS = (
-    "openapi",
-    "$self",
-    "self_",
-    "jsonSchemaDialect",
-    "servers",
-    "webhooks",
-    "components",
-    "security",
-    "tags",
-    "externalDocs",
-    "termsOfService",
-    "contact",
-    "license",
-    "version",
-    "name",
-    "url",
-    "email",
-    "identifier",
-    "variables",
-    "responses",
-    "requestBodies",
-    "headers",
-    "securitySchemes",
-    "links",
-    "callbacks",
-    "pathItems",
-    "mediaTypes",
-    "$ref",
-    "ref",
-    "in",
-    "in_",
-    "schema",
-    "schema_",
-    "{name}",
-    "{expression}",
-    "HTTP Status Code",
-    "/{path}",
-    "paths",
-    "info",
-)
-
-_ALL_KEYWORDS = (
-    "ServerVariable",
-    "PathItem",
-    "ExternalDocumentation",
-    "RequestBody",
-    "MediaType",
-    "SecurityScheme",
-    "OAuthFlows",
-    "OAuthFlow",
-    "SecurityRequirement",
-    "$ref",
-    "$self",
-    "/{path}",
-    "Callback",
-    "Callbacks",
-    "Components",
-    "Componentss",
-    "Contact",
-    "Contacts",
-    "Discriminator",
-    "Discriminators",
-    "Encoding",
-    "Encodings",
-    "Example",
-    "Examples",
-    "External Documentation",
-    "External Documentations",
-    "HTTP Status Code",
-    "Header",
-    "Headers",
-    "Info",
-    "Infos",
-    "License",
-    "Licenses",
-    "Link",
-    "Links",
-    "Media Type",
-    "Media Types",
-    "OAuth Flow",
-    "OAuth Flows",
-    "OAuth Flowss",
-    "OpenAPI",
-    "OpenAPIs",
-    "Operation",
-    "Operations",
-    "Parameter",
-    "Parameters",
-    "Path Item",
-    "Path Items",
-    "Paths",
-    "Pathss",
-    "Reference",
-    "References",
-    "Request Body",
-    "Request Bodys",
-    "Response",
-    "Responses",
-    "Responsess",
-    "Schema",
-    "Schemas",
-    "Security Requirement",
-    "Security Requirements",
-    "Security Scheme",
-    "Security Schemes",
-    "Server",
-    "Server Variable",
-    "Server Variables",
-    "Servers",
-    "Tag",
-    "Tags",
-    "XML",
-    "XMLs",
-    "additionalOperations",
-    "allowEmptyValue",
-    "allowReserved",
-    "attribute",
-    "authorizationCode",
-    "authorizationUrl",
-    "bearerFormat",
-    "callback",
-    "callbacks",
-    "clientCredentials",
-    "components",
-    "contact",
-    "content",
-    "contentType",
-    "dataValue",
-    "default",
-    "defaultMapping",
-    "delete",
-    "deprecated",
-    "description",
-    "deviceAuthorization",
-    "deviceAuthorizationUrl",
-    "discriminator",
-    "email",
-    "encoding",
-    "enum",
-    "example",
-    "examples",
-    "explode",
-    "expression",
-    "external documentation",
-    "externalDocs",
-    "externalValue",
-    "flows",
-    "get",
-    "head",
-    "header",
-    "headers",
-    "identifier",
-    "implicit",
-    "in",
-    "in_",
-    "info",
-    "itemEncoding",
-    "itemSchema",
-    "jsonSchemaDialect",
-    "kind",
-    "license",
-    "link",
-    "links",
-    "mapping",
-    "media type",
-    "mediaTypes",
-    "name",
-    "namespace",
-    "nodeType",
-    "oauth flow",
-    "oauth flows",
-    "oauth2MetadataUrl",
-    "openIdConnectUrl",
-    "openapi",
-    "operation",
-    "operationId",
-    "operationRef",
-    "options",
-    "parameter",
-    "parameters",
-    "parent",
-    "password",
-    "patch",
-    "path item",
-    "pathItems",
-    "paths",
-    "post",
-    "prefix",
-    "prefixEncoding",
-    "propertyName",
-    "put",
-    "query",
-    "ref",
-    "reference",
-    "refreshUrl",
-    "request body",
-    "requestBodies",
-    "requestBody",
-    "required",
-    "response",
-    "responses",
-    "schema",
-    "schema_",
-    "schemas",
-    "scheme",
-    "scopes",
-    "security",
-    "security requirement",
-    "security scheme",
-    "securitySchemes",
-    "self_",
-    "serializedValue",
-    "server",
-    "server variable",
-    "servers",
-    "style",
-    "summary",
-    "tag",
-    "tags",
-    "termsOfService",
-    "title",
-    "tokenUrl",
-    "trace",
-    "type",
-    "url",
-    "value",
-    "variables",
-    "version",
-    "webhooks",
-    "wrapped",
-    "xml",
-    "{expression}",
-    "{name}",
-)

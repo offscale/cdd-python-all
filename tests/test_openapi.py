@@ -1,9 +1,12 @@
-"""Tests for test_openapi.py."""
+"""Tests for OpenAPI JSON/dict parsing, emission, and external $ref resolution."""
+
+from __future__ import annotations
 
 import json
 from openapi_client.openapi.parse import parse_openapi_dict, parse_openapi_json
 from openapi_client.openapi.emit import emit_openapi_dict, emit_openapi_json
 from openapi_client.models import OpenAPI
+from pathlib import Path
 
 
 def test_openapi_parse_emit():
@@ -47,3 +50,52 @@ def test_openapi_swagger2_parse():
     assert "api_key" in parsed_dict.components.securitySchemes
     assert "skipParam" in parsed_dict.components.parameters
     assert "Unauthorized" in parsed_dict.components.responses
+
+
+def test_openapi_parse_external_refs_pointer_exception(tmp_path: Path) -> None:
+    """Test external $ref resolution when pointer path traverses missing keys."""
+    p1 = tmp_path / "temp_spec7.json"
+    p2 = tmp_path / "temp_spec8.json"
+    p2.write_text('{"SomeSchema": {"type": "integer"}}', encoding="utf-8")
+    spec = {
+        "openapi": "3.0.0",
+        "info": {"title": "Test", "version": "1.0.0"},
+        "paths": {},
+        "components": {
+            "schemas": {
+                "MySchema": {
+                    "$ref": "temp_spec8.json#/SomeSchema/non_existent_key/more"
+                }
+            }
+        },
+    }
+    p1.write_text(json.dumps(spec), encoding="utf-8")
+    parsed = parse_openapi_json(p1.read_text(encoding="utf-8"), base_path=tmp_path)
+    assert parsed.components is not None
+    assert parsed.components.schemas is not None
+    assert parsed.components.schemas["MySchema"].type is None
+
+
+def test_openapi_parse_external_refs_pointer_exception_2(tmp_path: Path) -> None:
+    """Test external $ref resolution when pointer traverses a non-dict object."""
+    p1 = tmp_path / "temp_spec11.json"
+    p2 = tmp_path / "temp_spec12.json"
+    p2.write_text('{"SomeSchema": []}', encoding="utf-8")
+    spec = {
+        "openapi": "3.0.0",
+        "info": {"title": "Test", "version": "1.0.0"},
+        "paths": {},
+        "components": {
+            "schemas": {
+                "MySchema": {"$ref": "temp_spec12.json#/SomeSchema/invalid_attr"}
+            }
+        },
+    }
+    p1.write_text(json.dumps(spec), encoding="utf-8")
+    parsed = parse_openapi_json(p1.read_text(encoding="utf-8"), base_path=tmp_path)
+    assert parsed.components is not None
+    assert parsed.components.schemas is not None
+    assert (
+        parsed.components.schemas["MySchema"].ref
+        == "temp_spec12.json#/SomeSchema/invalid_attr"
+    )

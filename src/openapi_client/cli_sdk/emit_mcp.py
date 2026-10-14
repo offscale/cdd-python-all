@@ -1,22 +1,29 @@
 """Generates a Model Context Protocol (MCP) server for a Python SDK."""
 
+from __future__ import annotations
+
 import json
+from typing import Any
+
+from openapi_client.functions.utils import sanitize_name
 from openapi_client.models import OpenAPI
 
 
-def emit_mcp_server(spec: OpenAPI) -> str:
-    """Emit the mcp_server.py source code."""
-    title = spec.info.title if spec.info else "API"
-    version = spec.info.version if spec.info else "1.0.0"
+def extract_mcp_tools_from_spec(spec: OpenAPI) -> list[dict[str, Any]]:
+    """Extract MCP tool schema definitions from an OpenAPI specification.
 
-    tools = []
+    Args:
+        spec: The OpenAPI specification model.
+
+    Returns:
+        A list of MCP tool descriptor dictionaries.
+    """
+    tools: list[dict[str, Any]] = []
     if spec.paths:
         for path, path_item in spec.paths.items():
             for method in ["get", "post", "put", "delete", "patch"]:
                 operation = getattr(path_item, method, None)
                 if operation:
-                    from openapi_client.functions.utils import sanitize_name
-
                     raw_op_id = (
                         operation.operationId
                         or f"{method}_{path.replace('/', '_').strip('_')}"
@@ -24,22 +31,25 @@ def emit_mcp_server(spec: OpenAPI) -> str:
                     op_id = sanitize_name(raw_op_id)
                     desc = operation.summary or f"{method.upper()} {path}"
 
-                    properties = {}
-                    required = []
+                    properties: dict[str, dict[str, str]] = {}
+                    required: list[str] = []
                     if operation.parameters:
                         for param in operation.parameters:
                             p_name = getattr(param, "name", "param").replace("-", "_")
-                            p_desc = getattr(param, "description", "")
-                            req = getattr(param, "required", False)
-                            p_type = "string"
+                            p_desc = getattr(param, "description", "") or ""
+                            req = bool(getattr(param, "required", False))
+                            p_type: Any = "string"
                             if getattr(param, "schema_", None):
                                 p_type = getattr(param.schema_, "type", "string")
                                 if isinstance(p_type, list):
                                     p_type = p_type[0]
                                 if p_type == "integer":
-                                    p_type = "number"  # or integer
+                                    p_type = "number"
 
-                            properties[p_name] = {"type": p_type, "description": p_desc}
+                            properties[p_name] = {
+                                "type": p_type,
+                                "description": p_desc,
+                            }
                             if req:
                                 required.append(p_name)
 
@@ -54,7 +64,22 @@ def emit_mcp_server(spec: OpenAPI) -> str:
                             },
                         }
                     )
+    return tools
 
+
+def emit_mcp_server(spec: OpenAPI) -> str:
+    """Emit the `mcp_server.py` source code.
+
+    Args:
+        spec: The OpenAPI specification model.
+
+    Returns:
+        The generated Python source code for `mcp_server.py`.
+    """
+    title = spec.info.title if spec.info else "API"
+    version = spec.info.version if spec.info else "1.0.0"
+
+    tools = extract_mcp_tools_from_spec(spec)
     tools_json = json.dumps(tools, indent=4)
 
     code = f'''"""Model Context Protocol (MCP) server integration."""
@@ -90,18 +115,15 @@ def start_mcp_server(client):
                 send_response(req_id, result={{
                     "protocolVersion": "2024-11-05",
                     "capabilities": {{"tools": {{}}, "resources": {{}}, "prompts": {{}}, "logging": {{}}}},
-                    "serverInfo": {{"name": "{title}", "version": "{version}"}}
+                    "serverInfo": {{"name": {title!r}, "version": {version!r}}}
                 }})
             elif method == "notifications/initialized":
                 pass
             elif method == "notifications/cancelled":
-                # Cancellation of an ongoing request
                 pass
             elif method == "notifications/progress":
-                # Progress tracking updates
                 pass
             elif method == "close":
-                # Graceful Disconnect / Close
                 send_response(req_id, result={{}})
                 break
             elif method == "ping":
@@ -121,7 +143,7 @@ def start_mcp_server(client):
                         {{
                             "uri": uri,
                             "mimeType": "application/json",
-                            "text": \'{{"error": "Resource not found"}}\'
+                            "text": '{{"error": "Resource not found"}}'
                         }}
                     ]
                 }})

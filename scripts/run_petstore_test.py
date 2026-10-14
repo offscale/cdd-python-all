@@ -1,23 +1,31 @@
 """Run tests against the Petstore server."""
 
+from __future__ import annotations
+
 import os
-import sys
 import shutil
-import subprocess
-import time
 import socket
+import subprocess
+import sys
+import time
+import urllib.request
 
 
-def find_free_port():
-    """Find a free port on localhost."""
+def find_free_port() -> int:
+    """Find a free TCP port on localhost.
+
+    Returns:
+        An available port number.
+    """
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("", 0))
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        return s.getsockname()[1]
+        port: int = s.getsockname()[1]
+        return port
 
 
-def main():
-    """Main execution of the petstore test."""
+def main() -> None:
+    """Execute Petstore SDK CLI generation and integration test."""
     if os.environ.get("RUN_SLOW_TESTS") != "1":
         print("Skipping slow test. Set RUN_SLOW_TESTS=1 to run.")
         sys.exit(0)
@@ -32,7 +40,6 @@ def main():
 
     json_file = sys.argv[1]
     tmp_dir = sys.argv[2]
-    tmp_server_dir = tmp_dir + "_server"
 
     input_path = os.path.join(test_harness_dir, json_file)
     if not os.path.exists(input_path):
@@ -56,10 +63,8 @@ def main():
         subprocess.run(cmd, check=True)
 
         is_oas3 = "oas3" in json_file.lower()
-        host_port = None
-        container_name = None
-
-        import urllib.request
+        host_port: str | None = None
+        container_name: str | None = None
 
         default_port = 8081 if is_oas3 else 8080
         test_urls = (
@@ -72,18 +77,15 @@ def main():
             else [f"http://localhost:{default_port}/api/swagger.json"]
         )
 
-        try:
-            print(f"Checking if existing mock server is pingable at {test_urls}...")
-            for t_url in test_urls:
-                try:
-                    urllib.request.urlopen(t_url, timeout=2)
-                    host_port = str(default_port)
-                    print(f"Found active mock server on port {host_port} at {t_url}")
-                    break
-                except Exception:
-                    continue
-        except Exception:
-            print("No active mock server found.")
+        print(f"Checking if existing mock server is pingable at {test_urls}...")
+        for t_url in test_urls:
+            try:
+                urllib.request.urlopen(t_url, timeout=2)
+                host_port = str(default_port)
+                print(f"Found active mock server on port {host_port} at {t_url}")
+                break
+            except OSError:
+                continue
 
         if not host_port:
             print("Falling back to Docker JVM Petstore server...")
@@ -115,7 +117,7 @@ def main():
                     capture_output=True,
                 )
                 host_port = str(default_port)
-            except Exception as e:
+            except (subprocess.CalledProcessError, OSError) as e:
                 print(
                     f"Failed to start JVM image {image_name}, falling back to {fallback_image_name}: {e}"
                 )
@@ -135,35 +137,30 @@ def main():
                         capture_output=True,
                     )
                     host_port = str(default_port)
-                except Exception as e2:
+                except (subprocess.CalledProcessError, OSError) as e2:
                     print(
                         f"Fallback docker test failed (maybe docker not available?): {e2}"
                     )
                     return
 
-            try:
-                for _ in range(15):
-                    time.sleep(2)
-                    success = False
-                    for t_url in test_urls:
-                        try:
-                            urllib.request.urlopen(t_url, timeout=1)
-                            print(f"Docker mock server is ready at {t_url}")
-                            success = True
-                            break
-                        except Exception:
-                            pass
-                    if success:
+            for _ in range(15):
+                time.sleep(2)
+                success = False
+                for t_url in test_urls:
+                    try:
+                        urllib.request.urlopen(t_url, timeout=1)
+                        print(f"Docker mock server is ready at {t_url}")
+                        success = True
                         break
-                else:
-                    print("Docker mock server failed to become ready.")
-                    return
-            except Exception as e:
-                print(f"Docker fallback setup failed: {e}")
+                    except OSError:
+                        pass
+                if success:
+                    break
+            else:
+                print("Docker mock server failed to become ready.")
                 return
 
         try:
-            # Use SDK to get inventory
             env = os.environ.copy()
             env["API_BASE_URL"] = (
                 f"http://localhost:{host_port}/api/v3"
@@ -194,10 +191,7 @@ def main():
                 )
 
     finally:
-        if os.path.exists(tmp_dir):
-            shutil.rmtree(tmp_dir)
-        if os.path.exists(tmp_server_dir):
-            shutil.rmtree(tmp_server_dir)
+        shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
 if __name__ == "__main__":  # pragma: no cover

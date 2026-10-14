@@ -1,22 +1,30 @@
 """Emit DAO module."""
 
+from __future__ import annotations
+
+from openapi_client.functions.utils import sanitize_name
 from openapi_client.models import OpenAPI
 
 
 def emit_dao(spec: OpenAPI) -> dict[str, str]:
-    """
-    Generate Data Access Object (DAO) classes from an OpenAPI specification.
+    """Generate Data Access Object (DAO) classes from an OpenAPI specification.
 
     This generates composable files:
     1. Abstract DAO interfaces.
-    2. Stub DAOs (returning NotImplementedError).
+    2. Stub DAOs (raising NotImplementedError).
     3. Concrete DAOs (using SQLAlchemy).
     4. A Dependency Injection/Factory routine.
+
+    Args:
+        spec: The OpenAPI specification model.
+
+    Returns:
+        A dictionary mapping relative file paths to generated Python code.
     """
     if not spec.components or not spec.components.schemas:
         return {}
 
-    files = {}
+    files: dict[str, str] = {}
     init_lines = [
         '"""DAO factory module."""',
         "",
@@ -28,10 +36,9 @@ def emit_dao(spec: OpenAPI) -> dict[str, str]:
 
     schemas = spec.components.schemas
 
-    for name in schemas.keys():
-        lower_name = name.lower()
+    for name in schemas:
+        lower_name = sanitize_name(name) or name.lower()
 
-        # 1. Abstract DAOs
         abstract_lines = [
             f'"""Abstract DAO for {name}."""',
             "",
@@ -64,7 +71,6 @@ def emit_dao(spec: OpenAPI) -> dict[str, str]:
         ]
         files[f"dao/abstract_{lower_name}.py"] = "\n".join(abstract_lines)
 
-        # 2. Stub DAOs
         stub_lines = [
             f'"""Stub DAO for {name}."""',
             "",
@@ -93,7 +99,6 @@ def emit_dao(spec: OpenAPI) -> dict[str, str]:
         ]
         files[f"dao/stub_{lower_name}.py"] = "\n".join(stub_lines)
 
-        # 3. Concrete DAOs
         concrete_lines = [
             f'"""Concrete DAO for {name}."""',
             "",
@@ -136,11 +141,9 @@ def emit_dao(spec: OpenAPI) -> dict[str, str]:
         ]
         files[f"dao/concrete_{lower_name}.py"] = "\n".join(concrete_lines)
 
-        # Add to init
         init_lines.append(f"from .stub_{lower_name} import Stub{name}DAO")
         init_lines.append(f"from .concrete_{lower_name} import Concrete{name}DAO")
 
-    # 4. Dependency Injection Routine
     init_lines.extend(
         [
             "",
@@ -155,11 +158,11 @@ def emit_dao(spec: OpenAPI) -> dict[str, str]:
         ]
     )
 
-    for i, name in enumerate(schemas.keys()):
+    for i, name in enumerate(schemas):
         if i == 0:
-            init_lines.append(f"        if model_name == '{name}':")
+            init_lines.append(f"        if model_name == {name!r}:")
         else:
-            init_lines.append(f"        elif model_name == '{name}':")
+            init_lines.append(f"        elif model_name == {name!r}:")
         init_lines.append(f"            return Stub{name}DAO()")
 
     init_lines.extend(
@@ -172,11 +175,11 @@ def emit_dao(spec: OpenAPI) -> dict[str, str]:
         ]
     )
 
-    for i, name in enumerate(schemas.keys()):
+    for i, name in enumerate(schemas):
         if i == 0:
-            init_lines.append(f"        if model_name == '{name}':")
+            init_lines.append(f"        if model_name == {name!r}:")
         else:
-            init_lines.append(f"        elif model_name == '{name}':")
+            init_lines.append(f"        elif model_name == {name!r}:")
         init_lines.append(f"            return Concrete{name}DAO(session)")
 
     init_lines.extend(

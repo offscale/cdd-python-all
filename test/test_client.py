@@ -1,5 +1,6 @@
-"""mock test client."""
+"""Mock test client."""
 
 
-def test_client():
-    return True
+def test_client() -> None:
+    """Verify the mock test client placeholder passes."""
+    assert True

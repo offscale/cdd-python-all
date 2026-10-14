@@ -1,60 +1,26 @@
 """Generates an MCP SSE (Server-Sent Events) HTTP Gateway for a Python SDK."""
 
+from __future__ import annotations
+
 import json
+
+from openapi_client.cli_sdk.emit_mcp import extract_mcp_tools_from_spec
 from openapi_client.models import OpenAPI
 
 
 def emit_mcp_sse_server(spec: OpenAPI) -> str:
-    """Emit the mcp_sse_server.py source code."""
+    """Emit the `mcp_sse_server.py` source code.
+
+    Args:
+        spec: The OpenAPI specification model.
+
+    Returns:
+        The generated Python source code for `mcp_sse_server.py`.
+    """
     title = spec.info.title if spec.info else "API"
     version = spec.info.version if spec.info else "1.0.0"
 
-    tools = []
-    if spec.paths:
-        for path, path_item in spec.paths.items():
-            for method in ["get", "post", "put", "delete", "patch"]:
-                operation = getattr(path_item, method, None)
-                if operation:
-                    from openapi_client.functions.utils import sanitize_name
-
-                    raw_op_id = (
-                        operation.operationId
-                        or f"{method}_{path.replace('/', '_').strip('_')}"
-                    )
-                    op_id = sanitize_name(raw_op_id)
-                    desc = operation.summary or f"{method.upper()} {path}"
-
-                    properties = {}
-                    required = []
-                    if operation.parameters:
-                        for param in operation.parameters:
-                            p_name = getattr(param, "name", "param").replace("-", "_")
-                            p_desc = getattr(param, "description", "")
-                            req = getattr(param, "required", False)
-                            p_type = "string"
-                            if getattr(param, "schema_", None):
-                                p_type = getattr(param.schema_, "type", "string")
-                                if isinstance(p_type, list):
-                                    p_type = p_type[0]
-                                if p_type == "integer":
-                                    p_type = "number"  # or integer
-
-                            properties[p_name] = {"type": p_type, "description": p_desc}
-                            if req:
-                                required.append(p_name)
-
-                    tools.append(
-                        {
-                            "name": op_id,
-                            "description": desc,
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": properties,
-                                "required": required,
-                            },
-                        }
-                    )
-
+    tools = extract_mcp_tools_from_spec(spec)
     tools_json = json.dumps(tools, indent=4)
 
     code = f'''"""Model Context Protocol (MCP) SSE server integration."""
@@ -68,8 +34,6 @@ import uuid
 class MCPSSEServer(BaseHTTPRequestHandler):
     """HTTP Server handling SSE connections for MCP."""
 
-    # Class-level storage for simplicity in this generated output
-    # In a real async framework, this would be attached to app state
     clients = {{}}
     tools = {tools_json}
 
@@ -85,7 +49,6 @@ class MCPSSEServer(BaseHTTPRequestHandler):
         if self.path == "/mcp/sse":
             session_id = str(uuid.uuid4())
 
-            # Send SSE headers
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream")
             self.send_header("Cache-Control", "no-cache")
@@ -93,14 +56,10 @@ class MCPSSEServer(BaseHTTPRequestHandler):
             self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
 
-            # Send the endpoint event
             self.wfile.write(b"event: endpoint\\n")
             self.wfile.write(f"data: /mcp/message?session_id={{session_id}}\\n\\n".encode("utf-8"))
             self.wfile.flush()
 
-            # We would normally keep this connection alive and push to self.wfile
-            # For a basic BaseHTTPRequestHandler, this is blocking.
-            # Real implementations use FastAPI/Starlette for SSE.
             self.wfile.write(b"event: ping\\ndata: {{}}\\n\\n")
             self.wfile.flush()
             return
@@ -119,20 +78,13 @@ class MCPSSEServer(BaseHTTPRequestHandler):
                 self.send_error(400, "Bad Request: Invalid JSON")
                 return
 
-            # Extract HTTP Request/Auth Bridging
             auth_header = self.headers.get("Authorization")
             if auth_header and hasattr(self.server, "client") and self.server.client:
-                # Assuming the client can accept an authorization token
                 if hasattr(self.server.client, "set_auth_token"):
                     self.server.client.set_auth_token(auth_header)
                 elif hasattr(self.server.client, "api_key"):
                     self.server.client.api_key = auth_header
 
-            # For a real implementation, we would route this message to the SSE queue
-            # of the specific session_id. Here we will just process and return directly
-            # via the HTTP response for testing/demonstration purposes of the object schema.
-
-            # ... handling logic similar to stdio ...
             method = req.get("method")
             params = req.get("params", {{}})
             req_id = req.get("id")
@@ -144,18 +96,15 @@ class MCPSSEServer(BaseHTTPRequestHandler):
                 result = {{
                     "protocolVersion": "2024-11-05",
                     "capabilities": {{"tools": {{}}, "resources": {{}}, "prompts": {{}}, "logging": {{}}}},
-                    "serverInfo": {{"name": "{title}", "version": "{version}"}}
+                    "serverInfo": {{"name": {title!r}, "version": {version!r}}}
                 }}
             elif method == "notifications/initialized":
                 pass
             elif method == "notifications/cancelled":
-                # Cancellation of an ongoing request
                 pass
             elif method == "notifications/progress":
-                # Progress tracking updates
                 pass
             elif method == "close":
-                # Graceful Disconnect / Close
                 result = {{}}
             elif method == "ping":
                 result = {{}}
@@ -171,7 +120,7 @@ class MCPSSEServer(BaseHTTPRequestHandler):
                         {{
                             "uri": uri,
                             "mimeType": "application/json",
-                            "text": "{{\\"error\\": \\"Resource not found\\"}}"
+                            "text": \'{{"error": "Resource not found"}}\'
                         }}
                     ]
                 }}
@@ -199,7 +148,6 @@ class MCPSSEServer(BaseHTTPRequestHandler):
                 tool_name = params.get("name")
                 tool_args = params.get("arguments", {{}})
 
-                # In this generated adapter, `self.server.client` holds the reference
                 client_ref = getattr(self.server, "client", None)
                 if client_ref and hasattr(client_ref, tool_name):
                     func = getattr(client_ref, tool_name)
@@ -240,7 +188,6 @@ def start_mcp_sse_server(client, port=8080):
     server_address = ("0.0.0.0", port)
     httpd = HTTPServer(server_address, MCPSSEServer)
 
-    # Attach client logic directly to the server instance for the handlers to access
     httpd.client = client
 
     print(f"Starting MCP SSE server on port {{port}}...")

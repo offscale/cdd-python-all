@@ -1,10 +1,19 @@
 """Emit README.md for the generated server."""
 
+from __future__ import annotations
+
 from openapi_client.models import OpenAPI
 
 
 def emit_readme(spec: OpenAPI) -> str:
-    """Generate the README.md documenting the server modes."""
+    """Generate the `README.md` documenting the server modes.
+
+    Args:
+        spec: The OpenAPI specification model.
+
+    Returns:
+        The generated Markdown documentation string.
+    """
     title = spec.info.title if spec and spec.info else "Generated CDD Server"
 
     lines = [

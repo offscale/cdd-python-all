@@ -1,18 +1,24 @@
 """Emit fake data seeder module."""
 
+from __future__ import annotations
+
 from openapi_client.models import OpenAPI
 
 
 def emit_seeder(spec: OpenAPI) -> dict[str, str]:
-    """
-    Generate the data seeder for the server using Faker in a modular way.
+    """Generate the data seeder for the server using Faker in a modular way.
+
+    Args:
+        spec: The OpenAPI specification model.
+
+    Returns:
+        A dictionary mapping relative file paths to generated Python code strings.
     """
     if not spec.components or not spec.components.schemas:
         return {}
 
-    files = {}
+    files: dict[str, str] = {}
 
-    # mocks/pool.py
     pool_lines = [
         "from typing import Any, Dict, List",
         "",
@@ -44,7 +50,6 @@ def emit_seeder(spec: OpenAPI) -> dict[str, str]:
     schemas = spec.components.schemas
     model_names = list(schemas.keys())
 
-    # mocks/factories.py
     factories_lines = [
         "import random",
         "from faker import Faker",
@@ -107,7 +112,6 @@ def emit_seeder(spec: OpenAPI) -> dict[str, str]:
 
     files["mocks/factories.py"] = "\n".join(factories_lines)
 
-    # mocks/seeder.py
     seeder_lines = [
         "from sqlalchemy.orm import Session",
         "from .pool import EntityPool",
@@ -132,7 +136,7 @@ def emit_seeder(spec: OpenAPI) -> dict[str, str]:
                 "        session.commit()",
                 "        session.refresh(obj)",
                 "        if hasattr(obj, 'id'):",
-                f"            pool.add('{name}', obj.id)",
+                f"            pool.add({name!r}, obj.id)",
                 "",
             ]
         )
@@ -142,7 +146,6 @@ def emit_seeder(spec: OpenAPI) -> dict[str, str]:
     files["mocks/__init__.py"] = (
         "from .pool import EntityPool\nfrom .seeder import seed_database\n"
     )
-    # Also provide a top-level seeder.py backward compatible shim so other parts of code still work
     files["seeder.py"] = (
         "from mocks.pool import EntityPool\nfrom mocks.seeder import seed_database\n"
     )

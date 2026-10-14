@@ -3,24 +3,17 @@
 from __future__ import annotations
 
 from typing import Any, Union
-from pydantic import BaseModel, ConfigDict, Field, VERSION as PYDANTIC_VERSION
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class OpenAPIBase(BaseModel):
     """OpenAPI OpenAPIBase model."""
 
-    if PYDANTIC_VERSION.startswith("2"):
-        model_config = ConfigDict(
-            extra="allow",
-            populate_by_name=True,
-        )
-    else:
-
-        class Config:  # pragma: no cover
-            """Pydantic config."""
-
-            extra = "allow"
-            allow_population_by_field_name = True
+    model_config = ConfigDict(
+        extra="allow",
+        populate_by_name=True,
+    )
 
 
 class Contact(OpenAPIBase):
@@ -147,7 +140,6 @@ class Schema(OpenAPIBase):
     required: list[str] | None = None
     enum: list[Any] | None = None
     readOnly: bool | None = None
-    # We allow extra fields since it supports full JSON Schema draft 2020-12
 
 
 class Example(OpenAPIBase):
@@ -281,7 +273,6 @@ class Responses(OpenAPIBase):
     """OpenAPI Responses model."""
 
     default: Response | Reference | None = None
-    # the rest are HTTP status codes as string keys, so we allow extra properties
 
 
 class OAuthFlow(OpenAPIBase):
@@ -325,7 +316,7 @@ class SecurityScheme(OpenAPIBase):
 class Callback(OpenAPIBase):
     """OpenAPI Callback model."""
 
-    pass  # A map of expressions to PathItem, allow extra
+    pass
 
 
 class Operation(OpenAPIBase):
@@ -371,7 +362,6 @@ class PathItem(OpenAPIBase):
 class Paths(OpenAPIBase):
     """OpenAPI Paths model."""
 
-    # A map of paths to PathItem, allow extra properties
     pass
 
 
@@ -419,10 +409,6 @@ class OpenAPI(OpenAPIBase):
 
 SchemaOrReference = Union[Schema, Reference]
 
-# Rebuild models due to forward references
 for model in list(locals().values()):
     if isinstance(model, type) and issubclass(model, BaseModel) and model != BaseModel:
-        if hasattr(model, "model_rebuild"):
-            model.model_rebuild()
-        elif hasattr(model, "update_forward_refs"):  # pragma: no cover
-            model.update_forward_refs()  # pragma: no cover
+        model.model_rebuild()

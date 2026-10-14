@@ -1,4 +1,6 @@
-"""Tests for test_client.py."""
+"""Tests for ClientGenerator and client route round-trip parsing."""
+
+from __future__ import annotations
 
 import libcst as cst
 from openapi_client.models import OpenAPI
@@ -8,6 +10,12 @@ from openapi_client.tests.emit import emit_tests
 from openapi_client.mocks.emit import emit_mock_server
 from openapi_client.mocks.parse import extract_mocks_from_ast
 from openapi_client.tests.parse import extract_tests_from_ast
+import importlib
+import os
+import runpy
+import sys
+import unittest.mock
+from pathlib import Path
 
 
 def test_extract_mock_and_test():
@@ -242,3 +250,29 @@ def test_emit_tests_and_mocks():
     # Check that tests accept the fixture
     assert "def test_get_pets(client):" in comp_code
     assert "response=client.get_pets()" in comp_code.replace(" ", "")
+
+
+def test_mock_server(monkeypatch) -> None:
+    """Test executing test/mock_server.py with a mocked FastAPI module."""
+    monkeypatch.setitem(sys.modules, "fastapi", unittest.mock.MagicMock())
+    mock_server_path = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "../test/mock_server.py")
+    )
+    res = runpy.run_path(mock_server_path)
+    assert "app" in res
+
+
+def test_test_client(tmp_path: Path, monkeypatch) -> None:
+    """Test test_client module execution in an isolated temporary workspace."""
+    src_dir = tmp_path / "src"
+    src_dir.mkdir(parents=True, exist_ok=True)
+    (src_dir / "client.py").write_text(
+        '"""Client stub."""\n\n\nclass Client:\n    """Client."""\n\n    def __init__(self, *args, **kwargs) -> None:\n        """Init."""\n        pass\n',
+        encoding="utf-8",
+    )
+    monkeypatch.syspath_prepend(str(src_dir))
+
+    import test.test_client as tc
+
+    importlib.reload(tc)
+    assert tc.test_client() is None

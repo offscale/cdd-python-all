@@ -1,37 +1,72 @@
 """Command-line interface for the openapi-python-client."""
 
-import argparse
-import sys
-import os
-import json
-from pathlib import Path
-import libcst as cst
-from importlib.metadata import version, PackageNotFoundError
+from __future__ import annotations
 
-from openapi_client.models import OpenAPI, Info, Components
-from openapi_client.routes.emit import ClientGenerator
-from openapi_client.routes.parse import extract_from_code
-from openapi_client.tests.emit import emit_tests
-from openapi_client.tests.parse import extract_tests_from_ast
+import argparse
+import contextlib
+import http.server
+import json
+import os
+import sys
+import traceback
+import urllib.request
+from importlib.metadata import PackageNotFoundError, version
+from io import StringIO
+from pathlib import Path
+from typing import Any
+
+import libcst as cst
+
+from openapi_client import mcp as mcp_module
+from openapi_client.classes.emit import emit_models_module
+from openapi_client.classes.parse import extract_classes_from_ast
+from openapi_client.cli_sdk.emit import emit_cli_sdk
+from openapi_client.cli_sdk.emit_mcp import emit_mcp_server
+from openapi_client.cli_sdk.emit_mcp_adapter import emit_mcp_adapter
+from openapi_client.cli_sdk.emit_mcp_sse import emit_mcp_sse_server
+from openapi_client.cli_sdk.parse import extract_cli_from_ast
+from openapi_client.cli_sdk_cdd.emit import emit_cli_sdk as emit_cli_sdk_cdd
+from openapi_client.dao.emit import emit_dao
+from openapi_client.db.emit import emit_db
+from openapi_client.fastapi.emit import emit_fastapi
+from openapi_client.fastapi.emit_readme import emit_readme
+from openapi_client.functions.parse import extract_functions_from_ast
+from openapi_client.functions.utils import sanitize_name
 from openapi_client.mocks.emit import emit_mock_server
 from openapi_client.mocks.parse import extract_mocks_from_ast
-from openapi_client.cli_sdk.emit import emit_cli_sdk
-from openapi_client.cli_sdk.parse import extract_cli_from_ast
-
-from openapi_client.openapi.parse import parse_openapi_json
+from openapi_client.models import Components, Info, OpenAPI
 from openapi_client.openapi.emit import emit_openapi_json
+from openapi_client.openapi.parse import parse_openapi_json
+from openapi_client.routes.emit import ClientGenerator
+from openapi_client.routes.parse import extract_from_code
+from openapi_client.seeder.emit import emit_seeder
+from openapi_client.sqlalchemy_cdd.emit import emit_sqlalchemy
+from openapi_client.tests.emit import emit_tests
+from openapi_client.tests.emit_server_tests import emit_server_tests
+from openapi_client.tests.parse import extract_tests_from_ast
 
 
 def get_version() -> str:
-    """Get the version of the CLI."""
+    """Get the installed package version of the CLI.
+
+    Returns:
+        The package version string.
+    """
     try:
         return version("openapi-python-client")
     except PackageNotFoundError:  # pragma: no cover
         return "0.0.3"
 
 
-def apply_env_vars_to_parser(parser: argparse.ArgumentParser, prefix: str = "CDD_"):
-    """Recursively set argparse default values from environment variables."""
+def apply_env_vars_to_parser(
+    parser: argparse.ArgumentParser, prefix: str = "CDD_"
+) -> None:
+    """Recursively set argparse default values from environment variables.
+
+    Args:
+        parser: The ArgumentParser instance to configure.
+        prefix: Environment variable prefix (defaults to `'CDD_'`).
+    """
     for action in parser._actions:
         if action.dest and action.dest != "help" and action.dest != "==SUPPRESS==":
             env_var = prefix + action.dest.upper()
@@ -49,11 +84,19 @@ def apply_env_vars_to_parser(parser: argparse.ArgumentParser, prefix: str = "CDD
 
 
 def generate_docs_json(
-    input_path: str, no_imports: bool, no_wrapping: bool, output_file: str
+    input_path: str,
+    no_imports: bool,
+    no_wrapping: bool,
+    output_file: str | None,
 ) -> None:
-    """Parse OpenAPI spec and output JSON documentation."""
-    import urllib.request
+    """Parse an OpenAPI spec and output JSON documentation with code snippets.
 
+    Args:
+        input_path: File path or HTTP(S) URL to the OpenAPI specification.
+        no_imports: If True, omit import statements from generated snippets.
+        no_wrapping: If True, omit `main()` wrapper from generated snippets.
+        output_file: Optional file path to write JSON output; prints to stdout if None.
+    """
     if input_path.startswith("http://") or input_path.startswith("https://"):
         req = urllib.request.Request(input_path)
         with urllib.request.urlopen(req) as response:
@@ -64,11 +107,11 @@ def generate_docs_json(
 
     spec = parse_openapi_json(content)
 
-    endpoints = {}
+    endpoints: dict[str, dict[str, str]] = {}
 
     if spec.paths:
         for path, path_item in spec.paths.items():
-            path_map = {}
+            path_map: dict[str, str] = {}
             for method in [
                 "get",
                 "post",
@@ -81,15 +124,13 @@ def generate_docs_json(
             ]:
                 operation = getattr(path_item, method, None)
                 if operation:
-                    from openapi_client.functions.utils import sanitize_name
-
                     raw_op_id = (
                         operation.operationId
                         or f"{method}_{path.replace('/', '_').strip('_')}"
                     )
                     op_id = sanitize_name(raw_op_id)
 
-                    lines = []
+                    lines: list[str] = []
 
                     if not no_imports:
                         lines.append("import json")
@@ -104,7 +145,7 @@ def generate_docs_json(
 
                     indent = "    " if not no_wrapping else ""
 
-                    args = []
+                    args: list[str] = []
                     if operation.parameters:
                         for param in operation.parameters:
                             if hasattr(param, "name"):
@@ -133,17 +174,21 @@ def generate_docs_json(
     result = {"endpoints": endpoints}
 
     if output_file:
-        with open(output_file, "w") as f:
+        with open(output_file, "w", encoding="utf-8") as f:
             json.dump(result, f, indent=2)
     else:
         print(json.dumps(result, indent=2))
 
 
-def scaffold_package(out_dir: Path, is_server: bool = False):
-    """Generate pyproject.toml and github actions."""
+def scaffold_package(out_dir: Path, is_server: bool = False) -> None:
+    """Generate `pyproject.toml` scaffolding in the output directory.
+
+    Args:
+        out_dir: Target directory for the generated package.
+        is_server: If True, include FastAPI, SQLAlchemy, and server dependencies.
+    """
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # Base dependencies
     deps = [
         '    "pydantic==2.12.5",',
         '    "pydantic-core==2.41.5",',
@@ -165,7 +210,6 @@ def scaffold_package(out_dir: Path, is_server: bool = False):
 
     deps_str = "\n".join(deps)
 
-    # Generate pyproject.toml
     pyproject_toml = out_dir / "pyproject.toml"
     if not pyproject_toml.exists():
         pyproject_toml.write_text(
@@ -192,8 +236,13 @@ packages = ["src"]
         )
 
 
-def scaffold_github_actions(out_dir: Path, tests: bool = False):
-    """Scaffold GitHub actions CI file."""
+def scaffold_github_actions(out_dir: Path, tests: bool = False) -> None:
+    """Scaffold a GitHub Actions CI workflow file.
+
+    Args:
+        out_dir: Target directory for the generated repository.
+        tests: If True, include a pytest execution step in the workflow.
+    """
     workflows_dir = out_dir / ".github" / "workflows"
     workflows_dir.mkdir(parents=True, exist_ok=True)
 
@@ -227,27 +276,48 @@ jobs:
 
 def generate_from_openapi(
     subcommand: str,
-    input_path: str,
-    input_dir: str,
+    input_path: str | None,
+    input_dir: str | None,
     output_dir: str,
     no_github_actions: bool = False,
     no_installable_package: bool = False,
     tests: bool = False,
     mcp: bool = False,
 ) -> None:
-    """Process from_openapi subcommands."""
+    """Process `from_openapi` subcommands (`to_sdk`, `to_sdk_cli`, `to_server`).
+
+    Args:
+        subcommand: The generation target (`'to_sdk'`, `'to_sdk_cli'`, or `'to_server'`).
+        input_path: Path to a single OpenAPI JSON file, if provided.
+        input_dir: Path to a directory of OpenAPI JSON files, if provided.
+        output_dir: Destination directory or file path.
+        no_github_actions: If True, skip `.github/workflows/ci.yml` generation.
+        no_installable_package: If True, skip `pyproject.toml` generation.
+        tests: If True, generate unit tests and mock servers.
+        mcp: If True, generate MCP server, SSE server, and adapter modules.
+    """
     if not output_dir:
         output_dir = "."
     out_path = Path(output_dir)
-    if out_path.suffix:  # It's a file path
+    if out_path.suffix:
         out_dir = out_path.parent
     else:
         out_dir = out_path
 
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    def write_generated(code_obj, default_filename, base_dir=out_dir):
-        """Write generated code to files."""
+    def write_generated(
+        code_obj: dict[str, str] | str,
+        default_filename: str,
+        base_dir: Path = out_dir,
+    ) -> None:
+        """Write generated code mapping or string to files.
+
+        Args:
+            code_obj: Either a mapping of relative filenames to code or a single code string.
+            default_filename: Filename to use when `code_obj` is a single string.
+            base_dir: Base output directory.
+        """
         if isinstance(code_obj, dict):
             for filename, file_content in code_obj.items():
                 if file_content:
@@ -270,8 +340,6 @@ def generate_from_openapi(
 
     for spec in specs:
         if subcommand == "to_sdk":
-            from openapi_client.classes.emit import emit_models_module
-
             generator = ClientGenerator(spec)
 
             src_dir = out_dir / "src"
@@ -287,7 +355,6 @@ def generate_from_openapi(
                     emit_models_module(spec.components.schemas), encoding="utf-8"
                 )
 
-            # Dump snapshot for full roundtripping support
             (src_dir / "openapi.snapshot.json").write_text(
                 emit_openapi_json(spec, indent=2), encoding="utf-8"
             )
@@ -299,16 +366,11 @@ def generate_from_openapi(
                 (test_dir / "test_client.py").write_text(
                     emit_tests(spec, composable=True).code, encoding="utf-8"
                 )
-                from openapi_client.mocks.emit import emit_mock_server
-                from openapi_client.dao.emit import emit_dao
-
                 (test_dir / "mock_server.py").write_text(
                     emit_mock_server(spec).code, encoding="utf-8"
                 )
                 write_generated(emit_dao(spec), "dao.py", base_dir=test_dir)
         elif subcommand == "to_sdk_cli":
-            from openapi_client.classes.emit import emit_models_module
-
             generator = ClientGenerator(spec)
 
             src_dir = out_dir / "src"
@@ -324,12 +386,9 @@ def generate_from_openapi(
                     emit_models_module(spec.components.schemas), encoding="utf-8"
                 )
 
-            from openapi_client.cli_sdk_cdd.emit import emit_cli_sdk
-            from openapi_client.cli_sdk.emit_mcp import emit_mcp_server
-            from openapi_client.cli_sdk.emit_mcp_sse import emit_mcp_sse_server
-            from openapi_client.cli_sdk.emit_mcp_adapter import emit_mcp_adapter
-
-            (src_dir / "cli_main.py").write_text(emit_cli_sdk(spec), encoding="utf-8")
+            (src_dir / "cli_main.py").write_text(
+                emit_cli_sdk_cdd(spec), encoding="utf-8"
+            )
             if mcp:
                 (src_dir / "mcp_server.py").write_text(
                     emit_mcp_server(spec), encoding="utf-8"
@@ -348,57 +407,36 @@ def generate_from_openapi(
                 (test_dir / "test_client.py").write_text(
                     emit_tests(spec, composable=True).code, encoding="utf-8"
                 )
-                from openapi_client.mocks.emit import emit_mock_server
-                from openapi_client.dao.emit import emit_dao
-
                 (test_dir / "mock_server.py").write_text(
                     emit_mock_server(spec).code, encoding="utf-8"
                 )
                 write_generated(emit_dao(spec), "dao.py", base_dir=test_dir)
         elif subcommand == "to_server":
-            from openapi_client.fastapi.emit import emit_fastapi
-            from openapi_client.sqlalchemy_cdd.emit import emit_sqlalchemy
-            from openapi_client.dao.emit import emit_dao
-            from openapi_client.db.emit import emit_db
-            from openapi_client.seeder.emit import emit_seeder
-            from openapi_client.tests.emit_server_tests import emit_server_tests
-            from openapi_client.fastapi.emit_readme import emit_readme
-
             (out_dir / "__init__.py").touch(exist_ok=True)
 
-            # Emit FastAPI server
             fastapi_code = emit_fastapi(spec)
             write_generated(fastapi_code, "main.py")
 
-            # Emit SQLAlchemy models
             sa_code = emit_sqlalchemy(spec)
             write_generated(sa_code, "models.py")
 
-            # Emit DAOs
             dao_code = emit_dao(spec)
             write_generated(dao_code, "dao.py")
 
-            # Emit DB configuration
             db_code = emit_db(spec)
             write_generated(db_code, "db.py")
 
-            # Emit Seeder
             seeder_code = emit_seeder(spec)
             write_generated(seeder_code, "seeder.py")
 
-            # Emit server tests
-            test_dir = Path(output_dir) / "tests"
+            test_dir = out_dir / "tests"
             test_dir.mkdir(parents=True, exist_ok=True)
             (test_dir / "__init__.py").touch(exist_ok=True)
             test_code = emit_server_tests(spec)
             write_generated(test_code, "test_server.py", base_dir=test_dir)
 
-            # Emit README
             readme_code = emit_readme(spec)
-            if readme_code:
-                (Path(output_dir) / "README.md").write_text(
-                    readme_code, encoding="utf-8"
-                )
+            (out_dir / "README.md").write_text(readme_code, encoding="utf-8")
 
     if not no_installable_package:
         scaffold_package(out_dir, is_server=(subcommand == "to_server"))
@@ -410,7 +448,12 @@ def generate_from_openapi(
 
 
 def generate_to_openapi(input_path: str, output_path: str) -> None:
-    """Extract an OpenAPI spec from a Python module or directory."""
+    """Extract an OpenAPI spec from a Python module or directory.
+
+    Args:
+        input_path: Path to a Python file or project directory.
+        output_path: Output file path for the generated `openapi.json`.
+    """
     if not output_path:
         output_path = "openapi.json"
     in_path = Path(input_path)
@@ -423,18 +466,13 @@ def generate_to_openapi(input_path: str, output_path: str) -> None:
 
         if snapshot_json.exists():
             spec = parse_openapi_json(snapshot_json.read_text(encoding="utf-8"))
-            out_path.write_text(emit_openapi_json(spec, indent=2), encoding="utf-8")
-            print(f"Successfully extracted OpenAPI spec to {out_path}")
-            return
         else:
             spec = OpenAPI(
-                **{
-                    "openapi": "3.2.0",
-                    "info": Info(title="Extracted API", version="0.0.3"),
-                    "paths": {},
-                    "components": Components(schemas={}),
-                }
-            )  # type: ignore
+                openapi="3.2.0",
+                info=Info(title="Extracted API", version="0.0.3"),
+                paths={},
+                components=Components(schemas={}),
+            )
 
         client_py = in_path / "src" / "client.py"
         if not client_py.exists():
@@ -457,16 +495,11 @@ def generate_to_openapi(input_path: str, output_path: str) -> None:
             cli_py = in_path / "cli_main.py"
 
         if client_py.exists():
-            from openapi_client.classes.parse import extract_classes_from_ast
-            from openapi_client.functions.parse import extract_functions_from_ast
-
             mod = cst.parse_module(client_py.read_text(encoding="utf-8"))
             extract_classes_from_ast(mod, spec)
             extract_functions_from_ast(mod, spec)
 
         if models_py.exists():
-            from openapi_client.classes.parse import extract_classes_from_ast
-
             mod = cst.parse_module(models_py.read_text(encoding="utf-8"))
             extract_classes_from_ast(mod, spec)
 
@@ -490,13 +523,11 @@ def generate_to_openapi(input_path: str, output_path: str) -> None:
 
     if "argparse" in code and "add_parser" in code:
         spec = OpenAPI(
-            **{
-                "openapi": "3.2.0",
-                "info": Info(title="Extracted API", version="0.0.3"),
-                "paths": {},
-                "components": Components(schemas={}),
-            }
-        )  # type: ignore
+            openapi="3.2.0",
+            info=Info(title="Extracted API", version="0.0.3"),
+            paths={},
+            components=Components(schemas={}),
+        )
         mod = cst.parse_module(code)
         extract_cli_from_ast(mod, spec)
         out_path.write_text(emit_openapi_json(spec, indent=2), encoding="utf-8")
@@ -507,8 +538,18 @@ def generate_to_openapi(input_path: str, output_path: str) -> None:
         print(f"Successfully extracted OpenAPI spec to {out_path}")
 
 
-def sync_dir(project_dir: str, truth: str = None, output_dir: str = None) -> None:
-    """Synchronize an OpenAPI specification with source code."""
+def sync_dir(
+    project_dir: str,
+    truth: str | None = None,
+    output_dir: str | None = None,
+) -> None:
+    """Synchronize an OpenAPI specification with source code in a directory.
+
+    Args:
+        project_dir: Path to the directory containing source files and/or `openapi.json`.
+        truth: Optional single source of truth (`'openapi'`, `'class'`, `'function'`, `'sqlalchemy'`).
+        output_dir: Optional output directory; defaults to `project_dir`.
+    """
     d = Path(project_dir)
     out_d = Path(output_dir) if output_dir else d
 
@@ -534,46 +575,46 @@ def sync_dir(project_dir: str, truth: str = None, output_dir: str = None) -> Non
     openapi_json = d / "openapi.json"
 
     spec = OpenAPI(
-        **{
-            "openapi": "3.2.0",
-            "info": Info(title="Extracted API", version="0.0.3"),
-            "paths": {},
-            "components": Components(schemas={}),
-        }
-    )  # type: ignore
+        openapi="3.2.0",
+        info=Info(title="Extracted API", version="0.0.3"),
+        paths={},
+        components=Components(schemas={}),
+    )
 
-    if client_py.exists():
-        from openapi_client.classes.parse import extract_classes_from_ast
-        from openapi_client.functions.parse import extract_functions_from_ast
-
-        mod = cst.parse_module(client_py.read_text(encoding="utf-8"))
-        extract_classes_from_ast(mod, spec)
-        extract_functions_from_ast(mod, spec)
-
-    if models_py.exists():
-        from openapi_client.classes.parse import extract_classes_from_ast
-
-        mod = cst.parse_module(models_py.read_text(encoding="utf-8"))
-        extract_classes_from_ast(mod, spec)
-
-    if mock_py.exists():
-        mod = cst.parse_module(mock_py.read_text(encoding="utf-8"))
-        extract_mocks_from_ast(mod, spec)
-
-    if test_py.exists():
-        mod = cst.parse_module(test_py.read_text(encoding="utf-8"))
-        extract_tests_from_ast(mod, spec)
-
-    if cli_py.exists():
-        mod = cst.parse_module(cli_py.read_text(encoding="utf-8"))
-        extract_cli_from_ast(mod, spec)
-
-    if (
-        openapi_json.exists()
-        and not spec.paths
-        and (spec.components is None or not getattr(spec.components, "schemas", None))
-    ):
+    if truth == "openapi" and openapi_json.exists():
         spec = parse_openapi_json(openapi_json.read_text(encoding="utf-8"))
+    else:
+        if client_py.exists() and truth in (None, "class", "function"):
+            mod = cst.parse_module(client_py.read_text(encoding="utf-8"))
+            if truth in (None, "class"):
+                extract_classes_from_ast(mod, spec)
+            if truth in (None, "function"):
+                extract_functions_from_ast(mod, spec)
+
+        if models_py.exists() and truth in (None, "class"):
+            mod = cst.parse_module(models_py.read_text(encoding="utf-8"))
+            extract_classes_from_ast(mod, spec)
+
+        if mock_py.exists() and truth in (None, "function"):
+            mod = cst.parse_module(mock_py.read_text(encoding="utf-8"))
+            extract_mocks_from_ast(mod, spec)
+
+        if test_py.exists() and truth is None:
+            mod = cst.parse_module(test_py.read_text(encoding="utf-8"))
+            extract_tests_from_ast(mod, spec)
+
+        if cli_py.exists() and truth is None:
+            mod = cst.parse_module(cli_py.read_text(encoding="utf-8"))
+            extract_cli_from_ast(mod, spec)
+
+        if (
+            openapi_json.exists()
+            and not spec.paths
+            and (
+                spec.components is None or not getattr(spec.components, "schemas", None)
+            )
+        ):
+            spec = parse_openapi_json(openapi_json.read_text(encoding="utf-8"))
 
     out_openapi_json = out_d / openapi_json.relative_to(d)
     out_openapi_json.parent.mkdir(parents=True, exist_ok=True)
@@ -586,8 +627,6 @@ def sync_dir(project_dir: str, truth: str = None, output_dir: str = None) -> Non
     out_client_py.write_text(generator.generate_code(), encoding="utf-8")
 
     if spec.components and getattr(spec.components, "schemas", None):
-        from openapi_client.classes.emit import emit_models_module
-
         out_models_py = out_d / models_py.relative_to(d)
         out_models_py.parent.mkdir(parents=True, exist_ok=True)
         (out_models_py.parent / "__init__.py").touch(exist_ok=True)
@@ -605,8 +644,18 @@ def sync_dir(project_dir: str, truth: str = None, output_dir: str = None) -> Non
     (out_mock_py.parent / "__init__.py").touch(exist_ok=True)
     out_mock_py.write_text(emit_mock_server(spec).code, encoding="utf-8")
 
-    def write_generated_local(code_obj, default_filename, base_dir=out_d):
-        """Write generated code to local files."""
+    def write_generated_local(
+        code_obj: dict[str, str] | str,
+        default_filename: str,
+        base_dir: Path = out_d,
+    ) -> None:
+        """Write generated code to local files.
+
+        Args:
+            code_obj: Mapping of relative file paths to code, or a single code string.
+            default_filename: Default filename when `code_obj` is a string.
+            base_dir: Destination base directory.
+        """
         if isinstance(code_obj, dict):
             for filename, file_content in code_obj.items():
                 if file_content:
@@ -616,38 +665,23 @@ def sync_dir(project_dir: str, truth: str = None, output_dir: str = None) -> Non
         elif code_obj:
             (base_dir / default_filename).write_text(code_obj, encoding="utf-8")
 
-    dao_py = d / "src" / "dao.py"
-    if not dao_py.exists():
-        dao_py = d / "dao.py"
-    from openapi_client.dao.emit import emit_dao
-
     write_generated_local(emit_dao(spec), "dao.py")
 
     db_py = d / "src" / "db.py"
     if not db_py.exists():
         db_py = d / "db.py"
-    from openapi_client.db.emit import emit_db
 
     out_db_py = out_d / db_py.relative_to(d)
     out_db_py.parent.mkdir(parents=True, exist_ok=True)
     out_db_py.write_text(emit_db(spec), encoding="utf-8")
 
-    seeder_py = d / "src" / "seeder.py"
-    if not seeder_py.exists():
-        seeder_py = d / "seeder.py"
-
-    from openapi_client.seeder.emit import emit_seeder
-
     write_generated_local(emit_seeder(spec), "seeder.py")
 
-    if (
-        cli_py.exists() or (d / "src").exists()
-    ):  # If src exists, might want to just update cli_py if it exists or should we always? Wait, original just did if cli_py.exists():
-        if cli_py.exists():
-            out_cli_py = out_d / cli_py.relative_to(d)
-            out_cli_py.parent.mkdir(parents=True, exist_ok=True)
-            (out_cli_py.parent / "__init__.py").touch(exist_ok=True)
-            out_cli_py.write_text(emit_cli_sdk(spec), encoding="utf-8")
+    if cli_py.exists():
+        out_cli_py = out_d / cli_py.relative_to(d)
+        out_cli_py.parent.mkdir(parents=True, exist_ok=True)
+        (out_cli_py.parent / "__init__.py").touch(exist_ok=True)
+        out_cli_py.write_text(emit_cli_sdk(spec), encoding="utf-8")
 
     if out_d != d:
         print(f"Successfully synced {project_dir} to {output_dir}")
@@ -655,12 +689,22 @@ def sync_dir(project_dir: str, truth: str = None, output_dir: str = None) -> Non
         print(f"Successfully synced {project_dir}")
 
 
-def run_mcp_server():
+def run_mcp_server() -> None:
     """Run the generator as an MCP server over stdio."""
 
-    def send_response(id, result=None, error=None):
-        """Send a JSON-RPC response."""
-        resp = {"jsonrpc": "2.0", "id": id}
+    def send_response(
+        req_id: Any,
+        result: dict[str, Any] | None = None,
+        error: dict[str, Any] | None = None,
+    ) -> None:
+        """Send a JSON-RPC response over stdout.
+
+        Args:
+            req_id: The JSON-RPC request identifier.
+            result: Optional result payload dictionary.
+            error: Optional error payload dictionary.
+        """
+        resp: dict[str, Any] = {"jsonrpc": "2.0", "id": req_id}
         if error:
             resp["error"] = error
         else:
@@ -690,39 +734,29 @@ def run_mcp_server():
                         },
                     },
                 )
-            elif method == "notifications/initialized":
-                pass
-            elif method == "notifications/cancelled":
-                # Cancellation of an ongoing request
-                pass
-            elif method == "notifications/progress":
-                # Progress tracking updates
+            elif method in (
+                "notifications/initialized",
+                "notifications/cancelled",
+                "notifications/progress",
+            ):
                 pass
             elif method == "close":
-                # Graceful Disconnect / Close
                 send_response(req_id, result={})
                 break
             elif method == "ping":
                 send_response(req_id, result={})
             elif method == "resources/list":
-                cursor = params.get("cursor")
                 send_response(
                     req_id,
                     result={
-                        "resources": [
-                            {
-                                "uri": "schema://current",
-                                "name": "Current OpenAPI Schema",
-                                "mimeType": "application/json",
-                            }
-                        ],
+                        "resources": mcp_module.get_resources(),
                         "nextCursor": None,
                     },
                 )
             elif method == "resources/read":
                 uri = params.get("uri")
-                if uri == "schema://current":
-                    # For now just mock returning a schema structure since this is a meta layer
+                try:
+                    res_data = mcp_module.read_resource(str(uri or ""))
                     send_response(
                         req_id,
                         result={
@@ -730,83 +764,26 @@ def run_mcp_server():
                                 {
                                     "uri": uri,
                                     "mimeType": "application/json",
-                                    "text": '{"openapi": "3.0.0", "info": {"title": "cdd", "version": "1"}}',
+                                    "text": json.dumps(res_data),
                                 }
                             ]
                         },
                     )
-                else:
+                except ValueError:
                     send_response(
                         req_id, error={"code": -32602, "message": "Resource not found"}
                     )
             elif method == "tools/list":
-                cursor = params.get("cursor")
                 send_response(
                     req_id,
                     result={
-                        "tools": [
-                            {
-                                "name": "to_openapi",
-                                "description": "Extract an OpenAPI spec from source code",
-                                "inputSchema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "input_path": {
-                                            "type": "string",
-                                            "description": "Path to source code",
-                                        },
-                                        "output_path": {
-                                            "type": "string",
-                                            "description": "Output path",
-                                        },
-                                    },
-                                    "required": ["input_path"],
-                                },
-                            },
-                            {
-                                "name": "from_openapi",
-                                "description": "Generate SDK from OpenAPI specification",
-                                "inputSchema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "subcommand": {"type": "string"},
-                                        "input_path": {"type": "string"},
-                                        "output_dir": {"type": "string"},
-                                    },
-                                    "required": ["input_path"],
-                                },
-                            },
-                            {
-                                "name": "sync_dir",
-                                "description": "Sync code and spec in directory",
-                                "inputSchema": {
-                                    "type": "object",
-                                    "properties": {"project_dir": {"type": "string"}},
-                                    "required": ["project_dir"],
-                                },
-                            },
-                            {
-                                "name": "to_docs_json",
-                                "description": "Generate Documentation JSON",
-                                "inputSchema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "input_path": {"type": "string"},
-                                        "output_file": {"type": "string"},
-                                    },
-                                    "required": ["input_path"],
-                                },
-                            },
-                        ],
+                        "tools": mcp_module.get_tools(),
                         "nextCursor": None,
                     },
                 )
             elif method == "tools/call":
                 tool_name = params.get("name")
                 args = params.get("arguments", {})
-
-                from io import StringIO
-                import contextlib
 
                 buffer = StringIO()
 
@@ -863,15 +840,18 @@ def run_mcp_server():
                 send_response(req_id, error={"code": -32603, "message": str(e)})
 
 
-def serve_json_rpc(port: int, listen: str):
-    """Run a JSON-RPC 2.0 server exposing the CLI subcommands."""
-    from http.server import BaseHTTPRequestHandler, HTTPServer
-    import traceback
+def serve_json_rpc(port: int, listen: str) -> None:
+    """Run a JSON-RPC 2.0 HTTP server exposing the CLI subcommands.
 
-    class JSONRPCRequestHandler(BaseHTTPRequestHandler):
-        """Handler for JSON-RPC requests."""
+    Args:
+        port: TCP port to listen on.
+        listen: Host address to bind to.
+    """
 
-        def do_POST(self):
+    class JSONRPCRequestHandler(http.server.BaseHTTPRequestHandler):
+        """Handler for incoming HTTP JSON-RPC 2.0 requests."""
+
+        def do_POST(self) -> None:
             """Handle POST requests for JSON-RPC."""
             content_length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(content_length)
@@ -890,8 +870,8 @@ def serve_json_rpc(port: int, listen: str):
             params = request.get("params", {})
             req_id = request.get("id")
 
-            result = None
-            error = None
+            result: Any = None
+            error: dict[str, Any] | None = None
 
             try:
                 if method == "to_openapi":
@@ -933,7 +913,7 @@ def serve_json_rpc(port: int, listen: str):
                     "data": traceback.format_exc(),
                 }
 
-            response = {"jsonrpc": "2.0", "id": req_id}
+            response: dict[str, Any] = {"jsonrpc": "2.0", "id": req_id}
             if error:
                 response["error"] = error
             else:
@@ -945,7 +925,7 @@ def serve_json_rpc(port: int, listen: str):
             self.wfile.write(json.dumps(response).encode("utf-8"))
 
     server_address = (listen, port)
-    httpd = HTTPServer(server_address, JSONRPCRequestHandler)
+    httpd = http.server.HTTPServer(server_address, JSONRPCRequestHandler)
     print(f"Starting JSON-RPC server on {listen}:{port}")
     httpd.serve_forever()
 
@@ -1130,6 +1110,7 @@ def main() -> None:
             args.no_github_actions,
             args.no_installable_package,
             getattr(args, "tests", False),
+            getattr(args, "mcp", False),
         )
     elif args.command == "to_openapi":
         in_path = args.input
@@ -1144,235 +1125,3 @@ def main() -> None:
 
 if __name__ == "__main__":  # pragma: no cover
     main()
-
-
-# OpenAPI 3.2.0 keywords: openapi, $self, jsonSchemaDialect, servers, webhooks, components, security, tags, externalDocs, termsOfService, contact, license, version, name, url, email, identifier, variables, responses, requestBodies, headers, securitySchemes, links, callbacks, pathItems, mediaTypes
-
-
-# OpenAPI 3.2.0 objects
-_OPENAPI_3_2_0_FIELDS = (
-    "openapi",
-    "$self",
-    "self_",
-    "jsonSchemaDialect",
-    "servers",
-    "webhooks",
-    "components",
-    "security",
-    "tags",
-    "externalDocs",
-    "termsOfService",
-    "contact",
-    "license",
-    "version",
-    "name",
-    "url",
-    "email",
-    "identifier",
-    "variables",
-    "responses",
-    "requestBodies",
-    "headers",
-    "securitySchemes",
-    "links",
-    "callbacks",
-    "pathItems",
-    "mediaTypes",
-    "$ref",
-    "ref",
-    "in",
-    "in_",
-    "schema",
-    "schema_",
-    "{name}",
-    "{expression}",
-    "HTTP Status Code",
-    "/{path}",
-    "paths",
-    "info",
-)
-
-_ALL_KEYWORDS = (
-    "$ref",
-    "$self",
-    "/{path}",
-    "Callback",
-    "Callbacks",
-    "Components",
-    "Componentss",
-    "Contact",
-    "Contacts",
-    "Discriminator",
-    "Discriminators",
-    "Encoding",
-    "Encodings",
-    "Example",
-    "Examples",
-    "External Documentation",
-    "External Documentations",
-    "HTTP Status Code",
-    "Header",
-    "Headers",
-    "Info",
-    "Infos",
-    "License",
-    "Licenses",
-    "Link",
-    "Links",
-    "Media Type",
-    "Media Types",
-    "OAuth Flow",
-    "OAuth Flows",
-    "OAuth Flowss",
-    "OpenAPI",
-    "OpenAPIs",
-    "Operation",
-    "Operations",
-    "Parameter",
-    "Parameters",
-    "Path Item",
-    "Path Items",
-    "Paths",
-    "Pathss",
-    "Reference",
-    "References",
-    "Request Body",
-    "Request Bodys",
-    "Response",
-    "Responses",
-    "Responsess",
-    "Schema",
-    "Schemas",
-    "Security Requirement",
-    "Security Requirements",
-    "Security Scheme",
-    "Security Schemes",
-    "Server",
-    "Server Variable",
-    "Server Variables",
-    "Servers",
-    "Tag",
-    "Tags",
-    "XML",
-    "XMLs",
-    "additionalOperations",
-    "allowEmptyValue",
-    "allowReserved",
-    "attribute",
-    "authorizationCode",
-    "authorizationUrl",
-    "bearerFormat",
-    "callback",
-    "callbacks",
-    "clientCredentials",
-    "components",
-    "contact",
-    "content",
-    "contentType",
-    "dataValue",
-    "default",
-    "defaultMapping",
-    "delete",
-    "deprecated",
-    "description",
-    "deviceAuthorization",
-    "deviceAuthorizationUrl",
-    "discriminator",
-    "email",
-    "encoding",
-    "enum",
-    "example",
-    "examples",
-    "explode",
-    "expression",
-    "external documentation",
-    "externalDocs",
-    "externalValue",
-    "flows",
-    "get",
-    "head",
-    "header",
-    "headers",
-    "identifier",
-    "implicit",
-    "in",
-    "in_",
-    "info",
-    "itemEncoding",
-    "itemSchema",
-    "jsonSchemaDialect",
-    "kind",
-    "license",
-    "link",
-    "links",
-    "mapping",
-    "media type",
-    "mediaTypes",
-    "name",
-    "namespace",
-    "nodeType",
-    "oauth flow",
-    "oauth flows",
-    "oauth2MetadataUrl",
-    "openIdConnectUrl",
-    "openapi",
-    "operation",
-    "operationId",
-    "operationRef",
-    "options",
-    "parameter",
-    "parameters",
-    "parent",
-    "password",
-    "patch",
-    "path item",
-    "pathItems",
-    "paths",
-    "post",
-    "prefix",
-    "prefixEncoding",
-    "propertyName",
-    "put",
-    "query",
-    "ref",
-    "reference",
-    "refreshUrl",
-    "request body",
-    "requestBodies",
-    "requestBody",
-    "required",
-    "response",
-    "responses",
-    "schema",
-    "schema_",
-    "schemas",
-    "scheme",
-    "scopes",
-    "security",
-    "security requirement",
-    "security scheme",
-    "securitySchemes",
-    "self_",
-    "serializedValue",
-    "server",
-    "server variable",
-    "servers",
-    "style",
-    "summary",
-    "tag",
-    "tags",
-    "termsOfService",
-    "title",
-    "tokenUrl",
-    "trace",
-    "type",
-    "url",
-    "value",
-    "variables",
-    "version",
-    "webhooks",
-    "wrapped",
-    "xml",
-    "{expression}",
-    "{name}",
-)

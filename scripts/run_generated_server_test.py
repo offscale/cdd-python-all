@@ -1,24 +1,31 @@
 """Run generated server tests."""
 
+from __future__ import annotations
+
 import os
-import sys
 import shutil
-import subprocess
-import time
 import socket
+import subprocess
+import sys
+import time
 import urllib.request
 
 
-def find_free_port():
-    """Find a free port on localhost."""
+def find_free_port() -> int:
+    """Find a free TCP port on localhost.
+
+    Returns:
+        An available port number.
+    """
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("", 0))
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        return s.getsockname()[1]
+        port: int = s.getsockname()[1]
+        return port
 
 
-def main():
-    """Main execution of the server test."""
+def main() -> None:
+    """Execute end-to-end generated server and client verification."""
     if os.environ.get("RUN_SLOW_TESTS") != "1":
         print("Skipping slow test. Set RUN_SLOW_TESTS=1 to run.")
         sys.exit(0)
@@ -43,7 +50,6 @@ def main():
         sys.exit(0)
 
     try:
-        # Generate Server
         print(f"Generating server from {input_path} -> {server_dir}")
         subprocess.run(
             [
@@ -60,7 +66,6 @@ def main():
             check=True,
         )
 
-        # Generate Client
         print(f"Generating client from {input_path} -> {client_dir}")
         subprocess.run(
             [
@@ -77,7 +82,6 @@ def main():
             check=True,
         )
 
-        # Start Server
         port = find_free_port()
         print(f"Starting generated server on port {port}...")
 
@@ -85,9 +89,6 @@ def main():
         env["PORT"] = str(port)
         env.pop("VIRTUAL_ENV", None)
 
-        # We need to install dependencies for the server.
-        # uv run in the generated directory might inherit the parent environment.
-        # It's safer to create a venv and install.
         subprocess.run(["uv", "venv"], cwd=server_dir, env=env, check=True)
         subprocess.run(
             ["uv", "pip", "install", "-e", ".", "pytest", "httpx"],
@@ -132,7 +133,7 @@ def main():
                     )
                     server_ready = True
                     break
-                except Exception:
+                except OSError:
                     pass
 
             if not server_ready:
@@ -144,12 +145,10 @@ def main():
 
             print("Server is ready. Testing SDK...")
 
-            # Use SDK to get inventory
             client_env = os.environ.copy()
             client_env["API_BASE_URL"] = f"http://localhost:{port}"
             client_env.pop("VIRTUAL_ENV", None)
 
-            # Setup client venv to isolate
             subprocess.run(["uv", "venv"], cwd=client_dir, env=client_env, check=True)
             subprocess.run(
                 ["uv", "pip", "install", "-e", "."],
@@ -190,14 +189,11 @@ def main():
                 server_process.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 server_process.kill()
-            stdout, _ = server_process.communicate()
-            # print("Server final output:")
-            # print(stdout.decode("utf-8", errors="ignore"))
+            server_process.communicate()
 
     finally:
-        if os.path.exists(tmp_dir):
-            shutil.rmtree(tmp_dir)
+        shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__":  # pragma: no cover
+    main()  # pragma: no cover

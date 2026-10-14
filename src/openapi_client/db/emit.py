@@ -1,17 +1,25 @@
 """Emit database connection module."""
 
+from __future__ import annotations
+
 from openapi_client.models import OpenAPI
 
 
 def emit_db(spec: OpenAPI) -> str:
-    """
-    Generate database connection configuration for the server.
+    """Generate database connection configuration for the server.
 
     This generates:
     1. Database Connection configuration struct/class.
     2. Connection factory reading DATABASE_URL or EPHEMERAL_DB/flags.
     3. Initialization routine for DB schema migrations.
+
+    Args:
+        spec: The OpenAPI specification model.
+
+    Returns:
+        The generated `db.py` Python source code string.
     """
+    _ = spec
     lines = [
         '"""Database connection and ephemeral configuration."""',
         "",

@@ -1,14 +1,23 @@
+#!/usr/bin/env python3
 """Update test and doc coverage badges in README.md."""
 
-#!/usr/bin/env python3
+from __future__ import annotations
+
 import os
 import re
 import subprocess
 import sys
 
 
-def get_color(pct):
-    """Return a color for a given coverage percentage."""
+def get_color(pct: float | int) -> str:
+    """Return a shields.io badge color for a given coverage percentage.
+
+    Args:
+        pct: The coverage percentage (0 to 100).
+
+    Returns:
+        The badge color string.
+    """
     if pct >= 90:
         return "brightgreen"
     if pct >= 80:
@@ -22,7 +31,7 @@ def get_color(pct):
     return "red"
 
 
-def main():
+def main() -> None:
     """Run tests, calculate coverage, and update badges in README.md."""
     readme_path = os.path.join(os.path.dirname(__file__), "..", "README.md")
     if not os.path.exists(readme_path):
@@ -69,7 +78,7 @@ def main():
     test_color = get_color(test_cov)
     doc_color = get_color(doc_cov)
 
-    with open(readme_path) as f:
+    with open(readme_path, encoding="utf-8") as f:
         content = f.read()
 
     content = re.sub(
@@ -84,7 +93,7 @@ def main():
         content,
     )
 
-    with open(readme_path, "w") as f:
+    with open(readme_path, "w", encoding="utf-8") as f:
         f.write(content)
 
 

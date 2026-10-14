@@ -1,19 +1,50 @@
-"""
-Module for emitting pytest tests from OpenAPI examples.
-"""
+"""Module for emitting pytest tests from OpenAPI examples."""
 
 from __future__ import annotations
 
+from typing import Any
+
 import libcst as cst
+
+from openapi_client.functions.utils import (
+    get_annotation_for_schema,
+    get_default_server_url,
+    sanitize_name,
+)
 from openapi_client.models import OpenAPI, Operation
 
 
-def get_dummy_value_for_schema(schema_obj) -> cst.BaseExpression:
-    """Return a libcst BaseExpression for a dummy value based on schema type."""
-    from openapi_client.functions.utils import get_annotation_for_schema
+def get_dummy_value_for_schema(schema_obj: Any) -> cst.BaseExpression:
+    """Return a libcst BaseExpression for a dummy value based on schema type.
+
+    Args:
+        schema_obj: The OpenAPI Schema or Parameter object.
+
+    Returns:
+        A LibCST expression representing a valid dummy value for the schema.
+    """
+    if schema_obj is not None:
+        example = getattr(schema_obj, "example", None)
+        if example is None:
+            example = getattr(schema_obj, "default", None)
+        if example is None:
+            enum_vals = getattr(schema_obj, "enum", None)
+            if isinstance(enum_vals, list) and enum_vals:
+                example = enum_vals[0]
+        if isinstance(example, str):
+            return cst.SimpleString(f'"{example}"')
+        if isinstance(example, bool):
+            return cst.Name("True" if example else "False")
+        if isinstance(example, int):
+            return cst.Integer(str(example))
+        if isinstance(example, float):
+            return cst.Float(str(example))
 
     ann = get_annotation_for_schema(schema_obj)
     if ann == "str":
+        fmt = getattr(schema_obj, "format", None) if schema_obj else None
+        if fmt in ("uri", "url"):
+            return cst.SimpleString('"http://example.com"')
         return cst.SimpleString('"test_string"')
     elif ann == "int":
         return cst.Integer("1")
@@ -23,7 +54,9 @@ def get_dummy_value_for_schema(schema_obj) -> cst.BaseExpression:
         return cst.Name("True")
     elif ann.startswith("list"):
         if "str" in ann:
-            return cst.List(elements=[cst.Element(cst.SimpleString('"test_string"'))])
+            items = getattr(schema_obj, "items", None)
+            item_val = get_dummy_value_for_schema(items)
+            return cst.List(elements=[cst.Element(item_val)])
         elif "int" in ann:
             return cst.List(elements=[cst.Element(cst.Integer("1"))])
         else:
@@ -31,16 +64,21 @@ def get_dummy_value_for_schema(schema_obj) -> cst.BaseExpression:
     elif ann.startswith("dict"):
         return cst.Dict(elements=[])
     else:
-        # Fallback to a string instead of None so urllib3 doesn't crash on encode_multipart_formdata
         t = getattr(schema_obj, "type", None) if schema_obj else None
         if t == "file":
             return cst.SimpleString('b"dummy_content"')
         return cst.Name("None")
 
 
-def get_stub_body(schema_obj, spec=None):
-    """
-    Generate a stub body AST node based on an OpenAPI schema object.
+def get_stub_body(schema_obj: Any, spec: OpenAPI | None = None) -> cst.BaseExpression:
+    """Generate a stub body AST node based on an OpenAPI schema object.
+
+    Args:
+        schema_obj: The OpenAPI Schema or Reference for the request body.
+        spec: Optional full OpenAPI specification for `$ref` resolution.
+
+    Returns:
+        A LibCST Dict or List node representing a valid stub request body.
     """
     if (
         schema_obj
@@ -55,19 +93,14 @@ def get_stub_body(schema_obj, spec=None):
     if schema_obj and getattr(schema_obj, "properties", None):
         elements = []
         for prop_name, prop_schema in schema_obj.properties.items():
-            if prop_name == "name":
-                val = cst.SimpleString('"doggie"')
-            elif prop_name == "photoUrls":
-                val = cst.List(
-                    elements=[cst.Element(cst.SimpleString('"http://dummy"'))]
-                )
+            if getattr(prop_schema, "ref", None) or (
+                getattr(prop_schema, "type", None) in ("object", "array")
+                and getattr(getattr(prop_schema, "items", None), "type", None)
+                not in ("string", "integer", "number", "boolean")
+            ):
+                val = get_stub_body(prop_schema, spec)
             else:
-                if getattr(prop_schema, "ref", None) or getattr(
-                    prop_schema, "type", None
-                ) in ("object", "array"):
-                    val = get_stub_body(prop_schema, spec)
-                else:
-                    val = get_dummy_value_for_schema(prop_schema)
+                val = get_dummy_value_for_schema(prop_schema)
             elements.append(
                 cst.DictElement(key=cst.SimpleString(f'"{prop_name}"'), value=val)
             )
@@ -89,69 +122,62 @@ def get_stub_body(schema_obj, spec=None):
 
 
 def emit_operation_test(
-    method: str, path: str, operation: Operation, composable: bool = False, spec=None
+    method: str,
+    path: str,
+    operation: Operation,
+    composable: bool = False,
+    spec: OpenAPI | None = None,
 ) -> cst.FunctionDef:
-    """
-    Emit a pytest unit test for an API operation.
-    """
-    from openapi_client.functions.utils import sanitize_name
+    """Emit a pytest unit test for an API operation.
 
+    Args:
+        method: HTTP verb (e.g., `'get'`, `'post'`).
+        path: Route path string.
+        operation: The OpenAPI Operation object.
+        composable: If True, accepts a `client` pytest fixture and asserts status codes.
+        spec: Optional full OpenAPI specification for `$ref` and server resolution.
+
+    Returns:
+        The generated LibCST FunctionDef node for the test.
+    """
     raw_op_id = operation.operationId or f"{method}_{path.replace('/', '_').strip('_')}"
     op_id = sanitize_name(raw_op_id)
     func_name = f"test_{op_id}"
 
-    args = []
+    args: list[cst.Arg] = []
 
-    # Pass dummy values for all parameters
     if operation.parameters:
         for param in operation.parameters:
             if hasattr(param, "name"):
                 param_name = param.name.replace("-", "_")
-                if param.name == "status":
-                    val = cst.SimpleString('"available"')
-                elif param.name == "petId":
-                    val = cst.Integer("1")
-                elif getattr(param, "in_", getattr(param, "in", None)) == "body":
-                    schema_obj = getattr(
-                        param, "schema_", getattr(param, "schema", None)
-                    )
+                p_in = getattr(param, "in_", getattr(param, "in", None))
+                schema_obj = getattr(param, "schema_", getattr(param, "schema", None))
+                if not schema_obj and getattr(param, "type", None):
+                    schema_obj = param
+
+                if p_in == "body":
                     val = get_stub_body(schema_obj, spec)
                 else:
-                    schema_obj = getattr(
-                        param, "schema_", getattr(param, "schema", None)
-                    )
-                    if not schema_obj and getattr(param, "type", None):
-                        schema_obj = param
                     val = get_dummy_value_for_schema(schema_obj)
                 args.append(cst.Arg(keyword=cst.Name(param_name), value=val))
 
-    # If there's a requestBody, pass a stub body
     if operation.requestBody:
-        try:
-            content = getattr(operation.requestBody, "content", {})
+        content = getattr(operation.requestBody, "content", None)
+        if isinstance(content, dict) and content:
             schema_obj = None
             if "application/json" in content:
-                schema_obj = getattr(
-                    content["application/json"],
-                    "schema_",
-                    getattr(content["application/json"], "schema", None),
-                )
+                media = content["application/json"]
+                schema_obj = getattr(media, "schema_", getattr(media, "schema", None))
             elif "application/xml" in content:
+                media = content["application/xml"]
+                schema_obj = getattr(media, "schema_", getattr(media, "schema", None))
+            else:
+                first_media = next(iter(content.values()))
                 schema_obj = getattr(
-                    content["application/xml"],
-                    "schema_",
-                    getattr(content["application/xml"], "schema", None),
+                    first_media, "schema_", getattr(first_media, "schema", None)
                 )
-            elif content:
-                first_key = list(content.keys())[0]
-                schema_obj = getattr(
-                    content[first_key],
-                    "schema_",
-                    getattr(content[first_key], "schema", None),
-                )
-
             val = get_stub_body(schema_obj, spec)
-        except Exception:
+        else:
             val = cst.Dict(elements=[])
 
         args.append(cst.Arg(keyword=cst.Name("body"), value=val))
@@ -162,11 +188,15 @@ def emit_operation_test(
     )
 
     if composable:
-        is_strict_200 = (
-            "findByStatus" in path or "inventory" in path
-        ) and method.lower() == "get"
+        responses = getattr(operation, "responses", None) or {}
+        has_only_200 = (
+            "200" in responses
+            and method.lower() == "get"
+            and "{" not in path
+            and not any(str(code).startswith("4") for code in responses)
+        )
 
-        if is_strict_200:
+        if has_only_200:
             assertion_test = cst.Comparison(
                 left=cst.Attribute(value=cst.Name("response"), attr=cst.Name("status")),
                 comparisons=[
@@ -185,7 +215,7 @@ def emit_operation_test(
                 ],
             )
 
-        body = [
+        body: list[cst.BaseStatement] = [
             cst.SimpleStatementLine(
                 [
                     cst.Assign(
@@ -195,7 +225,6 @@ def emit_operation_test(
                 ]
             ),
             cst.SimpleStatementLine([cst.Assert(test=assertion_test)]),
-            # Json validation for chaos audit
             cst.SimpleStatementLine(
                 [cst.Import(names=[cst.ImportAlias(name=cst.Name("json"))])]
             ),
@@ -234,33 +263,20 @@ def emit_operation_test(
                                 )
                             ]
                         ),
-                        cst.If(
-                            test=cst.Call(
-                                func=cst.Name("isinstance"),
-                                args=[
-                                    cst.Arg(cst.Name("data")),
-                                    cst.Arg(cst.Name("dict")),
-                                ],
-                            ),
-                            body=cst.IndentedBlock(
-                                body=[
-                                    cst.SimpleStatementLine(
-                                        [
-                                            cst.Assert(
-                                                test=cst.Comparison(
-                                                    left=cst.SimpleString('"sabotage"'),
-                                                    comparisons=[
-                                                        cst.ComparisonTarget(
-                                                            operator=cst.NotIn(),
-                                                            comparator=cst.Name("data"),
-                                                        )
-                                                    ],
-                                                )
+                        cst.SimpleStatementLine(
+                            [
+                                cst.Assert(
+                                    test=cst.Comparison(
+                                        left=cst.Name("data"),
+                                        comparisons=[
+                                            cst.ComparisonTarget(
+                                                operator=cst.IsNot(),
+                                                comparator=cst.Name("None"),
                                             )
-                                        ]
+                                        ],
                                     )
-                                ]
-                            ),
+                                )
+                            ]
                         ),
                     ]
                 ),
@@ -269,8 +285,10 @@ def emit_operation_test(
 
         params = cst.Parameters(params=[cst.Param(name=cst.Name("client"))])
     else:
+        default_url = get_default_server_url(
+            spec, fallback="http://localhost:8080/api/v3"
+        )
         body = [
-            # Example test body: client = Client("http://localhost:8080/api/v3")
             cst.SimpleStatementLine(
                 [
                     cst.Assign(
@@ -278,9 +296,7 @@ def emit_operation_test(
                         value=cst.Call(
                             func=cst.Name("Client"),
                             args=[
-                                cst.Arg(
-                                    cst.SimpleString('"http://localhost:8080/api/v3"')
-                                ),
+                                cst.Arg(cst.SimpleString(f'"{default_url}"')),
                                 cst.Arg(
                                     keyword=cst.Name("api_key"),
                                     value=cst.SimpleString('"special-key"'),
@@ -323,10 +339,16 @@ def emit_operation_test(
 
 
 def emit_tests(spec: OpenAPI, composable: bool = False) -> cst.Module:
+    """Emit a pytest test module for the OpenAPI spec.
+
+    Args:
+        spec: The OpenAPI specification model.
+        composable: If True, emits a `client` pytest fixture and composable tests.
+
+    Returns:
+        The generated LibCST Module node for the test file.
     """
-    Emit a pytest test module for the OpenAPI spec.
-    """
-    body: list[cst.SimpleStatementLine | cst.BaseCompoundStatement | cst.EmptyLine] = []
+    body: list[cst.BaseStatement | cst.EmptyLine] = []
 
     body.append(
         cst.SimpleStatementLine(
@@ -425,6 +447,7 @@ def emit_tests(spec: OpenAPI, composable: bool = False) -> cst.Module:
     body.append(cst.EmptyLine())
 
     if composable:
+        default_url = get_default_server_url(spec, fallback="http://localhost:8080/v2")
         fixture_func = cst.FunctionDef(
             name=cst.Name("client"),
             params=cst.Parameters(),
@@ -448,7 +471,7 @@ def emit_tests(spec: OpenAPI, composable: bool = False) -> cst.Module:
                                                     ),
                                                     cst.Arg(
                                                         cst.SimpleString(
-                                                            '"http://localhost:8080/v2"'
+                                                            f'"{default_url}"'
                                                         )
                                                     ),
                                                 ],
@@ -493,245 +516,4 @@ def emit_tests(spec: OpenAPI, composable: bool = False) -> cst.Module:
                         )
                         body.append(cst.EmptyLine())
 
-    return cst.Module(body=body)  # type: ignore[arg-type]
-
-
-# OpenAPI 3.2.0 keywords: openapi, $self, jsonSchemaDialect, servers, webhooks, components, security, tags, externalDocs, termsOfService, contact, license, version, name, url, email, identifier, variables, responses, requestBodies, headers, securitySchemes, links, callbacks, pathItems, mediaTypes
-
-
-# OpenAPI 3.2.0 objects
-_OPENAPI_3_2_0_FIELDS = (
-    "openapi",
-    "$self",
-    "self_",
-    "jsonSchemaDialect",
-    "servers",
-    "webhooks",
-    "components",
-    "security",
-    "tags",
-    "externalDocs",
-    "termsOfService",
-    "contact",
-    "license",
-    "version",
-    "name",
-    "url",
-    "email",
-    "identifier",
-    "variables",
-    "responses",
-    "requestBodies",
-    "headers",
-    "securitySchemes",
-    "links",
-    "callbacks",
-    "pathItems",
-    "mediaTypes",
-    "$ref",
-    "ref",
-    "in",
-    "in_",
-    "schema",
-    "schema_",
-    "{name}",
-    "{expression}",
-    "HTTP Status Code",
-    "/{path}",
-    "paths",
-    "info",
-)
-
-_ALL_KEYWORDS = (
-    "ServerVariable",
-    "PathItem",
-    "ExternalDocumentation",
-    "RequestBody",
-    "MediaType",
-    "SecurityScheme",
-    "OAuthFlows",
-    "OAuthFlow",
-    "SecurityRequirement",
-    "$ref",
-    "$self",
-    "/{path}",
-    "Callback",
-    "Callbacks",
-    "Components",
-    "Componentss",
-    "Contact",
-    "Contacts",
-    "Discriminator",
-    "Discriminators",
-    "Encoding",
-    "Encodings",
-    "Example",
-    "Examples",
-    "External Documentation",
-    "External Documentations",
-    "HTTP Status Code",
-    "Header",
-    "Headers",
-    "Info",
-    "Infos",
-    "License",
-    "Licenses",
-    "Link",
-    "Links",
-    "Media Type",
-    "Media Types",
-    "OAuth Flow",
-    "OAuth Flows",
-    "OAuth Flowss",
-    "OpenAPI",
-    "OpenAPIs",
-    "Operation",
-    "Operations",
-    "Parameter",
-    "Parameters",
-    "Path Item",
-    "Path Items",
-    "Paths",
-    "Pathss",
-    "Reference",
-    "References",
-    "Request Body",
-    "Request Bodys",
-    "Response",
-    "Responses",
-    "Responsess",
-    "Schema",
-    "Schemas",
-    "Security Requirement",
-    "Security Requirements",
-    "Security Scheme",
-    "Security Schemes",
-    "Server",
-    "Server Variable",
-    "Server Variables",
-    "Servers",
-    "Tag",
-    "Tags",
-    "XML",
-    "XMLs",
-    "additionalOperations",
-    "allowEmptyValue",
-    "allowReserved",
-    "attribute",
-    "authorizationCode",
-    "authorizationUrl",
-    "bearerFormat",
-    "callback",
-    "callbacks",
-    "clientCredentials",
-    "components",
-    "contact",
-    "content",
-    "contentType",
-    "dataValue",
-    "default",
-    "defaultMapping",
-    "delete",
-    "deprecated",
-    "description",
-    "deviceAuthorization",
-    "deviceAuthorizationUrl",
-    "discriminator",
-    "email",
-    "encoding",
-    "enum",
-    "example",
-    "examples",
-    "explode",
-    "expression",
-    "external documentation",
-    "externalDocs",
-    "externalValue",
-    "flows",
-    "get",
-    "head",
-    "header",
-    "headers",
-    "identifier",
-    "implicit",
-    "in",
-    "in_",
-    "info",
-    "itemEncoding",
-    "itemSchema",
-    "jsonSchemaDialect",
-    "kind",
-    "license",
-    "link",
-    "links",
-    "mapping",
-    "media type",
-    "mediaTypes",
-    "name",
-    "namespace",
-    "nodeType",
-    "oauth flow",
-    "oauth flows",
-    "oauth2MetadataUrl",
-    "openIdConnectUrl",
-    "openapi",
-    "operation",
-    "operationId",
-    "operationRef",
-    "options",
-    "parameter",
-    "parameters",
-    "parent",
-    "password",
-    "patch",
-    "path item",
-    "pathItems",
-    "paths",
-    "post",
-    "prefix",
-    "prefixEncoding",
-    "propertyName",
-    "put",
-    "query",
-    "ref",
-    "reference",
-    "refreshUrl",
-    "request body",
-    "requestBodies",
-    "requestBody",
-    "required",
-    "response",
-    "responses",
-    "schema",
-    "schema_",
-    "schemas",
-    "scheme",
-    "scopes",
-    "security",
-    "security requirement",
-    "security scheme",
-    "securitySchemes",
-    "self_",
-    "serializedValue",
-    "server",
-    "server variable",
-    "servers",
-    "style",
-    "summary",
-    "tag",
-    "tags",
-    "termsOfService",
-    "title",
-    "tokenUrl",
-    "trace",
-    "type",
-    "url",
-    "value",
-    "variables",
-    "version",
-    "webhooks",
-    "wrapped",
-    "xml",
-    "{expression}",
-    "{name}",
-)
+    return cst.Module(body=body)

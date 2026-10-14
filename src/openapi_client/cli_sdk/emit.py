@@ -1,15 +1,24 @@
 """Module for generating a CLI script from an OpenAPI specification."""
 
+from __future__ import annotations
+
 import libcst as cst
+
+from openapi_client.functions.utils import sanitize_name
 from openapi_client.models import OpenAPI
 
 
 def emit_cli(spec: OpenAPI) -> cst.Module:
-    """Generate a libcst.Module for a Python CLI application."""
+    """Generate a libcst.Module for a Python CLI application.
 
-    body = []
+    Args:
+        spec: The OpenAPI specification model.
 
-    # Imports
+    Returns:
+        The generated LibCST Module node for the CLI script.
+    """
+    body: list[cst.BaseStatement | cst.EmptyLine] = []
+
     body.append(
         cst.SimpleStatementLine(
             [cst.Import(names=[cst.ImportAlias(name=cst.Name("argparse"))])]
@@ -32,9 +41,8 @@ def emit_cli(spec: OpenAPI) -> cst.Module:
     )
     body.append(cst.EmptyLine())
 
-    main_body = []
+    main_body: list[cst.BaseStatement] = []
 
-    # parser = argparse.ArgumentParser(...)
     main_body.append(
         cst.SimpleStatementLine(
             [
@@ -56,7 +64,6 @@ def emit_cli(spec: OpenAPI) -> cst.Module:
         )
     )
 
-    # subparsers = parser.add_subparsers(dest="command")
     main_body.append(
         cst.SimpleStatementLine(
             [
@@ -78,7 +85,6 @@ def emit_cli(spec: OpenAPI) -> cst.Module:
         )
     )
 
-    # mcp_parser = subparsers.add_parser("mcp", help="Start the Model Context Protocol (MCP) server")
     main_body.append(
         cst.SimpleStatementLine(
             [
@@ -103,7 +109,6 @@ def emit_cli(spec: OpenAPI) -> cst.Module:
         )
     )
 
-    # mcp_sse_parser = subparsers.add_parser("mcp_sse", help="Start the Model Context Protocol (MCP) SSE server")
     main_body.append(
         cst.SimpleStatementLine(
             [
@@ -133,8 +138,6 @@ def emit_cli(spec: OpenAPI) -> cst.Module:
             for method in ["get", "post", "put", "delete", "patch"]:
                 operation = getattr(path_item, method, None)
                 if operation:
-                    from openapi_client.functions.utils import sanitize_name
-
                     raw_op_id = (
                         operation.operationId
                         or f"{method}_{path.replace('/', '_').strip('_')}"
@@ -142,7 +145,6 @@ def emit_cli(spec: OpenAPI) -> cst.Module:
                     op_id = sanitize_name(raw_op_id)
                     desc = operation.summary or f"{method.upper()} {path}"
 
-                    # op_parser = subparsers.add_parser("op_id", help="desc")
                     main_body.append(
                         cst.SimpleStatementLine(
                             [
@@ -196,7 +198,6 @@ def emit_cli(spec: OpenAPI) -> cst.Module:
                                     )
                                 )
 
-                            # op_parser.add_argument(...)
                             main_body.append(
                                 cst.SimpleStatementLine(
                                     [
@@ -213,7 +214,6 @@ def emit_cli(spec: OpenAPI) -> cst.Module:
                                 )
                             )
 
-    # args = parser.parse_args()
     main_body.append(
         cst.SimpleStatementLine(
             [
@@ -229,7 +229,6 @@ def emit_cli(spec: OpenAPI) -> cst.Module:
         )
     )
 
-    # c = Client()
     main_body.append(
         cst.SimpleStatementLine(
             [
@@ -241,7 +240,6 @@ def emit_cli(spec: OpenAPI) -> cst.Module:
         )
     )
 
-    # if not args.command: parser.print_help(); sys.exit(0)
     main_body.append(
         cst.If(
             test=cst.UnaryOperation(
@@ -281,7 +279,6 @@ def emit_cli(spec: OpenAPI) -> cst.Module:
         )
     )
 
-    # if args.command == "mcp": ...
     main_body.append(
         cst.If(
             test=cst.Comparison(
@@ -331,7 +328,6 @@ def emit_cli(spec: OpenAPI) -> cst.Module:
         )
     )
 
-    # if args.command == "mcp_sse": ...
     main_body.append(
         cst.If(
             test=cst.Comparison(
@@ -383,7 +379,6 @@ def emit_cli(spec: OpenAPI) -> cst.Module:
         )
     )
 
-    # method = getattr(c, args.command)
     main_body.append(
         cst.SimpleStatementLine(
             [
@@ -405,7 +400,6 @@ def emit_cli(spec: OpenAPI) -> cst.Module:
         )
     )
 
-    # kwargs = vars(args).copy()
     main_body.append(
         cst.SimpleStatementLine(
             [
@@ -425,7 +419,6 @@ def emit_cli(spec: OpenAPI) -> cst.Module:
         )
     )
 
-    # kwargs.pop("command")
     main_body.append(
         cst.SimpleStatementLine(
             [
@@ -441,7 +434,6 @@ def emit_cli(spec: OpenAPI) -> cst.Module:
         )
     )
 
-    # print(method(**kwargs))
     main_body.append(
         cst.SimpleStatementLine(
             [
@@ -461,7 +453,7 @@ def emit_cli(spec: OpenAPI) -> cst.Module:
                                     ],
                                 )
                             )
-                        ],  # type: ignore
+                        ],
                     )
                 )
             ]
@@ -495,250 +487,16 @@ def emit_cli(spec: OpenAPI) -> cst.Module:
         )
     )
 
-    return cst.Module(body=body)  # type: ignore
+    return cst.Module(body=body)
 
 
 def emit_cli_sdk(spec: OpenAPI) -> str:
-    """Generate the Python source code string for a CLI application."""
+    """Generate the Python source code string for a CLI application.
+
+    Args:
+        spec: The OpenAPI specification model.
+
+    Returns:
+        The generated Python CLI code string.
+    """
     return emit_cli(spec).code
-
-
-# OpenAPI 3.2.0 keywords: openapi, $self, jsonSchemaDialect, servers, webhooks, components, security, tags, externalDocs, termsOfService, contact, license, version, name, url, email, identifier, variables, responses, requestBodies, headers, securitySchemes, links, callbacks, pathItems, mediaTypes
-
-
-# OpenAPI 3.2.0 objects
-_OPENAPI_3_2_0_FIELDS = (
-    "openapi",
-    "$self",
-    "self_",
-    "jsonSchemaDialect",
-    "servers",
-    "webhooks",
-    "components",
-    "security",
-    "tags",
-    "externalDocs",
-    "termsOfService",
-    "contact",
-    "license",
-    "version",
-    "name",
-    "url",
-    "email",
-    "identifier",
-    "variables",
-    "responses",
-    "requestBodies",
-    "headers",
-    "securitySchemes",
-    "links",
-    "callbacks",
-    "pathItems",
-    "mediaTypes",
-    "$ref",
-    "ref",
-    "in",
-    "in_",
-    "schema",
-    "schema_",
-    "{name}",
-    "{expression}",
-    "HTTP Status Code",
-    "/{path}",
-    "paths",
-    "info",
-)
-
-_ALL_KEYWORDS = (
-    "ServerVariable",
-    "PathItem",
-    "ExternalDocumentation",
-    "RequestBody",
-    "MediaType",
-    "SecurityScheme",
-    "OAuthFlows",
-    "OAuthFlow",
-    "SecurityRequirement",
-    "$ref",
-    "$self",
-    "/{path}",
-    "Callback",
-    "Callbacks",
-    "Components",
-    "Componentss",
-    "Contact",
-    "Contacts",
-    "Discriminator",
-    "Discriminators",
-    "Encoding",
-    "Encodings",
-    "Example",
-    "Examples",
-    "External Documentation",
-    "External Documentations",
-    "HTTP Status Code",
-    "Header",
-    "Headers",
-    "Info",
-    "Infos",
-    "License",
-    "Licenses",
-    "Link",
-    "Links",
-    "Media Type",
-    "Media Types",
-    "OAuth Flow",
-    "OAuth Flows",
-    "OAuth Flowss",
-    "OpenAPI",
-    "OpenAPIs",
-    "Operation",
-    "Operations",
-    "Parameter",
-    "Parameters",
-    "Path Item",
-    "Path Items",
-    "Paths",
-    "Pathss",
-    "Reference",
-    "References",
-    "Request Body",
-    "Request Bodys",
-    "Response",
-    "Responses",
-    "Responsess",
-    "Schema",
-    "Schemas",
-    "Security Requirement",
-    "Security Requirements",
-    "Security Scheme",
-    "Security Schemes",
-    "Server",
-    "Server Variable",
-    "Server Variables",
-    "Servers",
-    "Tag",
-    "Tags",
-    "XML",
-    "XMLs",
-    "additionalOperations",
-    "allowEmptyValue",
-    "allowReserved",
-    "attribute",
-    "authorizationCode",
-    "authorizationUrl",
-    "bearerFormat",
-    "callback",
-    "callbacks",
-    "clientCredentials",
-    "components",
-    "contact",
-    "content",
-    "contentType",
-    "dataValue",
-    "default",
-    "defaultMapping",
-    "delete",
-    "deprecated",
-    "description",
-    "deviceAuthorization",
-    "deviceAuthorizationUrl",
-    "discriminator",
-    "email",
-    "encoding",
-    "enum",
-    "example",
-    "examples",
-    "explode",
-    "expression",
-    "external documentation",
-    "externalDocs",
-    "externalValue",
-    "flows",
-    "get",
-    "head",
-    "header",
-    "headers",
-    "identifier",
-    "implicit",
-    "in",
-    "in_",
-    "info",
-    "itemEncoding",
-    "itemSchema",
-    "jsonSchemaDialect",
-    "kind",
-    "license",
-    "link",
-    "links",
-    "mapping",
-    "media type",
-    "mediaTypes",
-    "name",
-    "namespace",
-    "nodeType",
-    "oauth flow",
-    "oauth flows",
-    "oauth2MetadataUrl",
-    "openIdConnectUrl",
-    "openapi",
-    "operation",
-    "operationId",
-    "operationRef",
-    "options",
-    "parameter",
-    "parameters",
-    "parent",
-    "password",
-    "patch",
-    "path item",
-    "pathItems",
-    "paths",
-    "post",
-    "prefix",
-    "prefixEncoding",
-    "propertyName",
-    "put",
-    "query",
-    "ref",
-    "reference",
-    "refreshUrl",
-    "request body",
-    "requestBodies",
-    "requestBody",
-    "required",
-    "response",
-    "responses",
-    "schema",
-    "schema_",
-    "schemas",
-    "scheme",
-    "scopes",
-    "security",
-    "security requirement",
-    "security scheme",
-    "securitySchemes",
-    "self_",
-    "serializedValue",
-    "server",
-    "server variable",
-    "servers",
-    "style",
-    "summary",
-    "tag",
-    "tags",
-    "termsOfService",
-    "title",
-    "tokenUrl",
-    "trace",
-    "type",
-    "url",
-    "value",
-    "variables",
-    "version",
-    "webhooks",
-    "wrapped",
-    "xml",
-    "{expression}",
-    "{name}",
-)

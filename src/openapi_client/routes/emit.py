@@ -1,33 +1,32 @@
-"""
-Module for emitting complete Python client module from OpenAPI schema.
-"""
+"""Module for emitting complete Python client module from OpenAPI schema."""
 
 from __future__ import annotations
 
 import libcst as cst
-from openapi_client.models import OpenAPI
+
 from openapi_client.functions.emit import emit_functions
+from openapi_client.models import OpenAPI
 
 
 class ClientGenerator:
-    """
-    Generator class responsible for converting an OpenAPI object into a libcst.Module.
-    """
+    """Generator class responsible for converting an OpenAPI object into a libcst.Module."""
 
-    def __init__(self, spec: OpenAPI):
-        """Initialize ClientGenerator with an OpenAPI spec."""
+    def __init__(self, spec: OpenAPI) -> None:
+        """Initialize ClientGenerator with an OpenAPI spec.
+
+        Args:
+            spec: The OpenAPI specification model.
+        """
         self.spec = spec
 
     def generate(self) -> cst.Module:
-        """
-        Generate the AST module containing imports, Pydantic classes, and the Client class.
+        """Generate the AST module containing imports and the Client class.
 
         Returns:
-            cst.Module: The constructed Python syntax tree representing the client.
+            The constructed Python syntax tree representing the client.
         """
         body: list[cst.BaseStatement | cst.EmptyLine] = []
 
-        # Emit imports
         body.append(
             cst.SimpleStatementLine(
                 [
@@ -64,7 +63,6 @@ class ClientGenerator:
         )
         body.append(cst.EmptyLine())
 
-        # Import Pydantic models from models.py
         if self.spec.components and self.spec.components.schemas:
             body.append(
                 cst.SimpleStatementLine(
@@ -78,7 +76,6 @@ class ClientGenerator:
             )
             body.append(cst.EmptyLine())
 
-        # Emit functions inside the Client class
         methods = emit_functions(self.spec)
 
         client_class = cst.ClassDef(
@@ -87,254 +84,12 @@ class ClientGenerator:
 
         body.append(client_class)
 
-        return cst.Module(body=body)  # type: ignore
+        return cst.Module(body=body)
 
     def generate_code(self) -> str:
-        """
-        Generate Python source code directly from the OpenAPI specification.
+        """Generate Python source code directly from the OpenAPI specification.
 
         Returns:
-            str: The generated Python code as a string.
+            The generated Python code as a string.
         """
         return self.generate().code
-
-
-# OpenAPI 3.2.0 keywords: openapi, $self, jsonSchemaDialect, servers, webhooks, components, security, tags, externalDocs, termsOfService, contact, license, version, name, url, email, identifier, variables, responses, requestBodies, headers, securitySchemes, links, callbacks, pathItems, mediaTypes
-
-
-# OpenAPI 3.2.0 objects
-_OPENAPI_3_2_0_FIELDS = (
-    "openapi",
-    "$self",
-    "self_",
-    "jsonSchemaDialect",
-    "servers",
-    "webhooks",
-    "components",
-    "security",
-    "tags",
-    "externalDocs",
-    "termsOfService",
-    "contact",
-    "license",
-    "version",
-    "name",
-    "url",
-    "email",
-    "identifier",
-    "variables",
-    "responses",
-    "requestBodies",
-    "headers",
-    "securitySchemes",
-    "links",
-    "callbacks",
-    "pathItems",
-    "mediaTypes",
-    "$ref",
-    "ref",
-    "in",
-    "in_",
-    "schema",
-    "schema_",
-    "{name}",
-    "{expression}",
-    "HTTP Status Code",
-    "/{path}",
-    "paths",
-    "info",
-)
-
-_ALL_KEYWORDS = (
-    "ServerVariable",
-    "PathItem",
-    "ExternalDocumentation",
-    "RequestBody",
-    "MediaType",
-    "SecurityScheme",
-    "OAuthFlows",
-    "OAuthFlow",
-    "SecurityRequirement",
-    "$ref",
-    "$self",
-    "/{path}",
-    "Callback",
-    "Callbacks",
-    "Components",
-    "Componentss",
-    "Contact",
-    "Contacts",
-    "Discriminator",
-    "Discriminators",
-    "Encoding",
-    "Encodings",
-    "Example",
-    "Examples",
-    "External Documentation",
-    "External Documentations",
-    "HTTP Status Code",
-    "Header",
-    "Headers",
-    "Info",
-    "Infos",
-    "License",
-    "Licenses",
-    "Link",
-    "Links",
-    "Media Type",
-    "Media Types",
-    "OAuth Flow",
-    "OAuth Flows",
-    "OAuth Flowss",
-    "OpenAPI",
-    "OpenAPIs",
-    "Operation",
-    "Operations",
-    "Parameter",
-    "Parameters",
-    "Path Item",
-    "Path Items",
-    "Paths",
-    "Pathss",
-    "Reference",
-    "References",
-    "Request Body",
-    "Request Bodys",
-    "Response",
-    "Responses",
-    "Responsess",
-    "Schema",
-    "Schemas",
-    "Security Requirement",
-    "Security Requirements",
-    "Security Scheme",
-    "Security Schemes",
-    "Server",
-    "Server Variable",
-    "Server Variables",
-    "Servers",
-    "Tag",
-    "Tags",
-    "XML",
-    "XMLs",
-    "additionalOperations",
-    "allowEmptyValue",
-    "allowReserved",
-    "attribute",
-    "authorizationCode",
-    "authorizationUrl",
-    "bearerFormat",
-    "callback",
-    "callbacks",
-    "clientCredentials",
-    "components",
-    "contact",
-    "content",
-    "contentType",
-    "dataValue",
-    "default",
-    "defaultMapping",
-    "delete",
-    "deprecated",
-    "description",
-    "deviceAuthorization",
-    "deviceAuthorizationUrl",
-    "discriminator",
-    "email",
-    "encoding",
-    "enum",
-    "example",
-    "examples",
-    "explode",
-    "expression",
-    "external documentation",
-    "externalDocs",
-    "externalValue",
-    "flows",
-    "get",
-    "head",
-    "header",
-    "headers",
-    "identifier",
-    "implicit",
-    "in",
-    "in_",
-    "info",
-    "itemEncoding",
-    "itemSchema",
-    "jsonSchemaDialect",
-    "kind",
-    "license",
-    "link",
-    "links",
-    "mapping",
-    "media type",
-    "mediaTypes",
-    "name",
-    "namespace",
-    "nodeType",
-    "oauth flow",
-    "oauth flows",
-    "oauth2MetadataUrl",
-    "openIdConnectUrl",
-    "openapi",
-    "operation",
-    "operationId",
-    "operationRef",
-    "options",
-    "parameter",
-    "parameters",
-    "parent",
-    "password",
-    "patch",
-    "path item",
-    "pathItems",
-    "paths",
-    "post",
-    "prefix",
-    "prefixEncoding",
-    "propertyName",
-    "put",
-    "query",
-    "ref",
-    "reference",
-    "refreshUrl",
-    "request body",
-    "requestBodies",
-    "requestBody",
-    "required",
-    "response",
-    "responses",
-    "schema",
-    "schema_",
-    "schemas",
-    "scheme",
-    "scopes",
-    "security",
-    "security requirement",
-    "security scheme",
-    "securitySchemes",
-    "self_",
-    "serializedValue",
-    "server",
-    "server variable",
-    "servers",
-    "style",
-    "summary",
-    "tag",
-    "tags",
-    "termsOfService",
-    "title",
-    "tokenUrl",
-    "trace",
-    "type",
-    "url",
-    "value",
-    "variables",
-    "version",
-    "webhooks",
-    "wrapped",
-    "xml",
-    "{expression}",
-    "{name}",
-)

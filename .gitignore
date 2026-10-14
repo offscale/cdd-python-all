@@ -3,54 +3,14 @@ out_server/
 build/
 dist/
 *.xml
-.vscode
-.idea
-*venv*
-__pycache__
-*.pyc
-coverage.json
-3.2.0.md
-.coverage
-/test_client.py
-openapi.json
-
-client.py
-docs.json
-spec.json
-all_objects.txt
-objects.txt
-compliance-openapi-3-2-0/
-debug_compliance.py
-fix_all.py
-fix_coverage.py
-test_get_terms.py
-update.py
-
-*.wasm
-node_modules/
-__pycache__/
-*.o
-*.so
-target/
+.vscode/
 .idea/
-temp-*
-temp-py/
-.git.bak
-test_wasi.js
-
-# ---------------------------------------------------
-# Additional comprehensive exclusions for careless git add .
-# ---------------------------------------------------
-
-# Byte-compiled / optimized / DLL files
+*venv*
+__pycache__/
 *.py[cod]
 *$py.class
 *.pyd
-
-# C extensions
 *.so
-
-# Distribution / packaging
 .Python
 env/
 venv/
@@ -59,40 +19,24 @@ env.bak/
 venv.bak/
 .env
 .venv
-
-# Unit test / coverage reports
 htmlcov/
 .tox/
 .nox/
 .coverage
 .coverage.*
-.cache
-nosetests.xml
+coverage.json
 coverage.xml
 *.cover
 *.sfdx
 .hypothesis/
 .pytest_cache/
-
-# Jupyter Notebook
+.cache/
+nosetests.xml
 .ipynb_checkpoints
-
-# Environments
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-
-# mypy
 .mypy_cache/
 .dmypy.json
 dmypy.json
 .pyre/
-
-# OS generated files
 .DS_Store
 .DS_Store?
 ._*
@@ -100,14 +44,6 @@ dmypy.json
 .Trashes
 ehthumbs.db
 Thumbs.db
-
-# ---------------------------------------------------
-# Further comprehensive wildcards for safe `git add .`
-# ---------------------------------------------------
-
-# IDEs and Editors
-.vscode/
-.idea/
 *.swp
 *~
 *.bak
@@ -119,13 +55,9 @@ Thumbs.db
 .cproject
 .pydevproject
 .settings/
-
-# Logs and databases
 *.log
 *.sqlite
 *.sqlite3
-
-# Build and Packaging artifacts
 *.egg-info/
 .eggs/
 *.egg
@@ -136,8 +68,6 @@ Thumbs.db
 *.zip
 MANIFEST
 out/
-
-# Caches and tools
 .ruff_cache/
 .uv_cache/
 .pre-commit-config.yaml.bak
@@ -147,42 +77,45 @@ celerybeat.pid
 *.pid
 *.seed
 *.pid.lock
-
-# Pyenv / Misc
 .python-version
 *.snapshot.json
-
-# Profiling and Patching
 *.patch
 *.diff
 *.pyprof
 *.lprof
 *.pstats
 *.cprof
-
-# ---------------------------------------------------
-# Custom Scratch and Temporary Files
-# ---------------------------------------------------
+*.wasm
+node_modules/
+*.o
+target/
+temp-*
+temp-py/
+.git.bak
+test_wasi.js
+bin/
+*.lock
+prompt*.md
+.tmp_*/
+/3.2.0.md
+/test_client.py
+/openapi.json
+/client.py
+/src/client.py
+/src/mock_server.py
+/docs.json
+/spec.json
+/all_objects.txt
+/objects.txt
+/compliance-openapi-3-2-0/
+/debug_compliance.py
+/fix_all.py
+/fix_coverage.py
+/test_get_terms.py
+/update.py
 /tmp.txt
 /tmp*.txt
 /update_models.py
 /update_tests*.py
 /fix_*.py
-
 /test_pydantic_v1.py
-
-# Pre-commit test directories
-.tmp_swagger/
-.tmp_oas3/
-.pytest_cache
-bin
-
-# Transient and Lock Files
-*.lock
-prompt*.md
-update_models.py
-update_tests.py
-update_tests2.py
-update_tests3.py
-update_tests4.py
-.tmp_*

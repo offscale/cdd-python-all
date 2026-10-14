@@ -1,285 +1,70 @@
 """Parse FastAPI code into an OpenAPI specification."""
 
+from __future__ import annotations
+
 import libcst as cst
-from openapi_client.models import OpenAPI
+
+from openapi_client.docstrings.parse import parse_docstring
+from openapi_client.models import OpenAPI, Operation, PathItem, Response
 
 
 class FastAPIExtractor(cst.CSTVisitor):
     """Visitor for extracting FastAPI routes into an OpenAPI spec."""
 
-    def __init__(self, spec: OpenAPI):
-        """Initialize the extractor."""
+    def __init__(self, spec: OpenAPI) -> None:
+        """Initialize the extractor.
+
+        Args:
+            spec: The OpenAPI specification to update in-place.
+        """
         self.spec = spec
 
-    def visit_Decorator(self, node: cst.Decorator):
-        """Visit decorators to extract app.get('/path') etc."""
-        if isinstance(node.decorator, cst.Call):
-            if isinstance(node.decorator.func, cst.Attribute):
-                if (
-                    isinstance(node.decorator.func.value, cst.Name)
-                    and node.decorator.func.value.value == "app"
-                ):
-                    method = node.decorator.func.attr.value
-                    if method in ["get", "post", "put", "delete", "patch"]:
-                        if node.decorator.args and isinstance(
-                            node.decorator.args[0].value, cst.SimpleString
-                        ):
-                            path = node.decorator.args[0].value.value.strip("\"'")
+    def visit_FunctionDef(self, node: cst.FunctionDef) -> None:
+        """Visit function definitions to extract decorated FastAPI routes.
 
-                            if not self.spec.paths:
-                                self.spec.paths = {}
-                            if path not in self.spec.paths:
-                                self.spec.paths[path] = {}
-                            self.spec.paths[path][method] = {
-                                "operationId": f"{method}_{path.replace('/', '_').strip('_')}",
-                                "responses": {
-                                    "200": {"description": "Successful Response"}
-                                },
-                            }
+        Args:
+            node: The LibCST FunctionDef node being visited.
+        """
+        for decorator in node.decorators:
+            if isinstance(decorator.decorator, cst.Call):
+                if isinstance(decorator.decorator.func, cst.Attribute):
+                    if isinstance(
+                        decorator.decorator.func.value, cst.Name
+                    ) and decorator.decorator.func.value.value in ("app", "router"):
+                        method = decorator.decorator.func.attr.value
+                        if method in ["get", "post", "put", "delete", "patch"]:
+                            if decorator.decorator.args and isinstance(
+                                decorator.decorator.args[0].value, cst.SimpleString
+                            ):
+                                path = decorator.decorator.args[0].value.value.strip(
+                                    "\"'"
+                                )
+
+                                if not self.spec.paths:
+                                    self.spec.paths = {}
+                                if path not in self.spec.paths:
+                                    self.spec.paths[path] = PathItem()
+
+                                summary, description = parse_docstring(node)
+                                op = Operation(
+                                    operationId=node.name.value,
+                                    summary=summary,
+                                    description=description,
+                                    responses={
+                                        "200": Response(
+                                            description="Successful Response"
+                                        )
+                                    },
+                                )
+                                setattr(self.spec.paths[path], method, op)
 
 
 def extract_fastapi_from_ast(module: cst.Module, spec: OpenAPI) -> None:
-    """Extract FastAPI information from an AST module into an OpenAPI spec."""
+    """Extract FastAPI information from an AST module into an OpenAPI spec.
+
+    Args:
+        module: The parsed LibCST Module node.
+        spec: The OpenAPI specification to update.
+    """
     extractor = FastAPIExtractor(spec)
     module.visit(extractor)
-
-
-# OpenAPI 3.2.0 keywords: openapi, $self, jsonSchemaDialect, servers, webhooks, components, security, tags, externalDocs, termsOfService, contact, license, version, name, url, email, identifier, variables, responses, requestBodies, headers, securitySchemes, links, callbacks, pathItems, mediaTypes
-
-
-# OpenAPI 3.2.0 objects
-_OPENAPI_3_2_0_FIELDS = (
-    "openapi",
-    "$self",
-    "self_",
-    "jsonSchemaDialect",
-    "servers",
-    "webhooks",
-    "components",
-    "security",
-    "tags",
-    "externalDocs",
-    "termsOfService",
-    "contact",
-    "license",
-    "version",
-    "name",
-    "url",
-    "email",
-    "identifier",
-    "variables",
-    "responses",
-    "requestBodies",
-    "headers",
-    "securitySchemes",
-    "links",
-    "callbacks",
-    "pathItems",
-    "mediaTypes",
-    "$ref",
-    "ref",
-    "in",
-    "in_",
-    "schema",
-    "schema_",
-    "{name}",
-    "{expression}",
-    "HTTP Status Code",
-    "/{path}",
-    "paths",
-    "info",
-)
-
-_ALL_KEYWORDS = (
-    "ServerVariable",
-    "PathItem",
-    "ExternalDocumentation",
-    "RequestBody",
-    "MediaType",
-    "SecurityScheme",
-    "OAuthFlows",
-    "OAuthFlow",
-    "SecurityRequirement",
-    "$ref",
-    "$self",
-    "/{path}",
-    "Callback",
-    "Callbacks",
-    "Components",
-    "Componentss",
-    "Contact",
-    "Contacts",
-    "Discriminator",
-    "Discriminators",
-    "Encoding",
-    "Encodings",
-    "Example",
-    "Examples",
-    "External Documentation",
-    "External Documentations",
-    "HTTP Status Code",
-    "Header",
-    "Headers",
-    "Info",
-    "Infos",
-    "License",
-    "Licenses",
-    "Link",
-    "Links",
-    "Media Type",
-    "Media Types",
-    "OAuth Flow",
-    "OAuth Flows",
-    "OAuth Flowss",
-    "OpenAPI",
-    "OpenAPIs",
-    "Operation",
-    "Operations",
-    "Parameter",
-    "Parameters",
-    "Path Item",
-    "Path Items",
-    "Paths",
-    "Pathss",
-    "Reference",
-    "References",
-    "Request Body",
-    "Request Bodys",
-    "Response",
-    "Responses",
-    "Responsess",
-    "Schema",
-    "Schemas",
-    "Security Requirement",
-    "Security Requirements",
-    "Security Scheme",
-    "Security Schemes",
-    "Server",
-    "Server Variable",
-    "Server Variables",
-    "Servers",
-    "Tag",
-    "Tags",
-    "XML",
-    "XMLs",
-    "additionalOperations",
-    "allowEmptyValue",
-    "allowReserved",
-    "attribute",
-    "authorizationCode",
-    "authorizationUrl",
-    "bearerFormat",
-    "callback",
-    "callbacks",
-    "clientCredentials",
-    "components",
-    "contact",
-    "content",
-    "contentType",
-    "dataValue",
-    "default",
-    "defaultMapping",
-    "delete",
-    "deprecated",
-    "description",
-    "deviceAuthorization",
-    "deviceAuthorizationUrl",
-    "discriminator",
-    "email",
-    "encoding",
-    "enum",
-    "example",
-    "examples",
-    "explode",
-    "expression",
-    "external documentation",
-    "externalDocs",
-    "externalValue",
-    "flows",
-    "get",
-    "head",
-    "header",
-    "headers",
-    "identifier",
-    "implicit",
-    "in",
-    "in_",
-    "info",
-    "itemEncoding",
-    "itemSchema",
-    "jsonSchemaDialect",
-    "kind",
-    "license",
-    "link",
-    "links",
-    "mapping",
-    "media type",
-    "mediaTypes",
-    "name",
-    "namespace",
-    "nodeType",
-    "oauth flow",
-    "oauth flows",
-    "oauth2MetadataUrl",
-    "openIdConnectUrl",
-    "openapi",
-    "operation",
-    "operationId",
-    "operationRef",
-    "options",
-    "parameter",
-    "parameters",
-    "parent",
-    "password",
-    "patch",
-    "path item",
-    "pathItems",
-    "paths",
-    "post",
-    "prefix",
-    "prefixEncoding",
-    "propertyName",
-    "put",
-    "query",
-    "ref",
-    "reference",
-    "refreshUrl",
-    "request body",
-    "requestBodies",
-    "requestBody",
-    "required",
-    "response",
-    "responses",
-    "schema",
-    "schema_",
-    "schemas",
-    "scheme",
-    "scopes",
-    "security",
-    "security requirement",
-    "security scheme",
-    "securitySchemes",
-    "self_",
-    "serializedValue",
-    "server",
-    "server variable",
-    "servers",
-    "style",
-    "summary",
-    "tag",
-    "tags",
-    "termsOfService",
-    "title",
-    "tokenUrl",
-    "trace",
-    "type",
-    "url",
-    "value",
-    "variables",
-    "version",
-    "webhooks",
-    "wrapped",
-    "xml",
-    "{expression}",
-    "{name}",
-)

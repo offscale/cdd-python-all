@@ -1,20 +1,24 @@
 """Generate a CLI script from an OpenAPI spec using cdd-python."""
 
+from __future__ import annotations
+
 import ast
 from collections import OrderedDict
-from openapi_client.models import OpenAPI
+
 from cdd.emit.argparse_function import argparse_function
+
+from openapi_client.functions.utils import get_default_server_url, sanitize_name
+from openapi_client.models import OpenAPI
 
 
 def map_openapi_type_to_python(openapi_type: str) -> str:
-    """
-    Map an OpenAPI type string to the corresponding Python type string.
+    """Map an OpenAPI type string to the corresponding Python type string.
 
-    :param openapi_type: The OpenAPI type string.
-    :type openapi_type: ```str```
+    Args:
+        openapi_type: The OpenAPI type string.
 
-    :return: The corresponding Python type string.
-    :rtype: ```str```
+    Returns:
+        The corresponding Python type string.
     """
     type_map = {
         "string": "str",
@@ -28,18 +32,23 @@ def map_openapi_type_to_python(openapi_type: str) -> str:
 
 
 def emit_cli_sdk(spec: OpenAPI) -> str:
-    """Generate the Python source code string for a CLI application."""
+    """Generate the Python source code string for a CLI application.
+
+    Args:
+        spec: The OpenAPI specification model.
+
+    Returns:
+        The generated CLI application Python source code.
+    """
     body = ["import argparse", "import sys", "from client import Client", ""]
 
-    operations = []
+    operations: list[tuple[str, str]] = []
 
     if spec.paths:
         for path, path_item in spec.paths.items():
             for method in ["get", "post", "put", "delete", "patch"]:
                 operation = getattr(path_item, method, None)
                 if operation:
-                    from openapi_client.functions.utils import sanitize_name
-
                     raw_op_id = (
                         operation.operationId
                         or f"{method}_{path.replace('/', '_').strip('_')}"
@@ -67,24 +76,18 @@ def emit_cli_sdk(spec: OpenAPI) -> str:
                                     p_type = p_type[0]
 
                             ir["params"][p_name] = {
-                                "typ": map_openapi_type_to_python(p_type),
+                                "typ": map_openapi_type_to_python(str(p_type)),
                                 "doc": p_desc,
-                                "default": None
-                                if req
-                                else "None",  # Hack to make optional
+                                "default": None if req else "None",
                             }
 
-                    # Call python-cdd to emit argument_parser function
                     arg_ast = argparse_function(
                         ir, function_name="set_cli_args_" + op_id
                     )
-                    try:
-                        code = ast.unparse(arg_ast)
-                        body.append(code)
-                        body.append("")
-                        operations.append((op_id, desc))
-                    except Exception:
-                        pass
+                    code = ast.unparse(arg_ast)
+                    body.append(code)
+                    body.append("")
+                    operations.append((op_id, desc))
 
     body.append("def main():")
     body.append(
@@ -100,17 +103,14 @@ def emit_cli_sdk(spec: OpenAPI) -> str:
 
     for op_id, desc in operations:
         body.append(
-            f'    {op_id}_parser = subparsers.add_parser("{op_id}", help="{desc}")'
+            f"    {op_id}_parser = subparsers.add_parser({op_id!r}, help={desc!r})"
         )
         body.append(f"    set_cli_args_{op_id}({op_id}_parser)")
 
     body.append("")
     body.append("    args = parser.parse_args()")
     body.append("    import os")
-    if getattr(spec, "servers", None) and len(spec.servers) > 0:
-        default_url = spec.servers[0].url
-    else:
-        default_url = "http://localhost:8080/v2"
+    default_url = get_default_server_url(spec, fallback="http://localhost:8080/v2")
     body.append(
         f'    c = Client(base_url=os.environ.get("API_BASE_URL", "{default_url}"))'
     )
@@ -138,244 +138,3 @@ def emit_cli_sdk(spec: OpenAPI) -> str:
     body.append("")
 
     return "\n".join(body)
-
-
-# OpenAPI 3.2.0 keywords: openapi, $self, jsonSchemaDialect, servers, webhooks, components, security, tags, externalDocs, termsOfService, contact, license, version, name, url, email, identifier, variables, responses, requestBodies, headers, securitySchemes, links, callbacks, pathItems, mediaTypes
-
-
-# OpenAPI 3.2.0 objects
-_OPENAPI_3_2_0_FIELDS = (
-    "openapi",
-    "$self",
-    "self_",
-    "jsonSchemaDialect",
-    "servers",
-    "webhooks",
-    "components",
-    "security",
-    "tags",
-    "externalDocs",
-    "termsOfService",
-    "contact",
-    "license",
-    "version",
-    "name",
-    "url",
-    "email",
-    "identifier",
-    "variables",
-    "responses",
-    "requestBodies",
-    "headers",
-    "securitySchemes",
-    "links",
-    "callbacks",
-    "pathItems",
-    "mediaTypes",
-    "$ref",
-    "ref",
-    "in",
-    "in_",
-    "schema",
-    "schema_",
-    "{name}",
-    "{expression}",
-    "HTTP Status Code",
-    "/{path}",
-    "paths",
-    "info",
-)
-
-_ALL_KEYWORDS = (
-    "ServerVariable",
-    "PathItem",
-    "ExternalDocumentation",
-    "RequestBody",
-    "MediaType",
-    "SecurityScheme",
-    "OAuthFlows",
-    "OAuthFlow",
-    "SecurityRequirement",
-    "$ref",
-    "$self",
-    "/{path}",
-    "Callback",
-    "Callbacks",
-    "Components",
-    "Componentss",
-    "Contact",
-    "Contacts",
-    "Discriminator",
-    "Discriminators",
-    "Encoding",
-    "Encodings",
-    "Example",
-    "Examples",
-    "External Documentation",
-    "External Documentations",
-    "HTTP Status Code",
-    "Header",
-    "Headers",
-    "Info",
-    "Infos",
-    "License",
-    "Licenses",
-    "Link",
-    "Links",
-    "Media Type",
-    "Media Types",
-    "OAuth Flow",
-    "OAuth Flows",
-    "OAuth Flowss",
-    "OpenAPI",
-    "OpenAPIs",
-    "Operation",
-    "Operations",
-    "Parameter",
-    "Parameters",
-    "Path Item",
-    "Path Items",
-    "Paths",
-    "Pathss",
-    "Reference",
-    "References",
-    "Request Body",
-    "Request Bodys",
-    "Response",
-    "Responses",
-    "Responsess",
-    "Schema",
-    "Schemas",
-    "Security Requirement",
-    "Security Requirements",
-    "Security Scheme",
-    "Security Schemes",
-    "Server",
-    "Server Variable",
-    "Server Variables",
-    "Servers",
-    "Tag",
-    "Tags",
-    "XML",
-    "XMLs",
-    "additionalOperations",
-    "allowEmptyValue",
-    "allowReserved",
-    "attribute",
-    "authorizationCode",
-    "authorizationUrl",
-    "bearerFormat",
-    "callback",
-    "callbacks",
-    "clientCredentials",
-    "components",
-    "contact",
-    "content",
-    "contentType",
-    "dataValue",
-    "default",
-    "defaultMapping",
-    "delete",
-    "deprecated",
-    "description",
-    "deviceAuthorization",
-    "deviceAuthorizationUrl",
-    "discriminator",
-    "email",
-    "encoding",
-    "enum",
-    "example",
-    "examples",
-    "explode",
-    "expression",
-    "external documentation",
-    "externalDocs",
-    "externalValue",
-    "flows",
-    "get",
-    "head",
-    "header",
-    "headers",
-    "identifier",
-    "implicit",
-    "in",
-    "in_",
-    "info",
-    "itemEncoding",
-    "itemSchema",
-    "jsonSchemaDialect",
-    "kind",
-    "license",
-    "link",
-    "links",
-    "mapping",
-    "media type",
-    "mediaTypes",
-    "name",
-    "namespace",
-    "nodeType",
-    "oauth flow",
-    "oauth flows",
-    "oauth2MetadataUrl",
-    "openIdConnectUrl",
-    "openapi",
-    "operation",
-    "operationId",
-    "operationRef",
-    "options",
-    "parameter",
-    "parameters",
-    "parent",
-    "password",
-    "patch",
-    "path item",
-    "pathItems",
-    "paths",
-    "post",
-    "prefix",
-    "prefixEncoding",
-    "propertyName",
-    "put",
-    "query",
-    "ref",
-    "reference",
-    "refreshUrl",
-    "request body",
-    "requestBodies",
-    "requestBody",
-    "required",
-    "response",
-    "responses",
-    "schema",
-    "schema_",
-    "schemas",
-    "scheme",
-    "scopes",
-    "security",
-    "security requirement",
-    "security scheme",
-    "securitySchemes",
-    "self_",
-    "serializedValue",
-    "server",
-    "server variable",
-    "servers",
-    "style",
-    "summary",
-    "tag",
-    "tags",
-    "termsOfService",
-    "title",
-    "tokenUrl",
-    "trace",
-    "type",
-    "url",
-    "value",
-    "variables",
-    "version",
-    "webhooks",
-    "wrapped",
-    "xml",
-    "{expression}",
-    "{name}",
-)

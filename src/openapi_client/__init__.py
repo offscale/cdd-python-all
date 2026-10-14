@@ -1,27 +1,27 @@
-"""
-OpenAPI Python Client (CDD) Library.
-"""
+"""OpenAPI Python Client (CDD) Library."""
 
+from __future__ import annotations
+
+from openapi_client import mcp
+from openapi_client.models import OpenAPI
 from openapi_client.routes.emit import ClientGenerator
 from openapi_client.routes.parse import extract_from_code
-from openapi_client.models import OpenAPI
 from openapi_client.sdk import (
+    generate_docs_json,
     generate_from_openapi,
     generate_to_openapi,
-    generate_docs_json,
-    serve_json_rpc,
     run_sync,
+    serve_json_rpc,
 )
-from openapi_client import mcp
 
 __all__ = [
     "ClientGenerator",
-    "extract_from_code",
     "OpenAPI",
+    "extract_from_code",
+    "generate_docs_json",
     "generate_from_openapi",
     "generate_to_openapi",
-    "generate_docs_json",
-    "serve_json_rpc",
-    "run_sync",
     "mcp",
+    "run_sync",
+    "serve_json_rpc",
 ]

@@ -2,12 +2,20 @@
 
 from __future__ import annotations
 
+from openapi_client.functions.utils import sanitize_name
 from openapi_client.models import OpenAPI
 
 
 def emit_fastapi(spec: OpenAPI) -> dict[str, str]:
-    """Generate a FastAPI server from OpenAPI in a modular way."""
-    files = {}
+    """Generate a FastAPI server from OpenAPI in a modular way.
+
+    Args:
+        spec: The OpenAPI specification model.
+
+    Returns:
+        A dictionary mapping relative file paths to generated Python code strings.
+    """
+    files: dict[str, str] = {}
     main_lines = [
         "from __future__ import annotations",
         "import argparse",
@@ -17,16 +25,16 @@ def emit_fastapi(spec: OpenAPI) -> dict[str, str]:
         "from fastapi.middleware.cors import CORSMiddleware",
         "from pydantic import BaseModel",
         "from typing import Any",
-        "import models",  # The SQLAlchemy models",
+        "import models",
         "from db import setup_database, get_db_session",
         "from seeder import seed_database",
         "",
         "app = FastAPI(",
-        f'    title="{spec.info.title}",',
-        f'    version="{spec.info.version}",',
+        f"    title={spec.info.title!r},",
+        f"    version={spec.info.version!r},",
     ]
     if spec.info.description:
-        main_lines.append(f"    description={repr(spec.info.description)},")
+        main_lines.append(f"    description={spec.info.description!r},")
     main_lines.append(")")
     main_lines.append("")
 
@@ -52,7 +60,8 @@ def emit_fastapi(spec: OpenAPI) -> dict[str, str]:
             '    """Advanced mock capabilities middleware."""',
             "    if config_flags['strict_validation']:",
             "        if request.method in ('POST', 'PUT', 'PATCH') and not request.headers.get('content-type'):",
-            "            pass",
+            "            from fastapi.responses import JSONResponse",
+            "            return JSONResponse(status_code=422, content={'message': 'Missing Content-Type header'})",
             "",
             "    if config_flags['enforce_auth'] and request.url.path != '/_mock/trigger-webhook':",
             "        auth_header = request.headers.get('Authorization')",
@@ -91,38 +100,38 @@ def emit_fastapi(spec: OpenAPI) -> dict[str, str]:
         ]
     )
 
-    routers = {}
+    routers: dict[str, list[str]] = {}
     if spec.paths:
         for path, path_item in spec.paths.items():
-            fastapi_path = path.replace("{", "{").replace("}", "}")
-            tag = "default"
-            if len(path.split("/")) > 1 and path.split("/")[1]:
-                tag = path.split("/")[1]
+            raw_tag = "default"
+            parts = path.split("/")
+            if len(parts) > 1 and parts[1]:
+                raw_tag = parts[1]
+            tag = sanitize_name(raw_tag) or "default"
 
             if tag not in routers:
                 routers[tag] = [
                     "from fastapi import APIRouter",
                     "",
-                    f"router = APIRouter(tags=['{tag}'])",
+                    f"router = APIRouter(tags=[{raw_tag!r}])",
                     "",
                 ]
 
             for method in ["get", "post", "put", "delete", "patch"]:
                 operation = getattr(path_item, method, None)
                 if operation:
-                    from openapi_client.functions.utils import sanitize_name
-
                     raw_op_id = (
                         operation.operationId
                         or f"{method}_{path.replace('/', '_').strip('_')}"
                     )
                     op_id = sanitize_name(raw_op_id)
-
-                    routers[tag].append(f"@router.{method}('{fastapi_path}')")
-                    routers[tag].append(f"def {op_id}():")
-                    routers[tag].append(
-                        f'    """{operation.summary or ""}\n    {operation.description or ""}"""'
+                    doc_text = (
+                        f"{operation.summary or ''}\n    {operation.description or ''}"
                     )
+
+                    routers[tag].append(f"@router.{method}({path!r})")
+                    routers[tag].append(f"def {op_id}():")
+                    routers[tag].append(f'    """{doc_text}"""')
                     routers[tag].append('    return {"message": "Not implemented"}')
                     routers[tag].append("")
 
@@ -196,244 +205,3 @@ def emit_fastapi(spec: OpenAPI) -> dict[str, str]:
     files["main.py"] = "\n".join(main_lines)
 
     return files
-
-
-# OpenAPI 3.2.0 keywords: openapi, $self, jsonSchemaDialect, servers, webhooks, components, security, tags, externalDocs, termsOfService, contact, license, version, name, url, email, identifier, variables, responses, requestBodies, headers, securitySchemes, links, callbacks, pathItems, mediaTypes
-
-
-# OpenAPI 3.2.0 objects
-_OPENAPI_3_2_0_FIELDS = (
-    "openapi",
-    "$self",
-    "self_",
-    "jsonSchemaDialect",
-    "servers",
-    "webhooks",
-    "components",
-    "security",
-    "tags",
-    "externalDocs",
-    "termsOfService",
-    "contact",
-    "license",
-    "version",
-    "name",
-    "url",
-    "email",
-    "identifier",
-    "variables",
-    "responses",
-    "requestBodies",
-    "headers",
-    "securitySchemes",
-    "links",
-    "callbacks",
-    "pathItems",
-    "mediaTypes",
-    "$ref",
-    "ref",
-    "in",
-    "in_",
-    "schema",
-    "schema_",
-    "{name}",
-    "{expression}",
-    "HTTP Status Code",
-    "/{path}",
-    "paths",
-    "info",
-)
-
-_ALL_KEYWORDS = (
-    "ServerVariable",
-    "PathItem",
-    "ExternalDocumentation",
-    "RequestBody",
-    "MediaType",
-    "SecurityScheme",
-    "OAuthFlows",
-    "OAuthFlow",
-    "SecurityRequirement",
-    "$ref",
-    "$self",
-    "/{path}",
-    "Callback",
-    "Callbacks",
-    "Components",
-    "Componentss",
-    "Contact",
-    "Contacts",
-    "Discriminator",
-    "Discriminators",
-    "Encoding",
-    "Encodings",
-    "Example",
-    "Examples",
-    "External Documentation",
-    "External Documentations",
-    "HTTP Status Code",
-    "Header",
-    "Headers",
-    "Info",
-    "Infos",
-    "License",
-    "Licenses",
-    "Link",
-    "Links",
-    "Media Type",
-    "Media Types",
-    "OAuth Flow",
-    "OAuth Flows",
-    "OAuth Flowss",
-    "OpenAPI",
-    "OpenAPIs",
-    "Operation",
-    "Operations",
-    "Parameter",
-    "Parameters",
-    "Path Item",
-    "Path Items",
-    "Paths",
-    "Pathss",
-    "Reference",
-    "References",
-    "Request Body",
-    "Request Bodys",
-    "Response",
-    "Responses",
-    "Responsess",
-    "Schema",
-    "Schemas",
-    "Security Requirement",
-    "Security Requirements",
-    "Security Scheme",
-    "Security Schemes",
-    "Server",
-    "Server Variable",
-    "Server Variables",
-    "Servers",
-    "Tag",
-    "Tags",
-    "XML",
-    "XMLs",
-    "additionalOperations",
-    "allowEmptyValue",
-    "allowReserved",
-    "attribute",
-    "authorizationCode",
-    "authorizationUrl",
-    "bearerFormat",
-    "callback",
-    "callbacks",
-    "clientCredentials",
-    "components",
-    "contact",
-    "content",
-    "contentType",
-    "dataValue",
-    "default",
-    "defaultMapping",
-    "delete",
-    "deprecated",
-    "description",
-    "deviceAuthorization",
-    "deviceAuthorizationUrl",
-    "discriminator",
-    "email",
-    "encoding",
-    "enum",
-    "example",
-    "examples",
-    "explode",
-    "expression",
-    "external documentation",
-    "externalDocs",
-    "externalValue",
-    "flows",
-    "get",
-    "head",
-    "header",
-    "headers",
-    "identifier",
-    "implicit",
-    "in",
-    "in_",
-    "info",
-    "itemEncoding",
-    "itemSchema",
-    "jsonSchemaDialect",
-    "kind",
-    "license",
-    "link",
-    "links",
-    "mapping",
-    "media type",
-    "mediaTypes",
-    "name",
-    "namespace",
-    "nodeType",
-    "oauth flow",
-    "oauth flows",
-    "oauth2MetadataUrl",
-    "openIdConnectUrl",
-    "openapi",
-    "operation",
-    "operationId",
-    "operationRef",
-    "options",
-    "parameter",
-    "parameters",
-    "parent",
-    "password",
-    "patch",
-    "path item",
-    "pathItems",
-    "paths",
-    "post",
-    "prefix",
-    "prefixEncoding",
-    "propertyName",
-    "put",
-    "query",
-    "ref",
-    "reference",
-    "refreshUrl",
-    "request body",
-    "requestBodies",
-    "requestBody",
-    "required",
-    "response",
-    "responses",
-    "schema",
-    "schema_",
-    "schemas",
-    "scheme",
-    "scopes",
-    "security",
-    "security requirement",
-    "security scheme",
-    "securitySchemes",
-    "self_",
-    "serializedValue",
-    "server",
-    "server variable",
-    "servers",
-    "style",
-    "summary",
-    "tag",
-    "tags",
-    "termsOfService",
-    "title",
-    "tokenUrl",
-    "trace",
-    "type",
-    "url",
-    "value",
-    "variables",
-    "version",
-    "webhooks",
-    "wrapped",
-    "xml",
-    "{expression}",
-    "{name}",
-)

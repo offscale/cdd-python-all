@@ -1,29 +1,36 @@
-"""
-Module for extracting OpenAPI Operations from Python method ASTs.
-"""
+"""Module for extracting OpenAPI Operations from Python method ASTs."""
 
 from __future__ import annotations
 
+import re
 
 import libcst as cst
+
+from openapi_client.docstrings.parse import parse_docstring
 from openapi_client.models import (
+    MediaType,
     OpenAPI,
-    PathItem,
     Operation,
     Parameter,
+    PathItem,
+    Reference,
     RequestBody,
-    MediaType,
     Response,
     Schema,
-    Reference,
 )
 
 
 def _extract_schema_from_annotation(
     annotation: cst.Annotation,
 ) -> Schema | Reference:
-    """Helper to convert CST annotation node to OpenAPI Schema/Reference."""
-    # Extremely basic mapping logic. Ideally calls `get_schema_for_annotation`
+    """Convert a LibCST annotation node to an OpenAPI Schema or Reference.
+
+    Args:
+        annotation: The LibCST Annotation node.
+
+    Returns:
+        The mapped OpenAPI Schema or Reference.
+    """
     ann_node = annotation.annotation
     if isinstance(ann_node, cst.Name):
         type_str = ann_node.value
@@ -35,10 +42,11 @@ def _extract_schema_from_annotation(
             return Schema(type="boolean")
         elif type_str == "float":
             return Schema(type="number")
+        elif type_str == "Any":
+            return Schema(type="string")
         else:
             return Reference(**{"$ref": f"#/components/schemas/{type_str}"})
     elif isinstance(ann_node, cst.Subscript):
-        # Handling list[Type] or dict[str, Type]
         base_name = getattr(ann_node.value, "value", None)
         if base_name in ("List", "list"):
             slice_node = ann_node.slice[0].slice
@@ -48,22 +56,95 @@ def _extract_schema_from_annotation(
                 return Schema(type="array", items=item_schema)
         elif base_name in ("Dict", "dict"):
             return Schema(type="object")
-    return Schema(type="string")  # Default
+    return Schema(type="string")
+
+
+def _extract_method_and_path_from_body(
+    node: cst.FunctionDef,
+) -> tuple[str | None, str | None]:
+    """Inspect a function body for `self.base_url + ...` and `self.http.request(...)`.
+
+    Args:
+        node: The LibCST FunctionDef node.
+
+    Returns:
+        A tuple of `(http_method, route_path)` if detected in the body, else `(None, None)`.
+    """
+    found_method: str | None = None
+    found_path: str | None = None
+
+    class BodyInspector(cst.CSTVisitor):
+        """Visitor to extract URL path and HTTP verb from client method body."""
+
+        def visit_Assign(self, assign_node: cst.Assign) -> None:
+            """Inspect `url = self.base_url + ...` assignments.
+
+            Args:
+                assign_node: The LibCST Assign node being visited.
+            """
+            nonlocal found_path
+            for target in assign_node.targets:
+                if (
+                    isinstance(target.target, cst.Name)
+                    and target.target.value == "url"
+                    and isinstance(assign_node.value, cst.BinaryOperation)
+                ):
+                    expr = assign_node.value
+                    if isinstance(expr.left, cst.BinaryOperation):
+                        expr = expr.left
+                    right = expr.right
+                    if isinstance(right, cst.SimpleString):
+                        found_path = str(right.evaluated_value)
+                    elif isinstance(right, cst.FormattedString):
+                        parts = [
+                            part.value
+                            if isinstance(part, cst.FormattedStringText)
+                            else "{"
+                            + str(getattr(part.expression, "value", "param"))
+                            + "}"
+                            for part in right.parts
+                        ]
+                        found_path = "".join(parts)
+
+        def visit_Call(self, call_node: cst.Call) -> None:
+            """Inspect `self.http.request("GET", ...)` calls.
+
+            Args:
+                call_node: The LibCST Call node being visited.
+            """
+            nonlocal found_method
+            if (
+                isinstance(call_node.func, cst.Attribute)
+                and call_node.func.attr.value == "request"
+                and call_node.args
+                and isinstance(call_node.args[0].value, cst.SimpleString)
+            ):
+                found_method = str(call_node.args[0].value.evaluated_value).lower()
+
+    node.body.visit(BodyInspector())
+    return found_method, found_path
 
 
 class FunctionExtractor(cst.CSTVisitor):
-    """
-    AST Visitor to extract method definitions into OpenAPI Path/Operation structures.
-    """
+    """AST Visitor to extract method definitions into OpenAPI Path/Operation structures."""
 
-    def __init__(self, spec: OpenAPI):
-        """Initialize FunctionExtractor with an OpenAPI spec."""
+    def __init__(self, spec: OpenAPI) -> None:
+        """Initialize FunctionExtractor with an OpenAPI spec.
+
+        Args:
+            spec: The OpenAPI specification to update in-place.
+        """
         self.spec = spec
         if not self.spec.paths:
             self.spec.paths = {}
 
     def _extract_decorators(self, node: cst.FunctionDef, operation: Operation) -> None:
-        """Extract information from decorators."""
+        """Extract metadata from function decorators.
+
+        Args:
+            node: The LibCST FunctionDef node.
+            operation: The OpenAPI Operation to populate.
+        """
         for decorator in node.decorators:
             if isinstance(decorator.decorator, cst.Name):
                 name = decorator.decorator.value
@@ -84,8 +165,15 @@ class FunctionExtractor(cst.CSTVisitor):
     def _extract_parameters(
         self, node: cst.FunctionDef, operation: Operation, path: str
     ) -> None:
-        """Extract parameters and request body from function arguments."""
-        parameters = []
+        """Extract parameters and request body from function arguments.
+
+        Args:
+            node: The LibCST FunctionDef node.
+            operation: The OpenAPI Operation to populate.
+            path: The route path string.
+        """
+        parameters: list[Parameter] = []
+        path_vars = set(re.findall(r"\{([^}]+)\}", path))
 
         for param in node.params.params:
             name = param.name.value
@@ -96,19 +184,18 @@ class FunctionExtractor(cst.CSTVisitor):
             if param.annotation:
                 schema = _extract_schema_from_annotation(param.annotation)
 
-            # Check if this is a path parameter
-            # Heuristic: if it has no default and is a simple type, it's a path param.
-            # If it has a default, it's a query param.
-
-            in_path = (param.default is None) and not (
-                name in ("body", "data", "payload")
-                or (schema and isinstance(schema, Reference))
+            in_path = (name in path_vars) or (
+                (param.default is None)
+                and not path_vars
+                and not (
+                    name in ("body", "data", "payload")
+                    or (schema and isinstance(schema, Reference))
+                )
             )
 
             if name in ("body", "data", "payload") or (
                 schema and isinstance(schema, Reference)
             ):
-                # Assume RequestBody
                 if operation.requestBody is None:
                     operation.requestBody = RequestBody(
                         content={
@@ -122,8 +209,8 @@ class FunctionExtractor(cst.CSTVisitor):
                 p = Parameter(
                     name=name,
                     **{"in": "path" if in_path else "query"},
-                    required=param.default is None,
-                    **{"schema": schema} if schema else {},
+                    required=in_path or (param.default is None),
+                    **({"schema": schema} if schema else {}),
                 )
                 parameters.append(p)
 
@@ -131,7 +218,12 @@ class FunctionExtractor(cst.CSTVisitor):
             operation.parameters = parameters
 
     def _extract_returns(self, node: cst.FunctionDef, operation: Operation) -> None:
-        """Extract responses from the return annotation."""
+        """Extract responses from the return annotation.
+
+        Args:
+            node: The LibCST FunctionDef node.
+            operation: The OpenAPI Operation to populate.
+        """
         if node.returns:
             schema = _extract_schema_from_annotation(node.returns)
             operation.responses = {
@@ -142,286 +234,50 @@ class FunctionExtractor(cst.CSTVisitor):
             }
 
     def visit_FunctionDef(self, node: cst.FunctionDef) -> None:
-        """
-        Extract operation based on function name convention (e.g., get_pets -> GET /pets).
+        """Extract operation from a function definition via body inspection or name convention.
+
+        Args:
+            node: The LibCST FunctionDef node being visited.
         """
         name = node.name.value
-        # Simple heuristic: split by first underscore
-        if "_" in name:
-            parts = name.split("_", 1)
-            method = parts[0].lower()
-            if method in ["get", "post", "put", "delete", "patch"]:
-                path = "/" + parts[1].replace("_", "/")
+        if name.startswith("__"):
+            return
 
-                if self.spec.paths is not None and path not in self.spec.paths:
-                    self.spec.paths[path] = PathItem(**{})  # type: ignore[call-arg]
+        method, path = _extract_method_and_path_from_body(node)
+        if not method or not path:
+            if "_" in name:
+                parts = name.split("_", 1)
+                candidate = parts[0].lower()
+                if candidate in ("get", "post", "put", "delete", "patch"):
+                    method = method or candidate
+                    path = path or ("/" + parts[1].replace("_", "/"))
 
-                from openapi_client.docstrings.parse import parse_docstring
+        if method and path:
+            if self.spec.paths is not None and path not in self.spec.paths:
+                self.spec.paths[path] = PathItem()
 
-                summary, description = parse_docstring(node)
+            summary, description = parse_docstring(node)
 
-                operation = Operation(operationId=name)
-                if summary:
-                    operation.summary = summary
-                if description:
-                    operation.description = description
+            operation = Operation(operationId=name)
+            if summary:
+                operation.summary = summary
+            if description:
+                operation.description = description
 
-                self._extract_decorators(node, operation)
-                self._extract_parameters(node, operation, path)
-                self._extract_returns(node, operation)
+            self._extract_decorators(node, operation)
+            self._extract_parameters(node, operation, path)
+            self._extract_returns(node, operation)
 
-                if self.spec.paths is not None:
-                    setattr(self.spec.paths[path], method, operation)
+            if self.spec.paths is not None:
+                setattr(self.spec.paths[path], method, operation)
 
 
 def extract_functions_from_ast(module: cst.Module, spec: OpenAPI) -> None:
-    """
-    Extract API operations from a parsed module into an OpenAPI specification.
+    """Extract API operations from a parsed module into an OpenAPI specification.
 
     Args:
-        module (cst.Module): Parsed Python module.
-        spec (OpenAPI): OpenAPI specification to update.
+        module: Parsed Python module.
+        spec: OpenAPI specification to update.
     """
     visitor = FunctionExtractor(spec)
     module.visit(visitor)
-
-
-# OpenAPI 3.2.0 keywords: openapi, $self, jsonSchemaDialect, servers, webhooks, components, security, tags, externalDocs, termsOfService, contact, license, version, name, url, email, identifier, variables, responses, requestBodies, headers, securitySchemes, links, callbacks, pathItems, mediaTypes
-
-
-# OpenAPI 3.2.0 objects
-_OPENAPI_3_2_0_FIELDS = (
-    "openapi",
-    "$self",
-    "self_",
-    "jsonSchemaDialect",
-    "servers",
-    "webhooks",
-    "components",
-    "security",
-    "tags",
-    "externalDocs",
-    "termsOfService",
-    "contact",
-    "license",
-    "version",
-    "name",
-    "url",
-    "email",
-    "identifier",
-    "variables",
-    "responses",
-    "requestBodies",
-    "headers",
-    "securitySchemes",
-    "links",
-    "callbacks",
-    "pathItems",
-    "mediaTypes",
-    "$ref",
-    "ref",
-    "in",
-    "in_",
-    "schema",
-    "schema_",
-    "{name}",
-    "{expression}",
-    "HTTP Status Code",
-    "/{path}",
-    "paths",
-    "info",
-)
-
-_ALL_KEYWORDS = (
-    "ServerVariable",
-    "PathItem",
-    "ExternalDocumentation",
-    "RequestBody",
-    "MediaType",
-    "SecurityScheme",
-    "OAuthFlows",
-    "OAuthFlow",
-    "SecurityRequirement",
-    "$ref",
-    "$self",
-    "/{path}",
-    "Callback",
-    "Callbacks",
-    "Components",
-    "Componentss",
-    "Contact",
-    "Contacts",
-    "Discriminator",
-    "Discriminators",
-    "Encoding",
-    "Encodings",
-    "Example",
-    "Examples",
-    "External Documentation",
-    "External Documentations",
-    "HTTP Status Code",
-    "Header",
-    "Headers",
-    "Info",
-    "Infos",
-    "License",
-    "Licenses",
-    "Link",
-    "Links",
-    "Media Type",
-    "Media Types",
-    "OAuth Flow",
-    "OAuth Flows",
-    "OAuth Flowss",
-    "OpenAPI",
-    "OpenAPIs",
-    "Operation",
-    "Operations",
-    "Parameter",
-    "Parameters",
-    "Path Item",
-    "Path Items",
-    "Paths",
-    "Pathss",
-    "Reference",
-    "References",
-    "Request Body",
-    "Request Bodys",
-    "Response",
-    "Responses",
-    "Responsess",
-    "Schema",
-    "Schemas",
-    "Security Requirement",
-    "Security Requirements",
-    "Security Scheme",
-    "Security Schemes",
-    "Server",
-    "Server Variable",
-    "Server Variables",
-    "Servers",
-    "Tag",
-    "Tags",
-    "XML",
-    "XMLs",
-    "additionalOperations",
-    "allowEmptyValue",
-    "allowReserved",
-    "attribute",
-    "authorizationCode",
-    "authorizationUrl",
-    "bearerFormat",
-    "callback",
-    "callbacks",
-    "clientCredentials",
-    "components",
-    "contact",
-    "content",
-    "contentType",
-    "dataValue",
-    "default",
-    "defaultMapping",
-    "delete",
-    "deprecated",
-    "description",
-    "deviceAuthorization",
-    "deviceAuthorizationUrl",
-    "discriminator",
-    "email",
-    "encoding",
-    "enum",
-    "example",
-    "examples",
-    "explode",
-    "expression",
-    "external documentation",
-    "externalDocs",
-    "externalValue",
-    "flows",
-    "get",
-    "head",
-    "header",
-    "headers",
-    "identifier",
-    "implicit",
-    "in",
-    "in_",
-    "info",
-    "itemEncoding",
-    "itemSchema",
-    "jsonSchemaDialect",
-    "kind",
-    "license",
-    "link",
-    "links",
-    "mapping",
-    "media type",
-    "mediaTypes",
-    "name",
-    "namespace",
-    "nodeType",
-    "oauth flow",
-    "oauth flows",
-    "oauth2MetadataUrl",
-    "openIdConnectUrl",
-    "openapi",
-    "operation",
-    "operationId",
-    "operationRef",
-    "options",
-    "parameter",
-    "parameters",
-    "parent",
-    "password",
-    "patch",
-    "path item",
-    "pathItems",
-    "paths",
-    "post",
-    "prefix",
-    "prefixEncoding",
-    "propertyName",
-    "put",
-    "query",
-    "ref",
-    "reference",
-    "refreshUrl",
-    "request body",
-    "requestBodies",
-    "requestBody",
-    "required",
-    "response",
-    "responses",
-    "schema",
-    "schema_",
-    "schemas",
-    "scheme",
-    "scopes",
-    "security",
-    "security requirement",
-    "security scheme",
-    "securitySchemes",
-    "self_",
-    "serializedValue",
-    "server",
-    "server variable",
-    "servers",
-    "style",
-    "summary",
-    "tag",
-    "tags",
-    "termsOfService",
-    "title",
-    "tokenUrl",
-    "trace",
-    "type",
-    "url",
-    "value",
-    "variables",
-    "version",
-    "webhooks",
-    "wrapped",
-    "xml",
-    "{expression}",
-    "{name}",
-)

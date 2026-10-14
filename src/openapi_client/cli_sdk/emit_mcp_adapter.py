@@ -1,57 +1,23 @@
 """Generates a Model Context Protocol (MCP) adapter for programmatic SDK integration."""
 
+from __future__ import annotations
+
 import json
+
+from openapi_client.cli_sdk.emit_mcp import extract_mcp_tools_from_spec
 from openapi_client.models import OpenAPI
 
 
 def emit_mcp_adapter(spec: OpenAPI) -> str:
-    """Emit the mcp_adapter.py source code."""
-    tools = []
-    if spec.paths:
-        for path, path_item in spec.paths.items():
-            for method in ["get", "post", "put", "delete", "patch"]:
-                operation = getattr(path_item, method, None)
-                if operation:
-                    from openapi_client.functions.utils import sanitize_name
+    """Emit the `mcp_adapter.py` source code.
 
-                    raw_op_id = (
-                        operation.operationId
-                        or f"{method}_{path.replace('/', '_').strip('_')}"
-                    )
-                    op_id = sanitize_name(raw_op_id)
-                    desc = operation.summary or f"{method.upper()} {path}"
+    Args:
+        spec: The OpenAPI specification model.
 
-                    properties = {}
-                    required = []
-                    if operation.parameters:
-                        for param in operation.parameters:
-                            p_name = getattr(param, "name", "param").replace("-", "_")
-                            p_desc = getattr(param, "description", "")
-                            req = getattr(param, "required", False)
-                            p_type = "string"
-                            if getattr(param, "schema_", None):
-                                p_type = getattr(param.schema_, "type", "string")
-                                if isinstance(p_type, list):
-                                    p_type = p_type[0]
-                                if p_type == "integer":
-                                    p_type = "number"
-
-                            properties[p_name] = {"type": p_type, "description": p_desc}
-                            if req:
-                                required.append(p_name)
-
-                    tools.append(
-                        {
-                            "name": op_id,
-                            "description": desc,
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": properties,
-                                "required": required,
-                            },
-                        }
-                    )
-
+    Returns:
+        The generated Python source code for `mcp_adapter.py`.
+    """
+    tools = extract_mcp_tools_from_spec(spec)
     tools_json = json.dumps(tools, indent=4)
 
     code = f'''"""Native MCP adapter for programmatic SDK integration."""

@@ -1,4 +1,6 @@
-"""Tests for MCP Client models."""
+"""Tests for OpenAPI 3.2.0 and MCP Pydantic models."""
+
+from __future__ import annotations
 
 from src.openapi_client.mcp_client.models import (
     RequestId,

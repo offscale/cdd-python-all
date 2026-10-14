@@ -1,21 +1,27 @@
 """Emit server tests module."""
 
+from __future__ import annotations
+
 from openapi_client.models import OpenAPI
 
 
 def emit_server_tests(spec: OpenAPI) -> dict[str, str]:
-    """
-    Generate the test suite for the server, fulfilling Phase 7 categories.
+    """Generate the test suite for the server, fulfilling Phase 7 categories.
+
+    Args:
+        spec: The OpenAPI specification model.
+
+    Returns:
+        A dictionary mapping relative test file paths to generated Python code.
     """
     if not spec.components or not spec.components.schemas:
         return {}
 
-    files = {}
+    files: dict[str, str] = {}
 
     schemas = spec.components.schemas
-    first_model = list(schemas.keys())[0] if schemas else "Dummy"
+    first_model = next(iter(schemas.keys()))
 
-    # conftest.py
     conftest_lines = [
         "import os",
         "import pytest",
@@ -63,7 +69,6 @@ def emit_server_tests(spec: OpenAPI) -> dict[str, str]:
     ]
     files["conftest.py"] = "\n".join(conftest_lines)
 
-    # test_unit.py
     unit_lines = [
         "import os",
         "from unittest.mock import patch",
@@ -82,7 +87,7 @@ def emit_server_tests(spec: OpenAPI) -> dict[str, str]:
         "@patch.dict(os.environ, {}, clear=True)",
         "def test_dao_factory_stub():",
         '    """Test DAO factory returns Stubs when no DB."""',
-        f"    dao = get_dao('{first_model}')",
+        f"    dao = get_dao({first_model!r})",
         f"    assert type(dao).__name__ == 'Stub{first_model}DAO'",
         "",
         "def test_dao_factory_concrete():",
@@ -90,21 +95,20 @@ def emit_server_tests(spec: OpenAPI) -> dict[str, str]:
         "    setup_database(ephemeral=True)",
         "    gen = get_db_session()",
         "    db = next(gen)",
-        f"    dao = get_dao('{first_model}', session=db, ephemeral=True)",
+        f"    dao = get_dao({first_model!r}, session=db, ephemeral=True)",
         f"    assert type(dao).__name__ == 'Concrete{first_model}DAO'",
         "    db.close()",
         "",
         "def test_seeder_referential_integrity():",
         '    """Test seeder populates the Entity Pool correctly."""',
         "    pool = EntityPool()",
-        f"    pool.add('{first_model}', 1)",
-        f"    assert pool.get_random('{first_model}') == 1",
+        f"    pool.add({first_model!r}, 1)",
+        f"    assert pool.get_random({first_model!r}) == 1",
         "    assert pool.get_random('NonExistent') is None",
         "",
     ]
     files["test_unit.py"] = "\n".join(unit_lines)
 
-    # test_stub.py
     stub_lines = [
         "from fastapi.testclient import TestClient",
         "from main import app",
@@ -123,7 +127,7 @@ def emit_server_tests(spec: OpenAPI) -> dict[str, str]:
     if test_path:
         stub_lines.extend(
             [
-                f"    response = client.get('{test_path}')",
+                f"    response = client.get({test_path!r})",
                 "    assert response.status_code == 200",
                 "    assert 'Not implemented' in response.text",
                 "",
@@ -133,7 +137,6 @@ def emit_server_tests(spec: OpenAPI) -> dict[str, str]:
         stub_lines.extend(["    pass # No GET endpoints found in spec", ""])
     files["test_stub.py"] = "\n".join(stub_lines)
 
-    # test_ephemeral.py
     ephemeral_lines = [
         "from dao import get_dao",
         "from db import get_db_session",
@@ -142,7 +145,7 @@ def emit_server_tests(spec: OpenAPI) -> dict[str, str]:
         '    """Test that the ephemeral DB is clean initially."""',
         "    gen = get_db_session()",
         "    db = next(gen)",
-        f"    dao = get_dao('{first_model}', session=db, ephemeral=True)",
+        f"    dao = get_dao({first_model!r}, session=db, ephemeral=True)",
         "    items = dao.get_all()",
         "    assert len(items) == 0",
         "    db.close()",
@@ -150,7 +153,6 @@ def emit_server_tests(spec: OpenAPI) -> dict[str, str]:
     ]
     files["test_ephemeral.py"] = "\n".join(ephemeral_lines)
 
-    # test_seeded.py
     seeded_lines = [
         "from dao import get_dao",
         "from db import get_db_session",
@@ -159,7 +161,7 @@ def emit_server_tests(spec: OpenAPI) -> dict[str, str]:
         '    """Test that the seeded DB contains generated relational data."""',
         "    gen = get_db_session()",
         "    db = next(gen)",
-        f"    dao = get_dao('{first_model}', session=db, ephemeral=True)",
+        f"    dao = get_dao({first_model!r}, session=db, ephemeral=True)",
         "    items = dao.get_all()",
         "    assert len(items) > 0",
         "    db.close()",
@@ -167,7 +169,6 @@ def emit_server_tests(spec: OpenAPI) -> dict[str, str]:
     ]
     files["test_seeded.py"] = "\n".join(seeded_lines)
 
-    # test_advanced.py
     advanced_lines = [
         "from fastapi.testclient import TestClient",
         "from main import app",

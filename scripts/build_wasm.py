@@ -1,10 +1,13 @@
 """Build script for WebAssembly bundle."""
 
+from __future__ import annotations
+
 import os
 import subprocess
+import zipfile
 
 
-def main():
+def main() -> None:
     """Build WASI output or fallback to zip bundle."""
     os.makedirs("bin", exist_ok=True)
     wasm_out = os.path.join("bin", "cdd-python-all.wasm")
@@ -20,11 +23,8 @@ def main():
         if os.path.exists(wasm_out):
             os.remove(wasm_out)
 
-        # Cross-platform zip
-        import zipfile
-
         with zipfile.ZipFile(wasm_out, "w", zipfile.ZIP_DEFLATED) as zipf:
-            for root, dirs, files in os.walk("src"):
+            for root, _dirs, files in os.walk("src"):
                 for file in files:
                     if "__pycache__" not in root and file.endswith(".py"):
                         file_path = os.path.join(root, file)

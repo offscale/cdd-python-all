@@ -1,8 +1,8 @@
-"""
-Module for parsing docstrings to extract OpenAPI description details.
-"""
+"""Module for parsing docstrings to extract OpenAPI description details."""
 
 from __future__ import annotations
+
+import re
 
 import libcst as cst
 
@@ -10,11 +10,13 @@ import libcst as cst
 def parse_docstring(
     node: cst.FunctionDef | cst.ClassDef,
 ) -> tuple[str | None, str | None]:
-    """
-    Extracts summary and description from a function or class docstring.
+    """Extract summary and description from a function or class docstring.
+
+    Args:
+        node: The LibCST FunctionDef or ClassDef node to inspect.
 
     Returns:
-        tuple[str | None, str | None]: (summary, description)
+        A tuple of `(summary, description)`, where either element may be None.
     """
     if isinstance(node.body, cst.IndentedBlock):
         if node.body.body:
@@ -26,10 +28,8 @@ def parse_docstring(
                 ):
                     doc_val = first_expr.value.evaluated_value
                     if doc_val:
-                        import re
-
-                        doc_val = str(doc_val).strip("'\"").strip()
-                        parts = re.split(r"\n\s*\n", doc_val, maxsplit=1)
+                        doc_str = str(doc_val).strip("'\"").strip()
+                        parts = re.split(r"\n\s*\n", doc_str, maxsplit=1)
                         summary = parts[0].strip() if parts else None
                         description = parts[1].strip() if len(parts) > 1 else None
                         return summary, description
