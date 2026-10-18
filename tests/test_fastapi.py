@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
-from openapi_client.fastapi.emit_readme import emit_readme
-from openapi_client.models import OpenAPI
 import sys
 import tempfile
-import unittest.mock as mock
 from io import StringIO
 from pathlib import Path
+from unittest import mock
+
 import libcst as cst
 import pytest
 from libcst._nodes.base import CSTValidationError
+
 from openapi_client.classes.emit import _schema_to_type_annotation
 from openapi_client.cli import (
     generate_from_openapi,
@@ -22,6 +22,7 @@ from openapi_client.cli import (
 )
 from openapi_client.cli_sdk_cdd.parse import parse_cli_sdk_cdd
 from openapi_client.fastapi.emit import emit_fastapi
+from openapi_client.fastapi.emit_readme import emit_readme
 from openapi_client.fastapi.parse import extract_fastapi_from_ast
 from openapi_client.functions.emit import emit_functions
 from openapi_client.functions.parse import (
@@ -35,6 +36,7 @@ from openapi_client.models import (
     Components,
     Info,
     MediaType,
+    OpenAPI,
     Operation,
     Parameter,
     PathItem,
@@ -186,12 +188,10 @@ def test_cli_edge_cases(monkeypatch: pytest.MonkeyPatch) -> None:
             main()
             mock_run.assert_called_once()
 
-    with tempfile.TemporaryDirectory() as d:
-        with mock.patch(
-            "sys.argv", ["cli.py", "from_openapi", "to_unknown", "--input-dir", d]
-        ):
-            with pytest.raises(SystemExit):
-                main()
+    with tempfile.TemporaryDirectory() as d, mock.patch(
+        "sys.argv", ["cli.py", "from_openapi", "to_unknown", "--input-dir", d]
+    ), pytest.raises(SystemExit):
+        main()
 
     with tempfile.TemporaryDirectory() as d:
         p = Path(d)
@@ -358,7 +358,7 @@ def test_mocks_and_tests_emit_parse_edge_cases(tmp_path: Path) -> None:
     op_custom_media = Operation(
         operationId="upload_text",
         requestBody=RequestBody(
-            content={"text/plain": MediaType(**{"schema": Schema(type="string")})}
+            content={"text/plain": MediaType(schema=Schema(type="string"))}
         ),
     )
     fn_media = emit_operation_test("post", "/upload", op_custom_media, composable=False)
@@ -461,8 +461,7 @@ def stream_new_endpoint():
             "to_sdk", str(spec_file), None, str(tmp_path / "out_d"), True, True, True
         )
 
-    with mock.patch("openapi_client.cli.emit_seeder", return_value=""):
-        with mock.patch(
-            "openapi_client.cli.emit_dao", return_value={"empty_dao.py": ""}
-        ):
-            sync_dir(str(tmp_path / "out_s"))
+    with mock.patch("openapi_client.cli.emit_seeder", return_value=""), mock.patch(
+        "openapi_client.cli.emit_dao", return_value={"empty_dao.py": ""}
+    ):
+        sync_dir(str(tmp_path / "out_s"))

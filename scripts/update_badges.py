@@ -9,7 +9,7 @@ import subprocess
 import sys
 
 
-def get_color(pct: float | int) -> str:
+def get_color(pct: float) -> str:
     """Return a shields.io badge color for a given coverage percentage.
 
     Args:

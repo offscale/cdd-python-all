@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import json
-from openapi_client.openapi.parse import parse_openapi_dict, parse_openapi_json
-from openapi_client.openapi.emit import emit_openapi_dict, emit_openapi_json
-from openapi_client.models import OpenAPI
 from pathlib import Path
+
+from openapi_client.models import OpenAPI
+from openapi_client.openapi.emit import emit_openapi_dict, emit_openapi_json
+from openapi_client.openapi.parse import parse_openapi_dict, parse_openapi_json
 
 
 def test_openapi_parse_emit():

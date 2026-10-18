@@ -69,6 +69,46 @@ def get_tools() -> list[dict[str, Any]]:
                 "required": ["input_path"],
             },
         },
+        {
+            "name": "to_arazzo",
+            "description": "Generate an Arazzo 1.1.0 specification from Python workflow source code.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "input_dir": {
+                        "type": "string",
+                        "description": "The workflow file or directory to scan",
+                    },
+                    "output_path": {
+                        "type": "string",
+                        "description": "The path to save the generated Arazzo JSON",
+                    },
+                },
+                "required": ["input_dir"],
+            },
+        },
+        {
+            "name": "from_arazzo",
+            "description": "Generate Python workflow orchestrators, CLI, server routes, or tests from an Arazzo 1.1.0 specification.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "input_path": {
+                        "type": "string",
+                        "description": "The Arazzo 1.1.0 JSON file path",
+                    },
+                    "output_dir": {
+                        "type": "string",
+                        "description": "The directory to generate the artifacts into",
+                    },
+                    "subcommand": {
+                        "type": "string",
+                        "description": "Target generation strategy: to_sdk, to_sdk_cli, to_server, to_tests",
+                    },
+                },
+                "required": ["input_path", "output_dir"],
+            },
+        },
     ]
 
 
@@ -91,6 +131,10 @@ def execute_tool(name: str, arguments: dict[str, Any]) -> Any:
         return sdk.generate_to_openapi(**arguments)
     elif name == "from_openapi":
         return sdk.generate_from_openapi(**arguments)
+    elif name == "to_arazzo":
+        return sdk.generate_to_arazzo(**arguments)
+    elif name == "from_arazzo":
+        return sdk.generate_from_arazzo(**arguments)
     elif name == "to_docs_json":
         return sdk.generate_docs_json(**arguments)
     else:

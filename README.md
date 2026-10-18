@@ -96,7 +96,7 @@ All implementations share a standardized CLI interface (`cdd [subcommand]`), act
 | [`cdd-kotlin`](https://github.com/offscale/cdd-kotlin) | Kotlin (ktor for Multiplatform) | Client; Client CLI; Server | Auto-Admin UI | Swagger 2.0 & OpenAPI 3.2.0 | [![CI](https://github.com/offscale/cdd-kotlin/actions/workflows/ci.yml/badge.svg)](https://github.com/offscale/cdd-kotlin/actions/workflows/ci.yml) |
 | [`cdd-php`](https://github.com/SamuelMarks/cdd-php) | PHP | Client; Client CLI; Server | | Swagger 2.0 & OpenAPI 3.2.0 | [![CI](https://github.com/SamuelMarks/cdd-php/actions/workflows/ci.yml/badge.svg)](https://github.com/SamuelMarks/cdd-php/actions/workflows/ci.yml) |
 | [`cdd-python`](https://github.com/offscale/cdd-python) | Python | N/A (server building blocks) | CLI ↔ SQL ↔ Pydantic ↔ docs ↔ JSON-schema | N/A | [![Linting, testing, coverage, and release](https://github.com/offscale/cdd-python/workflows/Linting,%20testing,%20coverage,%20and%20release/badge.svg)](https://github.com/offscale/cdd-python/actions) |
-| [`cdd-python-all`](https://github.com/offscale/cdd-python-all) | Python | Client; Client CLI; Server |  | Swagger 2.0 & OpenAPI 3.2.0 | [![CI](https://github.com/offscale/cdd-python-client/actions/workflows/ci.yml/badge.svg)](https://github.com/offscale/cdd-python-all/actions/workflows/ci.yml) |
+| [`cdd-python-all`](https://github.com/offscale/cdd-python-all) | Python | Client; Client CLI; Server | Arazzo 1.1.0 Workflows & MCP | Swagger 2.0, OpenAPI 3.2.0 & Arazzo 1.1.0 | [![CI](https://github.com/offscale/cdd-python-client/actions/workflows/ci.yml/badge.svg)](https://github.com/offscale/cdd-python-all/actions/workflows/ci.yml) |
 | [`cdd-ruby`](https://github.com/SamuelMarks/cdd-ruby) | Ruby | Client; Client CLI; Server |  | Swagger 2.0 & OpenAPI 3.2.0 | [![CI](https://github.com/SamuelMarks/cdd-ruby/actions/workflows/ci.yml/badge.svg)](https://github.com/SamuelMarks/cdd-ruby/actions/workflows/ci.yml) |
 | [`cdd-rust`](https://github.com/SamuelMarks/cdd-rust) | Rust | Client; Client CLI; Server |  | Swagger 2.0 & OpenAPI 3.2.0 | [![CI](https://github.com/offscale/cdd-rust/actions/workflows/ci.yml/badge.svg)](https://github.com/offscale/cdd-rust/actions/workflows/ci.yml) |
 | [`cdd-sh`](https://github.com/SamuelMarks/cdd-sh) | Shell (/bin/sh) | Client; Client CLI; Server |  | Swagger 2.0 & OpenAPI 3.2.0 | [![CI](https://github.com/SamuelMarks/cdd-sh/actions/workflows/ci.yml/badge.svg)](https://github.com/SamuelMarks/cdd-sh/actions/workflows/ci.yml) |
@@ -113,15 +113,17 @@ A true ecosystem requires standardized tooling. Once a developer learns the CDD 
 
 #### `cdd-python --help`
 ```text
-usage: cdd-python [-h] [--version] {from_openapi,to_openapi,sync,to_docs_json,serve_json_rpc,mcp} ...
+usage: cdd-python [-h] [--version] {from_openapi,to_openapi,from_arazzo,to_arazzo,sync,to_docs_json,serve_json_rpc,mcp} ...
 
 Compiler Driven Development (CDD) compiler and transpiler.
 
 positional arguments:
-  {from_openapi,to_openapi,sync,to_docs_json,serve_json_rpc,mcp}
+  {from_openapi,to_openapi,from_arazzo,to_arazzo,sync,to_docs_json,serve_json_rpc,mcp}
     from_openapi        Generate code from an OpenAPI specification.
     to_openapi          Parse the existing codebase and extract an authoritative OpenAPI
                         specification.
+    from_arazzo         Generate code from an Arazzo 1.1.0 specification.
+    to_arazzo           Parse Python workflow code and extract an Arazzo 1.1.0 specification.
     sync                Sync a directory containing client.py, mock_server.py, test_client.py,
                         cli_main.py
     to_docs_json        Convert an OpenAPI specification into a localized, documentation-optimized

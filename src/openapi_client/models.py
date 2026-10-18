@@ -316,8 +316,6 @@ class SecurityScheme(OpenAPIBase):
 class Callback(OpenAPIBase):
     """OpenAPI Callback model."""
 
-    pass
-
 
 class Operation(OpenAPIBase):
     """OpenAPI Operation model."""
@@ -361,8 +359,6 @@ class PathItem(OpenAPIBase):
 
 class Paths(OpenAPIBase):
     """OpenAPI Paths model."""
-
-    pass
 
 
 class Components(OpenAPIBase):

@@ -24,4 +24,4 @@ This project strives to fully implement the [OpenAPI Specification Version 3.2.0
 
 ### Next Steps
 
-Full spec compliance achieved for all major Swagger 2.0 and OpenAPI 3.2.0 concepts, including Webhooks, OAuth Flows, Security Requirements, Links, and Callbacks.
+Full spec compliance achieved for all major Swagger 2.0, OpenAPI 3.2.0, and Arazzo 1.1.0 concepts, including Webhooks, OAuth Flows, Security Requirements, Links, Callbacks, and Multi-Step Arazzo Workflows (`from_arazzo` / `to_arazzo`).

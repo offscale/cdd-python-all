@@ -6,8 +6,10 @@ import runpy
 import sys
 from pathlib import Path
 from unittest import mock
+
 import libcst as cst
 import pytest
+
 from openapi_client.models import OpenAPI
 from openapi_client.tests.parse import ASTTestExtractor
 
@@ -36,23 +38,18 @@ def test_build_wasm() -> None:
     """Test build_wasm main with successful and fallback execution."""
     import scripts.build_wasm as bw
 
-    with mock.patch("subprocess.run") as m_run:
-        with mock.patch("os.makedirs"):
-            bw.main()
-            m_run.assert_called_once()
+    with mock.patch("subprocess.run") as m_run, mock.patch("os.makedirs"):
+        bw.main()
+        m_run.assert_called_once()
 
     with mock.patch(
         "subprocess.run", side_effect=bw.subprocess.CalledProcessError(1, [])
-    ):
-        with mock.patch("os.makedirs"):
-            with mock.patch("os.path.exists", return_value=True):
-                with mock.patch("os.remove") as m_rm:
-                    with mock.patch("zipfile.ZipFile"):
-                        with mock.patch(
-                            "os.walk", return_value=[("src", [], ["file1.py"])]
-                        ):
-                            bw.main()
-                            m_rm.assert_called_once()
+    ), mock.patch("os.makedirs"), mock.patch("os.path.exists", return_value=True):
+        with mock.patch("os.remove") as m_rm:
+            with mock.patch("zipfile.ZipFile"):
+                with mock.patch("os.walk", return_value=[("src", [], ["file1.py"])]):
+                    bw.main()
+                    m_rm.assert_called_once()
 
 
 def test_doc_coverage(tmp_path: Path) -> None:
@@ -107,11 +104,10 @@ def test_run_petstore_test(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> N
         "sys.argv", ["run_petstore_test.py", "dummy.json", str(tmp_path)]
     )
 
-    with mock.patch("subprocess.run") as m_run:
-        with mock.patch("shutil.rmtree"):
-            with mock.patch("time.sleep"):
-                rp.main()
-                assert m_run.called
+    with mock.patch("subprocess.run") as m_run, mock.patch("shutil.rmtree"):
+        with mock.patch("time.sleep"):
+            rp.main()
+            assert m_run.called
 
 
 def test_update_badges() -> None:
@@ -196,20 +192,19 @@ def test_build_wasm_more() -> None:
 
     with mock.patch(
         "subprocess.run", side_effect=bw.subprocess.CalledProcessError(1, [])
-    ):
-        with mock.patch("os.makedirs"):
-            with mock.patch("os.path.exists", side_effect=[False, False]):
-                with mock.patch("os.remove") as m_rm:
-                    with mock.patch("zipfile.ZipFile"):
-                        with mock.patch(
-                            "os.walk",
-                            return_value=[
-                                ("src/__pycache__", [], ["file.py"]),
-                                ("src", [], ["file.txt"]),
-                            ],
-                        ):
-                            bw.main()
-                            m_rm.assert_not_called()
+    ), mock.patch("os.makedirs"):
+        with mock.patch("os.path.exists", side_effect=[False, False]):
+            with mock.patch("os.remove") as m_rm:
+                with mock.patch("zipfile.ZipFile"):
+                    with mock.patch(
+                        "os.walk",
+                        return_value=[
+                            ("src/__pycache__", [], ["file.py"]),
+                            ("src", [], ["file.txt"]),
+                        ],
+                    ):
+                        bw.main()
+                        m_rm.assert_not_called()
 
 
 def test_run_petstore_test_no_tmp(
@@ -225,10 +220,9 @@ def test_run_petstore_test_no_tmp(
     monkeypatch.setattr(
         "sys.argv", ["run_petstore_test.py", str(f), str(tmp_path / "notexist")]
     )
-    with mock.patch("subprocess.run") as m_run:
-        with mock.patch("time.sleep"):
-            rp.main()
-            assert m_run.called
+    with mock.patch("subprocess.run") as m_run, mock.patch("time.sleep"):
+        rp.main()
+        assert m_run.called
 
 
 def test_update_badges_no_match() -> None:
@@ -259,6 +253,7 @@ def test_run_petstore_test_all_branches(
 ) -> None:
     """Test all branches of scripts/run_petstore_test.py."""
     import subprocess
+
     import scripts.run_petstore_test as rp
 
     port = rp.find_free_port()
@@ -337,6 +332,7 @@ def test_run_generated_server_test_all_branches(
 ) -> None:
     """Test all branches of scripts/run_generated_server_test.py."""
     import subprocess
+
     import scripts.run_generated_server_test as rg
 
     port = rg.find_free_port()

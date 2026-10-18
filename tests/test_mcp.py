@@ -2,18 +2,20 @@
 
 from __future__ import annotations
 
-from openapi_client.mcp_client.client import MCPClient
-import pytest
-from openapi_client.models import OpenAPI, Schema, Reference, Components
-from openapi_client.classes.emit import emit_classes
-from openapi_client.classes.parse import ClassExtractor
-from openapi_client.functions.parse import FunctionExtractor
-from openapi_client.mocks.parse import MockServerExtractor
-import libcst as cst
 import json
 from pathlib import Path
 from unittest.mock import patch
+
+import libcst as cst
+import pytest
+
 from openapi_client import sdk
+from openapi_client.classes.emit import emit_classes
+from openapi_client.classes.parse import ClassExtractor
+from openapi_client.functions.parse import FunctionExtractor
+from openapi_client.mcp_client.client import MCPClient
+from openapi_client.mocks.parse import MockServerExtractor
+from openapi_client.models import Components, OpenAPI, Reference, Schema
 
 
 def test_mcp_client_build_request():
@@ -255,14 +257,10 @@ def test_classes_emit_ref():
         components={
             "schemas": {
                 "MyClass": Schema(
-                    **{
-                        "type": "object",
-                        "properties": {
-                            "my_ref": Reference(
-                                **{"$ref": "#/components/schemas/Other"}
-                            )
-                        },
-                    }
+                    type="object",
+                    properties={
+                        "my_ref": Reference(**{"$ref": "#/components/schemas/Other"})
+                    },
                 )
             }
         },
@@ -474,22 +472,22 @@ def test_mcp_client_more_methods():
 
 def test_mcp_all_methods():
     """Test test_mcp_all_methods."""
-    from openapi_client.mcp import get_tools, execute_tool, get_resources, read_resource
+    from openapi_client.mcp import execute_tool, get_resources, get_tools, read_resource
 
-    assert len(get_tools()) == 3
+    assert len(get_tools()) == 5
     assert len(get_resources()) == 1
     assert read_resource("schema://current")["openapi"] == "3.0.0"
 
-    import openapi_client.sdk as sdk
+    from openapi_client import sdk
 
     # Just mock the sdk functions temporarily
     old_to = getattr(sdk, "generate_to_openapi", None)
     old_from = getattr(sdk, "generate_from_openapi", None)
     old_docs = getattr(sdk, "generate_docs_json", None)
 
-    setattr(sdk, "generate_to_openapi", lambda **kwargs: "to")
-    setattr(sdk, "generate_from_openapi", lambda **kwargs: "from")
-    setattr(sdk, "generate_docs_json", lambda **kwargs: "docs")
+    sdk.generate_to_openapi = lambda **kwargs: "to"
+    sdk.generate_from_openapi = lambda **kwargs: "from"
+    sdk.generate_docs_json = lambda **kwargs: "docs"
 
     try:
         assert execute_tool("to_openapi", {"input_dir": "test"}) == "to"
@@ -502,11 +500,11 @@ def test_mcp_all_methods():
             execute_tool("unknown", {})
     finally:
         if old_to:
-            setattr(sdk, "generate_to_openapi", old_to)
+            sdk.generate_to_openapi = old_to
         if old_from:
-            setattr(sdk, "generate_from_openapi", old_from)
+            sdk.generate_from_openapi = old_from
         if old_docs:
-            setattr(sdk, "generate_docs_json", old_docs)
+            sdk.generate_docs_json = old_docs
 
 
 def test_mcp_client_more_missing():

@@ -2,20 +2,22 @@
 
 from __future__ import annotations
 
-import libcst as cst
-from openapi_client.models import OpenAPI
-from openapi_client.routes.emit import ClientGenerator
-from openapi_client.routes.parse import extract_from_code
-from openapi_client.tests.emit import emit_tests
-from openapi_client.mocks.emit import emit_mock_server
-from openapi_client.mocks.parse import extract_mocks_from_ast
-from openapi_client.tests.parse import extract_tests_from_ast
 import importlib
 import os
 import runpy
 import sys
 import unittest.mock
 from pathlib import Path
+
+import libcst as cst
+
+from openapi_client.mocks.emit import emit_mock_server
+from openapi_client.mocks.parse import extract_mocks_from_ast
+from openapi_client.models import OpenAPI
+from openapi_client.routes.emit import ClientGenerator
+from openapi_client.routes.parse import extract_from_code
+from openapi_client.tests.emit import emit_tests
+from openapi_client.tests.parse import extract_tests_from_ast
 
 
 def test_extract_mock_and_test():
@@ -152,6 +154,7 @@ class Client:
 
     # Direct test of ClassExtractor with missing components
     import libcst as cst
+
     from openapi_client.classes.parse import ClassExtractor
 
     empty_spec = OpenAPI(openapi="3.2.0", info={"title": "test", "version": "1.0"})

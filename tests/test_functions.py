@@ -2,24 +2,25 @@
 
 from __future__ import annotations
 
-from openapi_client.models import (
-    Operation,
-    Parameter,
-    Schema,
-    OpenAPI,
-    Components,
-    Reference,
-)
-from openapi_client.functions.emit import emit_function
-from openapi_client.tests.emit import (
-    get_dummy_value_for_schema,
-    get_stub_body,
-    emit_operation_test,
-)
 import json
 from pathlib import Path
+
+from openapi_client.functions.emit import emit_function
 from openapi_client.functions.utils import sanitize_name
+from openapi_client.models import (
+    Components,
+    OpenAPI,
+    Operation,
+    Parameter,
+    Reference,
+    Schema,
+)
 from openapi_client.openapi.parse import parse_openapi_json
+from openapi_client.tests.emit import (
+    emit_operation_test,
+    get_dummy_value_for_schema,
+    get_stub_body,
+)
 
 
 def test_emit_function_formData_and_no_path_vars():

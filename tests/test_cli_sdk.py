@@ -3,35 +3,35 @@
 from __future__ import annotations
 
 import libcst as cst
-from openapi_client.models import (
-    OpenAPI,
-    Info,
-    Components,
-    Operation,
-    Parameter,
-)
+
 from openapi_client.cli_sdk.emit import emit_cli_sdk
-from openapi_client.cli_sdk.parse import extract_cli_from_ast
 from openapi_client.cli_sdk.emit_mcp import emit_mcp_server
 from openapi_client.cli_sdk.emit_mcp_adapter import emit_mcp_adapter
 from openapi_client.cli_sdk.emit_mcp_sse import emit_mcp_sse_server
-from openapi_client.models import PathItem, Schema
+from openapi_client.cli_sdk.parse import extract_cli_from_ast
 from openapi_client.cli_sdk_cdd.emit import emit_cli_sdk as emit_cli_sdk_cdd_fn
+from openapi_client.models import (
+    Components,
+    Info,
+    OpenAPI,
+    Operation,
+    Parameter,
+    PathItem,
+    Schema,
+)
 
 
 def test_emit_cli_sdk_with_servers():
     """Test test_emit_cli_sdk_with_servers."""
-    from openapi_client.models import Server
     from openapi_client.cli_sdk_cdd.emit import emit_cli_sdk as emit_cli_sdk_cdd
+    from openapi_client.models import Server
 
     spec = OpenAPI(
-        **{
-            "openapi": "3.2.0",
-            "info": Info(title="Test CLI API", version="1.0.0"),
-            "servers": [Server(url="https://api.example.com")],
-            "paths": {},
-            "components": Components(schemas={}),
-        }
+        openapi="3.2.0",
+        info=Info(title="Test CLI API", version="1.0.0"),
+        servers=[Server(url="https://api.example.com")],
+        paths={},
+        components=Components(schemas={}),
     )
 
     code = emit_cli_sdk_cdd(spec)
@@ -41,27 +41,25 @@ def test_emit_cli_sdk_with_servers():
 def test_emit_cli_sdk():
     """Test test_emit_cli_sdk."""
     spec = OpenAPI(
-        **{
-            "openapi": "3.2.0",
-            "info": Info(title="Test CLI API", version="1.0.0"),
-            "paths": {
-                "/test": {
-                    "get": Operation(
-                        operationId="get_test",
-                        summary="A test operation",
-                        parameters=[
-                            Parameter(
-                                name="param1",
-                                description="test param",
-                                required=True,
-                                **{"in": "query"},
-                            )
-                        ],
-                    )
-                }
-            },
-            "components": Components(schemas={}),
-        }
+        openapi="3.2.0",
+        info=Info(title="Test CLI API", version="1.0.0"),
+        paths={
+            "/test": {
+                "get": Operation(
+                    operationId="get_test",
+                    summary="A test operation",
+                    parameters=[
+                        Parameter(
+                            name="param1",
+                            description="test param",
+                            required=True,
+                            **{"in": "query"},
+                        )
+                    ],
+                )
+            }
+        },
+        components=Components(schemas={}),
     )
 
     code = emit_cli_sdk(spec)
@@ -76,27 +74,25 @@ def test_emit_mcp_server():
     from openapi_client.cli_sdk.emit_mcp import emit_mcp_server
 
     spec = OpenAPI(
-        **{
-            "openapi": "3.2.0",
-            "info": Info(title="Test MCP API", version="1.0.0"),
-            "paths": {
-                "/test": {
-                    "get": Operation(
-                        operationId="get_test",
-                        summary="A test operation",
-                        parameters=[
-                            Parameter(
-                                name="param1",
-                                description="test param",
-                                required=True,
-                                **{"in": "query", "schema_": {"type": "integer"}},
-                            )
-                        ],
-                    )
-                }
-            },
-            "components": Components(schemas={}),
-        }
+        openapi="3.2.0",
+        info=Info(title="Test MCP API", version="1.0.0"),
+        paths={
+            "/test": {
+                "get": Operation(
+                    operationId="get_test",
+                    summary="A test operation",
+                    parameters=[
+                        Parameter(
+                            name="param1",
+                            description="test param",
+                            required=True,
+                            **{"in": "query", "schema_": {"type": "integer"}},
+                        )
+                    ],
+                )
+            }
+        },
+        components=Components(schemas={}),
     )
 
     code = emit_mcp_server(spec)
@@ -113,27 +109,25 @@ def test_emit_mcp_sse_server():
     from openapi_client.cli_sdk.emit_mcp_sse import emit_mcp_sse_server
 
     spec = OpenAPI(
-        **{
-            "openapi": "3.2.0",
-            "info": Info(title="Test MCP SSE API", version="1.0.0"),
-            "paths": {
-                "/test": {
-                    "get": Operation(
-                        operationId="get_test",
-                        summary="A test operation",
-                        parameters=[
-                            Parameter(
-                                name="param1",
-                                description="test param",
-                                required=True,
-                                **{"in": "query", "schema_": {"type": "integer"}},
-                            )
-                        ],
-                    )
-                }
-            },
-            "components": Components(schemas={}),
-        }
+        openapi="3.2.0",
+        info=Info(title="Test MCP SSE API", version="1.0.0"),
+        paths={
+            "/test": {
+                "get": Operation(
+                    operationId="get_test",
+                    summary="A test operation",
+                    parameters=[
+                        Parameter(
+                            name="param1",
+                            description="test param",
+                            required=True,
+                            **{"in": "query", "schema_": {"type": "integer"}},
+                        )
+                    ],
+                )
+            }
+        },
+        components=Components(schemas={}),
     )
 
     code = emit_mcp_sse_server(spec)
@@ -156,36 +150,31 @@ get_test_parser = subparsers.add_parser("get_test", help="A test operation updat
 get_test_parser.add_argument("--param1", type=str, help="test param updated", required=True)
 """
     spec = OpenAPI(
-        **{
-            "openapi": "3.2.0",
-            "info": Info(title="Test CLI API", version="1.0.0"),
-            "paths": {
-                "/test": {
-                    "get": Operation(
-                        operationId="get_test",
-                        summary="A test operation",
-                        parameters=[
-                            Parameter(
-                                name="param1",
-                                description="test param",
-                                required=True,
-                                **{"in": "query"},
-                            )
-                        ],
-                    )
-                }
-            },
-            "components": Components(schemas={}),
-        }
+        openapi="3.2.0",
+        info=Info(title="Test CLI API", version="1.0.0"),
+        paths={
+            "/test": {
+                "get": Operation(
+                    operationId="get_test",
+                    summary="A test operation",
+                    parameters=[
+                        Parameter(
+                            name="param1",
+                            description="test param",
+                            required=True,
+                            **{"in": "query"},
+                        )
+                    ],
+                )
+            }
+        },
+        components=Components(schemas={}),
     )
     mod = cst.parse_module(code)
     extract_cli_from_ast(mod, spec)
 
-    assert getattr(spec.paths["/test"], "get").summary == "A test operation updated"
-    assert (
-        getattr(spec.paths["/test"], "get").parameters[0].description
-        == "test param updated"
-    )
+    assert spec.paths["/test"].get.summary == "A test operation updated"
+    assert spec.paths["/test"].get.parameters[0].description == "test param updated"
 
 
 def test_emit_mcp_server_lists():
@@ -193,27 +182,25 @@ def test_emit_mcp_server_lists():
     from openapi_client.cli_sdk.emit_mcp import emit_mcp_server
 
     spec = OpenAPI(
-        **{
-            "openapi": "3.2.0",
-            "info": Info(title="Test", version="1.0"),
-            "paths": {
-                "/test": {
-                    "get": Operation(
-                        operationId="get_test",
-                        parameters=[
-                            Parameter(
-                                name="param1",
-                                **{
-                                    "in": "query",
-                                    "schema_": {"type": ["string", "null"]},
-                                },
-                            )
-                        ],
-                    )
-                }
-            },
-            "components": Components(schemas={}),
-        }
+        openapi="3.2.0",
+        info=Info(title="Test", version="1.0"),
+        paths={
+            "/test": {
+                "get": Operation(
+                    operationId="get_test",
+                    parameters=[
+                        Parameter(
+                            name="param1",
+                            **{
+                                "in": "query",
+                                "schema_": {"type": ["string", "null"]},
+                            },
+                        )
+                    ],
+                )
+            }
+        },
+        components=Components(schemas={}),
     )
     code = emit_mcp_server(spec)
     assert '"type": "string"' in code
@@ -224,27 +211,25 @@ def test_emit_mcp_sse_server_lists():
     from openapi_client.cli_sdk.emit_mcp_sse import emit_mcp_sse_server
 
     spec = OpenAPI(
-        **{
-            "openapi": "3.2.0",
-            "info": Info(title="Test", version="1.0"),
-            "paths": {
-                "/test": {
-                    "get": Operation(
-                        operationId="get_test",
-                        parameters=[
-                            Parameter(
-                                name="param1",
-                                **{
-                                    "in": "query",
-                                    "schema_": {"type": ["string", "null"]},
-                                },
-                            )
-                        ],
-                    )
-                }
-            },
-            "components": Components(schemas={}),
-        }
+        openapi="3.2.0",
+        info=Info(title="Test", version="1.0"),
+        paths={
+            "/test": {
+                "get": Operation(
+                    operationId="get_test",
+                    parameters=[
+                        Parameter(
+                            name="param1",
+                            **{
+                                "in": "query",
+                                "schema_": {"type": ["string", "null"]},
+                            },
+                        )
+                    ],
+                )
+            }
+        },
+        components=Components(schemas={}),
     )
     code = emit_mcp_sse_server(spec)
     assert '"type": "string"' in code
@@ -255,28 +240,26 @@ def test_emit_mcp_adapter():
     from openapi_client.cli_sdk.emit_mcp_adapter import emit_mcp_adapter
 
     spec = OpenAPI(
-        **{
-            "openapi": "3.2.0",
-            "info": Info(title="Test", version="1.0"),
-            "paths": {
-                "/test": {
-                    "get": Operation(
-                        operationId="get_test",
-                        parameters=[
-                            Parameter(
-                                name="param1",
-                                required=True,
-                                **{
-                                    "in": "query",
-                                    "schema_": {"type": ["integer", "null"]},
-                                },
-                            )
-                        ],
-                    )
-                }
-            },
-            "components": Components(schemas={}),
-        }
+        openapi="3.2.0",
+        info=Info(title="Test", version="1.0"),
+        paths={
+            "/test": {
+                "get": Operation(
+                    operationId="get_test",
+                    parameters=[
+                        Parameter(
+                            name="param1",
+                            required=True,
+                            **{
+                                "in": "query",
+                                "schema_": {"type": ["integer", "null"]},
+                            },
+                        )
+                    ],
+                )
+            }
+        },
+        components=Components(schemas={}),
     )
     code = emit_mcp_adapter(spec)
     assert "class MCPAdapter" in code
@@ -288,12 +271,10 @@ def test_emit_mcp_adapter_no_paths():
     from openapi_client.cli_sdk.emit_mcp_adapter import emit_mcp_adapter
 
     spec = OpenAPI(
-        **{
-            "openapi": "3.2.0",
-            "info": Info(title="Test", version="1.0"),
-            "paths": None,
-            "components": Components(schemas={}),
-        }
+        openapi="3.2.0",
+        info=Info(title="Test", version="1.0"),
+        paths=None,
+        components=Components(schemas={}),
     )
     code = emit_mcp_adapter(spec)
     assert "class MCPAdapter" in code
@@ -572,7 +553,7 @@ def test_cli_sdk_cdd_emit_branches() -> None:
                         name="param2",
                         **{
                             "in": "query",
-                            "schema_": Schema(type="integer", **{"ref": None}),
+                            "schema_": Schema(type="integer", ref=None),
                         },
                     )
                 ],

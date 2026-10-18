@@ -200,7 +200,7 @@ class FunctionExtractor(cst.CSTVisitor):
                     operation.requestBody = RequestBody(
                         content={
                             "application/json": MediaType(
-                                **{"schema": schema or Schema(type="object")}
+                                schema=schema or Schema(type="object")
                             )
                         },
                         required=param.default is None,
@@ -229,7 +229,7 @@ class FunctionExtractor(cst.CSTVisitor):
             operation.responses = {
                 "200": Response(
                     description="Successful Response",
-                    content={"application/json": MediaType(**{"schema": schema})},
+                    content={"application/json": MediaType(schema=schema)},
                 )
             }
 

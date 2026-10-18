@@ -2,13 +2,21 @@
 
 from __future__ import annotations
 
-from openapi_client.tests.emit_server_tests import emit_server_tests
-from openapi_client.models import OpenAPI, Components, Schema, PathItem, Operation
-from openapi_client.models import Parameter, Reference
-from openapi_client.tests.emit import emit_tests
 import libcst as cst
+
 from openapi_client.functions.emit import emit_function
 from openapi_client.mocks.parse import MockServerExtractor
+from openapi_client.models import (
+    Components,
+    OpenAPI,
+    Operation,
+    Parameter,
+    PathItem,
+    Reference,
+    Schema,
+)
+from openapi_client.tests.emit import emit_tests
+from openapi_client.tests.emit_server_tests import emit_server_tests
 
 
 def test_emit_server_tests_empty():
@@ -67,8 +75,8 @@ def test_emit_server_tests_no_paths():
 
 def test_emit_tests_xml_array():
     """Test test_emit_tests_xml_array."""
+    from openapi_client.models import MediaType, Operation, RequestBody, Schema
     from openapi_client.tests.emit import emit_operation_test
-    from openapi_client.models import Operation, RequestBody, MediaType, Schema
 
     op = Operation(
         operationId="test_xml",
@@ -86,8 +94,8 @@ def test_emit_tests_xml_array():
 
 def test_emit_tests_empty_content():
     """Test test_emit_tests_empty_content."""
-    from openapi_client.tests.emit import emit_operation_test
     from openapi_client.models import Operation, RequestBody
+    from openapi_client.tests.emit import emit_operation_test
 
     op = Operation(operationId="test_empty", requestBody=RequestBody(content={}))
     func = emit_operation_test("post", "/test", op)
@@ -96,8 +104,8 @@ def test_emit_tests_empty_content():
 
 def test_emit_tests_other_content():
     """Test test_emit_tests_other_content."""
+    from openapi_client.models import MediaType, Operation, RequestBody, Schema
     from openapi_client.tests.emit import emit_operation_test
-    from openapi_client.models import Operation, RequestBody, MediaType, Schema
 
     op = Operation(
         operationId="test_other",
@@ -111,8 +119,8 @@ def test_emit_tests_other_content():
 
 def test_get_stub_body_array_of_objects():
     """Test test_get_stub_body_array_of_objects."""
-    from openapi_client.tests.emit import get_stub_body
     from openapi_client.models import Schema
+    from openapi_client.tests.emit import get_stub_body
 
     schema = Schema(
         type="array",
@@ -125,8 +133,8 @@ def test_get_stub_body_array_of_objects():
 
 def test_emit_tests_exception_content():
     """Test test_emit_tests_exception_content."""
-    from openapi_client.tests.emit import emit_operation_test
     from openapi_client.models import Operation, RequestBody
+    from openapi_client.tests.emit import emit_operation_test
 
     class BadDict:
         """Test BadDict."""
@@ -145,8 +153,8 @@ def test_emit_tests_exception_content():
 
 def test_emit_tests_body_param_exception():
     """Test test_emit_tests_body_param_exception."""
-    from openapi_client.tests.emit import emit_operation_test
     from openapi_client.models import Operation
+    from openapi_client.tests.emit import emit_operation_test
 
     class BadParameter:
         """Test BadParameter."""
@@ -170,8 +178,8 @@ def test_emit_tests_body_param_exception():
 
 def test_emit_tests_other_param():
     """Test test_emit_tests_other_param."""
-    from openapi_client.tests.emit import emit_operation_test
     from openapi_client.models import Operation, Parameter, Schema
+    from openapi_client.tests.emit import emit_operation_test
 
     op = Operation(
         operationId="test_other_param",
@@ -198,8 +206,8 @@ def test_emit_tests_request_body_reference():
 
 def test_emit_tests_other_param_exception():
     """Test test_emit_tests_other_param_exception."""
-    from openapi_client.tests.emit import emit_operation_test
     from openapi_client.models import Operation
+    from openapi_client.tests.emit import emit_operation_test
 
     class BadParameter3:
         """Test BadParameter3."""
@@ -223,8 +231,8 @@ def test_emit_tests_other_param_exception():
 
 def test_emit_tests_other_param_exception_real():
     """Test test_emit_tests_other_param_exception_real."""
-    from openapi_client.tests.emit import emit_operation_test
     from openapi_client.models import Operation, Parameter
+    from openapi_client.tests.emit import emit_operation_test
 
     op = Operation(
         operationId="test_other_param_exception",
@@ -236,8 +244,8 @@ def test_emit_tests_other_param_exception_real():
 
 def test_emit_tests_body_param_exception_real():
     """Test test_emit_tests_body_param_exception_real."""
-    from openapi_client.tests.emit import emit_operation_test
     from openapi_client.models import Operation, Parameter
+    from openapi_client.tests.emit import emit_operation_test
 
     op = Operation(
         operationId="test_body_param_exception_real",
@@ -280,9 +288,10 @@ def test_coverage_emit_branches_4() -> None:
 
 def test_parse_tests_coverage():
     """Test test_parse_tests_coverage."""
-    from openapi_client.tests.parse import extract_tests_from_ast
-    from openapi_client.models import OpenAPI
     import libcst as cst
+
+    from openapi_client.models import OpenAPI
+    from openapi_client.tests.parse import extract_tests_from_ast
 
     spec = OpenAPI(openapi="3.2.0", info={"title": "Test", "version": "1.0.0"})
 
@@ -345,9 +354,10 @@ def test_mock_streaming_extraction():
 
 def test_parse_sqlalchemy_cdd():
     """Test test_parse_sqlalchemy_cdd."""
-    from openapi_client.sqlalchemy_cdd.parse import parse_sqlalchemy_cdd
-    from openapi_client.models import OpenAPI
     import libcst as cst
+
+    from openapi_client.models import OpenAPI
+    from openapi_client.sqlalchemy_cdd.parse import parse_sqlalchemy_cdd
 
     parse_sqlalchemy_cdd(
         cst.parse_module(""),
@@ -357,9 +367,10 @@ def test_parse_sqlalchemy_cdd():
 
 def test_parse_cli_sdk_cdd():
     """Test test_parse_cli_sdk_cdd."""
+    import libcst as cst
+
     from openapi_client.cli_sdk_cdd.parse import parse_cli_sdk_cdd
     from openapi_client.models import OpenAPI
-    import libcst as cst
 
     parse_cli_sdk_cdd(
         cst.parse_module(""),
@@ -369,8 +380,8 @@ def test_parse_cli_sdk_cdd():
 
 def test_emit_function_requestBody():
     """Test test_emit_function_requestBody."""
-    from openapi_client.models import Operation, RequestBody
     from openapi_client.functions.emit import emit_function
+    from openapi_client.models import Operation, RequestBody
 
     op = Operation(
         operationId="post_things",
@@ -385,10 +396,10 @@ def test_emit_tests():
     from openapi_client.models import (
         OpenAPI,
         Operation,
+        Parameter,
+        PathItem,
         RequestBody,
         Schema,
-        PathItem,
-        Parameter,
     )
     from openapi_client.tests.emit import emit_tests
 
@@ -431,8 +442,8 @@ def test_emit_tests():
 
 def test_get_dummy_value_for_schema():
     """Test test_get_dummy_value_for_schema."""
-    from openapi_client.tests.emit import get_dummy_value_for_schema
     from openapi_client.models import Schema
+    from openapi_client.tests.emit import get_dummy_value_for_schema
 
     assert "test_string" in str(get_dummy_value_for_schema(Schema(type="string")))
     assert "1" in str(get_dummy_value_for_schema(Schema(type="integer")))
@@ -456,10 +467,10 @@ def test_emit_tests_more():
     from openapi_client.models import (
         OpenAPI,
         Operation,
+        Parameter,
+        PathItem,
         RequestBody,
         Schema,
-        PathItem,
-        Parameter,
     )
     from openapi_client.tests.emit import emit_tests
 
@@ -507,7 +518,7 @@ def test_emit_tests_more():
 
 def test_emit_tests_exception():
     """Test test_emit_tests_exception."""
-    from openapi_client.models import OpenAPI, Operation, RequestBody, PathItem
+    from openapi_client.models import OpenAPI, Operation, PathItem, RequestBody
     from openapi_client.tests.emit import emit_tests
 
     # Bypass pydantic validation to force an exception in the try block

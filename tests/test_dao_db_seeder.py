@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from openapi_client.dao.emit import emit_dao
-from openapi_client.models import OpenAPI, Components, Schema
 from openapi_client.db.emit import emit_db
+from openapi_client.models import Components, OpenAPI, Schema
 from openapi_client.seeder.emit import emit_seeder
 
 

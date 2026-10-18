@@ -2,24 +2,29 @@
 
 from __future__ import annotations
 
+import argparse
 import json
+import sys
+import unittest.mock
+from io import StringIO
+from pathlib import Path
+from unittest.mock import MagicMock, Mock, patch
+
+import libcst as cst
 import pytest
+from pydantic import ValidationError
+
+import openapi_client.cli
+from openapi_client import cli
 from openapi_client.cli import (
-    main,
+    apply_env_vars_to_parser,
+    generate_docs_json,
     generate_from_openapi,
     generate_to_openapi,
+    main,
+    run_mcp_server,
     sync_dir,
 )
-import openapi_client.cli
-from pathlib import Path
-import argparse
-import sys
-from io import StringIO
-from openapi_client.cli import apply_env_vars_to_parser, run_mcp_server
-import openapi_client.cli as cli
-from unittest.mock import MagicMock, Mock, patch
-import libcst as cst
-from openapi_client.cli import generate_docs_json
 from openapi_client.functions.emit import emit_functions
 from openapi_client.functions.parse import FunctionExtractor
 from openapi_client.mocks.emit import emit_mock_server
@@ -27,8 +32,6 @@ from openapi_client.mocks.parse import MockServerExtractor
 from openapi_client.models import Components, Info, OpenAPI, Operation, PathItem, Schema
 from openapi_client.openapi.parse import parse_openapi_dict
 from openapi_client.sqlalchemy_cdd.emit import emit_sqlalchemy
-from pydantic import ValidationError
-import unittest.mock
 
 
 def test_cli_sync_from_openapi(tmp_path):
@@ -450,7 +453,6 @@ def test_cli_to_docs_json_url(monkeypatch, capsys):
 
         def __exit__(self, exc_type, exc_val, exc_tb):
             """Test __exit__."""
-            pass
 
     def mock_urlopen(req):
         """Test mock_urlopen."""
@@ -596,7 +598,6 @@ def test_json_rpc_handler_direct(monkeypatch, capsys):
 
                 def sendall(self, data):
                     """Test sendall."""
-                    pass
 
             handler = self.handler_class(MockRequest(), self.addr, self)
             handler.rfile = BytesIO(
@@ -742,6 +743,7 @@ def test_to_docs_json_output_file(tmp_path, monkeypatch):
 def test_cli_missing_coverage(monkeypatch, tmp_path):
     """Test test_cli_missing_coverage."""
     import json
+
     import openapi_client.cli
 
     # store false via apply_env_vars
@@ -753,7 +755,6 @@ def test_cli_missing_coverage(monkeypatch, tmp_path):
     # generate_from_openapi output_dir="." fallback
     def mock_mkdir(*args, **kwargs):  # pragma: no cover
         """Test mock_mkdir."""
-        pass
 
     monkeypatch.chdir(tmp_path)
     spec = {"openapi": "3.2.0", "info": {"title": "T", "version": "1"}, "paths": {}}
@@ -772,10 +773,11 @@ def test_cli_missing_coverage(monkeypatch, tmp_path):
 
 def test_jsonrpc_invalid_rpc(monkeypatch, capsys):
     """Test test_jsonrpc_invalid_rpc."""
+    import http.server
     import json
     from io import BytesIO
+
     import openapi_client.cli
-    import http.server
 
     class MockHTTPServer:
         """Test MockHTTPServer."""
@@ -799,7 +801,6 @@ def test_jsonrpc_invalid_rpc(monkeypatch, capsys):
 
                 def sendall(self, data):
                     """Test sendall."""
-                    pass
 
             handler = self.handler_class(MockRequest(), self.addr, self)
             handler.rfile = BytesIO(
@@ -815,11 +816,10 @@ def test_jsonrpc_invalid_rpc(monkeypatch, capsys):
 
 def test_openapi_client_mcp(monkeypatch):
     """Test test_openapi_client_mcp."""
-    from openapi_client import mcp
-    import openapi_client.sdk as sdk
+    from openapi_client import mcp, sdk
 
     tools = mcp.get_tools()
-    assert len(tools) == 3
+    assert len(tools) == 5
 
     def mock_generate_to_openapi(*args, **kwargs):
         """Test mock_generate_to_openapi."""
@@ -1121,7 +1121,7 @@ def test_cli_to_server_sqlalchemy_ast_types(tmp_path):
 def test_fastapi_emit(tmp_path):
     """Test test_fastapi_emit."""
     from openapi_client.fastapi.emit import emit_fastapi
-    from openapi_client.models import OpenAPI, Info, PathItem, Operation
+    from openapi_client.models import Info, OpenAPI, Operation, PathItem
 
     spec = OpenAPI(
         openapi="3.0.0",
@@ -1144,6 +1144,7 @@ def test_fastapi_emit(tmp_path):
 def test_fastapi_parse():
     """Test test_fastapi_parse."""
     import libcst as cst
+
     from openapi_client.fastapi.parse import extract_fastapi_from_ast
     from openapi_client.models import OpenAPI
 
@@ -1165,8 +1166,8 @@ def hello():
 
 def test_sqlalchemy_cdd_emit_no_components(tmp_path):
     """Test test_sqlalchemy_cdd_emit_no_components."""
-    from openapi_client.sqlalchemy_cdd.emit import emit_sqlalchemy
     from openapi_client.models import OpenAPI
+    from openapi_client.sqlalchemy_cdd.emit import emit_sqlalchemy
 
     spec = OpenAPI(openapi="3.0.0", info={"title": "Test", "version": "1.0"})
     res = emit_sqlalchemy(spec)
@@ -1443,9 +1444,8 @@ def test_openapi_to_cdd_project_invalid_subcommand(tmp_path: Path) -> None:
     input_file.write_text(json.dumps(spec), encoding="utf-8")
     with patch(
         "sys.argv", ["cli.py", "from_openapi", "to_unknown", "--input", str(input_file)]
-    ):
-        with pytest.raises(SystemExit):
-            main()
+    ), pytest.raises(SystemExit):
+        main()
 
 
 def test_generate_to_openapi_snapshot_exists(tmp_path: Path) -> None:
@@ -1695,10 +1695,9 @@ def test_write_generated_local_str(tmp_path):
     """Test sync_dir where emit_seeder returns a string."""
     with unittest.mock.patch(
         "openapi_client.cli.emit_seeder", return_value="string_code", create=True
+    ), unittest.mock.patch(
+        "openapi_client.seeder.emit.emit_seeder", return_value="string_code"
     ):
-        with unittest.mock.patch(
-            "openapi_client.seeder.emit.emit_seeder", return_value="string_code"
-        ):
-            sync_dir(str(tmp_path))
+        sync_dir(str(tmp_path))
 
     assert (tmp_path / "seeder.py").read_text() == "string_code"

@@ -21,25 +21,17 @@ class ErrorCode(IntEnum):
 class RequestId(RootModel[Union[int, str]]):
     """RequestId model."""
 
-    pass
-
 
 class ProgressToken(RootModel[Union[int, str]]):
     """ProgressToken model."""
-
-    pass
 
 
 class Cursor(RootModel[str]):
     """Cursor model."""
 
-    pass
-
 
 class Role(RootModel[Literal["user", "assistant"]]):
     """Role model."""
-
-    pass
 
 
 class LoggingLevel(
@@ -57,8 +49,6 @@ class LoggingLevel(
     ]
 ):
     """LoggingLevel model."""
-
-    pass
 
 
 class Annotated(BaseModel):
@@ -86,8 +76,6 @@ class TextResourceContents(BaseModel):
 
 class ResourceContents(RootModel[Union[TextResourceContents, BlobResourceContents]]):
     """ResourceContents model."""
-
-    pass
 
 
 class ImageContent(Annotated):
@@ -285,13 +273,9 @@ class Notification(BaseModel):
 class JSONRPCNotification(JSONRPCMessage, Notification):
     """JSONRPCNotification model."""
 
-    pass
-
 
 class ResultMeta(BaseModel):
     """ResultMeta model."""
-
-    pass
 
 
 class Result(BaseModel):
@@ -348,8 +332,6 @@ class InitializeResult(Result):
 
 class InitializedNotificationParams(NotificationParams):
     """InitializedNotificationParams model."""
-
-    pass
 
 
 class InitializedNotification(JSONRPCNotification):
@@ -414,8 +396,6 @@ class PaginatedResult(Result):
 
 class EmptyResult(Result):
     """EmptyResult model."""
-
-    pass
 
 
 class CompleteRequestParamsArgument(BaseModel):

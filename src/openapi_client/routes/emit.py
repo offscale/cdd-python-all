@@ -4,20 +4,24 @@ from __future__ import annotations
 
 import libcst as cst
 
+from openapi_client.arazzo_models import Arazzo
 from openapi_client.functions.emit import emit_functions
 from openapi_client.models import OpenAPI
+from openapi_client.workflows.emit import emit_workflows_code
 
 
 class ClientGenerator:
     """Generator class responsible for converting an OpenAPI object into a libcst.Module."""
 
-    def __init__(self, spec: OpenAPI) -> None:
-        """Initialize ClientGenerator with an OpenAPI spec.
+    def __init__(self, spec: OpenAPI, arazzo_spec: Arazzo | None = None) -> None:
+        """Initialize ClientGenerator with an OpenAPI spec and optional Arazzo spec.
 
         Args:
             spec: The OpenAPI specification model.
+            arazzo_spec: Optional Arazzo 1.1.0 workflow specification model.
         """
         self.spec = spec
+        self.arazzo_spec = arazzo_spec
 
     def generate(self) -> cst.Module:
         """Generate the AST module containing imports and the Client class.
@@ -93,3 +97,13 @@ class ClientGenerator:
             The generated Python code as a string.
         """
         return self.generate().code
+
+    def generate_workflows_code(self) -> str | None:
+        """Generate Python workflow orchestrator code if an Arazzo specification is bound.
+
+        Returns:
+            The generated `workflows.py` source code string, or `None` if no Arazzo spec is bound.
+        """
+        if self.arazzo_spec is None:
+            return None
+        return emit_workflows_code(self.arazzo_spec, {"default": self.spec})

@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 from unittest.mock import patch
+
 import libcst as cst
+
 from openapi_client.classes.emit import emit_classes, emit_models_module
 from openapi_client.classes.parse import ClassExtractor, extract_classes_from_ast
 from openapi_client.cli_sdk.emit import emit_cli
+from openapi_client.docstrings.parse import parse_docstring
 from openapi_client.models import (
     Components,
     OpenAPI,
@@ -16,7 +19,6 @@ from openapi_client.models import (
     Reference,
     Schema,
 )
-from openapi_client.docstrings.parse import parse_docstring
 
 
 def test_classes_emit_branches() -> None:

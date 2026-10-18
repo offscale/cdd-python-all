@@ -46,7 +46,7 @@ class ASTTestExtractor(cst.CSTVisitor):
             checker = SSEChecker()
             node.visit(checker)
             if checker.found:
-                op_id = name[5:] if name.startswith("test_") else name
+                op_id = name.removeprefix("test_")
                 if self.spec.paths is None:
                     self.spec.paths = {}
                 matched_op: Operation | None = None

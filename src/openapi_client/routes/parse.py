@@ -20,7 +20,7 @@ def extract_from_code(code: str) -> OpenAPI:
     """
     spec = OpenAPI(
         openapi="3.2.0",
-        info=Info(title="Extracted API", version="0.0.3"),
+        info=Info(title="Extracted API", version="0.0.4"),
         paths={},
         components=Components(schemas={}),
     )

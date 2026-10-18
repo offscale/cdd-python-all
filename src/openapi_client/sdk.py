@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from openapi_client.cli import generate_docs_json as cli_generate_docs_json
+from openapi_client.cli import generate_from_arazzo as cli_generate_from_arazzo
 from openapi_client.cli import generate_from_openapi as cli_generate_from_openapi
+from openapi_client.cli import generate_to_arazzo as cli_generate_to_arazzo
 from openapi_client.cli import generate_to_openapi as cli_generate_to_openapi
 from openapi_client.cli import run_mcp_server as cli_run_mcp_server
 from openapi_client.cli import serve_json_rpc as cli_serve_json_rpc
@@ -47,6 +49,45 @@ def generate_to_openapi(input_dir: str, output_path: str | None = None) -> None:
         output_path: Output file path for the generated `openapi.json`.
     """
     cli_generate_to_openapi(input_dir, output_path or "openapi.json")
+
+
+def generate_from_arazzo(
+    input_path: str,
+    output_dir: str,
+    no_github_actions: bool = False,
+    no_installable_package: bool = False,
+    tests: bool = False,
+    subcommand: str = "to_sdk",
+) -> None:
+    """Generate Python workflows, CLI, server routes, or tests from an Arazzo 1.1.0 specification.
+
+    Args:
+        input_path: Path to the Arazzo 1.1.0 JSON file.
+        output_dir: Target directory for generated artifacts.
+        no_github_actions: If True, skip GitHub Actions CI scaffolding.
+        no_installable_package: If True, skip `pyproject.toml` scaffolding.
+        tests: If True, generate end-to-end workflow test suites.
+        subcommand: Generation target (`'to_sdk'`, `'to_sdk_cli'`, `'to_server'`, or `'to_tests'`).
+    """
+    cli_generate_from_arazzo(
+        subcommand=subcommand,
+        input_path=input_path,
+        input_dir=None,
+        output_dir=output_dir,
+        no_github_actions=no_github_actions,
+        no_installable_package=no_installable_package,
+        tests=tests,
+    )
+
+
+def generate_to_arazzo(input_dir: str, output_path: str | None = None) -> None:
+    """Generate an Arazzo 1.1.0 specification from Python workflow source code.
+
+    Args:
+        input_dir: Path to the workflow source file or directory.
+        output_path: Output file path for the generated `arazzo.json`.
+    """
+    cli_generate_to_arazzo(input_dir, output_path or "arazzo.json")
 
 
 def generate_docs_json(
