@@ -66,9 +66,7 @@ def emit_function(method: str, path: str, operation: Operation) -> cst.FunctionD
                 schema_obj = getattr(param, "schema_", getattr(param, "schema", None))
                 annotation_str = get_annotation_for_schema(schema_obj)
 
-                if annotation_str.startswith("list") or annotation_str.startswith(
-                    "dict"
-                ):
+                if annotation_str.startswith(("list", "dict")):
                     ann_node = cst.parse_expression(annotation_str)
                 else:
                     ann_node = cst.Name(annotation_str)

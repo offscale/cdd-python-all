@@ -244,13 +244,12 @@ class FunctionExtractor(cst.CSTVisitor):
             return
 
         method, path = _extract_method_and_path_from_body(node)
-        if not method or not path:
-            if "_" in name:
-                parts = name.split("_", 1)
-                candidate = parts[0].lower()
-                if candidate in ("get", "post", "put", "delete", "patch"):
-                    method = method or candidate
-                    path = path or ("/" + parts[1].replace("_", "/"))
+        if (not method or not path) and "_" in name:
+            parts = name.split("_", 1)
+            candidate = parts[0].lower()
+            if candidate in ("get", "post", "put", "delete", "patch"):
+                method = method or candidate
+                path = path or ("/" + parts[1].replace("_", "/"))
 
         if method and path:
             if self.spec.paths is not None and path not in self.spec.paths:

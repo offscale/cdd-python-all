@@ -107,7 +107,7 @@ def generate_docs_json(
         no_wrapping: If True, omit `main()` wrapper from generated snippets.
         output_file: Optional file path to write JSON output; prints to stdout if None.
     """
-    if input_path.startswith("http://") or input_path.startswith("https://"):
+    if input_path.startswith(("http://", "https://")):
         req = urllib.request.Request(input_path)
         with urllib.request.urlopen(req) as response:
             content = response.read().decode("utf-8")
@@ -1069,7 +1069,7 @@ def run_mcp_server() -> None:
                             "content": [{"type": "text", "text": buffer.getvalue()}]
                         },
                     )
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001
                     send_response(
                         req_id,
                         result={
@@ -1082,7 +1082,7 @@ def run_mcp_server() -> None:
                     send_response(
                         req_id, error={"code": -32601, "message": "Method not found"}
                     )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             if "req_id" in locals() and req_id is not None:
                 send_response(req_id, error={"code": -32603, "message": str(e)})
 
@@ -1173,7 +1173,7 @@ def serve_json_rpc(port: int, listen: str) -> None:
                     result = "Success"
                 else:
                     error = {"code": -32601, "message": "Method not found"}
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 error = {
                     "code": -32000,
                     "message": str(e),

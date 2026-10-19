@@ -74,9 +74,12 @@ def parse_openapi_dict(
         components["schemas"] = resolved_dict["definitions"]
     if "securityDefinitions" in resolved_dict and "securitySchemes" not in components:
         components["securitySchemes"] = resolved_dict["securityDefinitions"]
-    if "parameters" in resolved_dict and "parameters" not in components:
-        if isinstance(resolved_dict["parameters"], dict):
-            components["parameters"] = resolved_dict["parameters"]
+    if (
+        "parameters" in resolved_dict
+        and "parameters" not in components
+        and isinstance(resolved_dict["parameters"], dict)
+    ):
+        components["parameters"] = resolved_dict["parameters"]
     if "responses" in resolved_dict and "responses" not in components:
         components["responses"] = resolved_dict["responses"]
 

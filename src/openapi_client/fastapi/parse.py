@@ -26,37 +26,33 @@ class FastAPIExtractor(cst.CSTVisitor):
             node: The LibCST FunctionDef node being visited.
         """
         for decorator in node.decorators:
-            if isinstance(decorator.decorator, cst.Call):
-                if isinstance(decorator.decorator.func, cst.Attribute):
-                    if isinstance(
-                        decorator.decorator.func.value, cst.Name
-                    ) and decorator.decorator.func.value.value in ("app", "router"):
-                        method = decorator.decorator.func.attr.value
-                        if method in ["get", "post", "put", "delete", "patch"]:
-                            if decorator.decorator.args and isinstance(
-                                decorator.decorator.args[0].value, cst.SimpleString
-                            ):
-                                path = decorator.decorator.args[0].value.value.strip(
-                                    "\"'"
-                                )
+            if (
+                isinstance(decorator.decorator, cst.Call)
+                and isinstance(decorator.decorator.func, cst.Attribute)
+                and isinstance(decorator.decorator.func.value, cst.Name)
+                and decorator.decorator.func.value.value in ("app", "router")
+            ):
+                method = decorator.decorator.func.attr.value
+                if (
+                    method in ["get", "post", "put", "delete", "patch"]
+                    and decorator.decorator.args
+                    and isinstance(decorator.decorator.args[0].value, cst.SimpleString)
+                ):
+                    path = decorator.decorator.args[0].value.value.strip("\"'")
 
-                                if not self.spec.paths:
-                                    self.spec.paths = {}
-                                if path not in self.spec.paths:
-                                    self.spec.paths[path] = PathItem()
+                    if not self.spec.paths:
+                        self.spec.paths = {}
+                    if path not in self.spec.paths:
+                        self.spec.paths[path] = PathItem()
 
-                                summary, description = parse_docstring(node)
-                                op = Operation(
-                                    operationId=node.name.value,
-                                    summary=summary,
-                                    description=description,
-                                    responses={
-                                        "200": Response(
-                                            description="Successful Response"
-                                        )
-                                    },
-                                )
-                                setattr(self.spec.paths[path], method, op)
+                    summary, description = parse_docstring(node)
+                    op = Operation(
+                        operationId=node.name.value,
+                        summary=summary,
+                        description=description,
+                        responses={"200": Response(description="Successful Response")},
+                    )
+                    setattr(self.spec.paths[path], method, op)
 
 
 def extract_fastapi_from_ast(module: cst.Module, spec: OpenAPI) -> None:

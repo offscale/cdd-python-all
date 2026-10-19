@@ -973,7 +973,7 @@ def test_cli_mcp_server(monkeypatch, capsys):
     def mock_generate_to_openapi(input_path, output_path):
         """Test mock_generate_to_openapi."""
         if hasattr(mock_generate_to_openapi, "called"):
-            raise Exception("Mock generic error")
+            raise RuntimeError("Mock generic error")
         mock_generate_to_openapi.called = True
         print("MOCK GENERATE TO OPENAPI")
         raise ValueError("Mock error")
@@ -1442,9 +1442,13 @@ def test_openapi_to_cdd_project_invalid_subcommand(tmp_path: Path) -> None:
     }
     input_file = tmp_path / "openapi.json"
     input_file.write_text(json.dumps(spec), encoding="utf-8")
-    with patch(
-        "sys.argv", ["cli.py", "from_openapi", "to_unknown", "--input", str(input_file)]
-    ), pytest.raises(SystemExit):
+    with (
+        patch(
+            "sys.argv",
+            ["cli.py", "from_openapi", "to_unknown", "--input", str(input_file)],
+        ),
+        pytest.raises(SystemExit),
+    ):
         main()
 
 
@@ -1693,10 +1697,13 @@ def test_openapi_parse_parameters_list(tmp_path: Path) -> None:
 
 def test_write_generated_local_str(tmp_path):
     """Test sync_dir where emit_seeder returns a string."""
-    with unittest.mock.patch(
-        "openapi_client.cli.emit_seeder", return_value="string_code", create=True
-    ), unittest.mock.patch(
-        "openapi_client.seeder.emit.emit_seeder", return_value="string_code"
+    with (
+        unittest.mock.patch(
+            "openapi_client.cli.emit_seeder", return_value="string_code", create=True
+        ),
+        unittest.mock.patch(
+            "openapi_client.seeder.emit.emit_seeder", return_value="string_code"
+        ),
     ):
         sync_dir(str(tmp_path))
 

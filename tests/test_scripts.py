@@ -42,14 +42,18 @@ def test_build_wasm() -> None:
         bw.main()
         m_run.assert_called_once()
 
-    with mock.patch(
-        "subprocess.run", side_effect=bw.subprocess.CalledProcessError(1, [])
-    ), mock.patch("os.makedirs"), mock.patch("os.path.exists", return_value=True):
-        with mock.patch("os.remove") as m_rm:
-            with mock.patch("zipfile.ZipFile"):
-                with mock.patch("os.walk", return_value=[("src", [], ["file1.py"])]):
-                    bw.main()
-                    m_rm.assert_called_once()
+    with (
+        mock.patch(
+            "subprocess.run", side_effect=bw.subprocess.CalledProcessError(1, [])
+        ),
+        mock.patch("os.makedirs"),
+        mock.patch("os.path.exists", return_value=True),
+        mock.patch("os.remove") as m_rm,
+        mock.patch("zipfile.ZipFile"),
+        mock.patch("os.walk", return_value=[("src", [], ["file1.py"])]),
+    ):
+        bw.main()
+        m_rm.assert_called_once()
 
 
 def test_doc_coverage(tmp_path: Path) -> None:
@@ -104,10 +108,13 @@ def test_run_petstore_test(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> N
         "sys.argv", ["run_petstore_test.py", "dummy.json", str(tmp_path)]
     )
 
-    with mock.patch("subprocess.run") as m_run, mock.patch("shutil.rmtree"):
-        with mock.patch("time.sleep"):
-            rp.main()
-            assert m_run.called
+    with (
+        mock.patch("subprocess.run") as m_run,
+        mock.patch("shutil.rmtree"),
+        mock.patch("time.sleep"),
+    ):
+        rp.main()
+        assert m_run.called
 
 
 def test_update_badges() -> None:
@@ -132,9 +139,11 @@ def test_update_badges() -> None:
             returncode = 1
             stdout = "error"
 
-        with mock.patch("subprocess.run", return_value=MockResult()):
-            with pytest.raises(SystemExit):
-                ub.main()
+        with (
+            mock.patch("subprocess.run", return_value=MockResult()),
+            pytest.raises(SystemExit),
+        ):
+            ub.main()
 
         class MockResult2:
             """Mock subprocess result for passing test run."""
@@ -148,9 +157,11 @@ def test_update_badges() -> None:
             returncode = 1
             stdout = "error"
 
-        with mock.patch("subprocess.run", side_effect=[MockResult2(), MockResult3()]):
-            with pytest.raises(SystemExit):
-                ub.main()
+        with (
+            mock.patch("subprocess.run", side_effect=[MockResult2(), MockResult3()]),
+            pytest.raises(SystemExit),
+        ):
+            ub.main()
 
         class MockResult4:
             """Mock subprocess result for passing test run."""
@@ -164,15 +175,17 @@ def test_update_badges() -> None:
             returncode = 0
             stdout = "actual: 80%"
 
-        with mock.patch("subprocess.run", side_effect=[MockResult4(), MockResult5()]):
-            with mock.patch(
+        with (
+            mock.patch("subprocess.run", side_effect=[MockResult4(), MockResult5()]),
+            mock.patch(
                 "builtins.open",
                 mock.mock_open(
                     read_data="[![Test Coverage](https://img.shields.io/badge/test_coverage-100%25-brightgreen.svg)](#)"
                 ),
-            ) as m_open:
-                ub.main()
-                assert m_open.called
+            ) as m_open,
+        ):
+            ub.main()
+            assert m_open.called
 
         class MockResult6:
             """Mock subprocess result for float doc coverage."""
@@ -180,31 +193,36 @@ def test_update_badges() -> None:
             returncode = 0
             stdout = "actual: 80.5%"
 
-        with mock.patch("subprocess.run", side_effect=[MockResult4(), MockResult6()]):
-            with mock.patch("builtins.open", mock.mock_open()) as m_open:
-                ub.main()
-                assert m_open.called
+        with (
+            mock.patch("subprocess.run", side_effect=[MockResult4(), MockResult6()]),
+            mock.patch("builtins.open", mock.mock_open()) as m_open,
+        ):
+            ub.main()
+            assert m_open.called
 
 
 def test_build_wasm_more() -> None:
     """Test build_wasm fallback when wasm_out and pyproject.toml do not exist."""
     import scripts.build_wasm as bw
 
-    with mock.patch(
-        "subprocess.run", side_effect=bw.subprocess.CalledProcessError(1, [])
-    ), mock.patch("os.makedirs"):
-        with mock.patch("os.path.exists", side_effect=[False, False]):
-            with mock.patch("os.remove") as m_rm:
-                with mock.patch("zipfile.ZipFile"):
-                    with mock.patch(
-                        "os.walk",
-                        return_value=[
-                            ("src/__pycache__", [], ["file.py"]),
-                            ("src", [], ["file.txt"]),
-                        ],
-                    ):
-                        bw.main()
-                        m_rm.assert_not_called()
+    with (
+        mock.patch(
+            "subprocess.run", side_effect=bw.subprocess.CalledProcessError(1, [])
+        ),
+        mock.patch("os.makedirs"),
+        mock.patch("os.path.exists", side_effect=[False, False]),
+        mock.patch("os.remove") as m_rm,
+        mock.patch("zipfile.ZipFile"),
+        mock.patch(
+            "os.walk",
+            return_value=[
+                ("src/__pycache__", [], ["file.py"]),
+                ("src", [], ["file.txt"]),
+            ],
+        ),
+    ):
+        bw.main()
+        m_rm.assert_not_called()
 
 
 def test_run_petstore_test_no_tmp(
@@ -237,15 +255,17 @@ def test_update_badges_no_match() -> None:
             returncode = 0
             stdout = "NO MATCH HERE"
 
-        with mock.patch("subprocess.run", return_value=MockResult()):
-            with mock.patch(
+        with (
+            mock.patch("subprocess.run", return_value=MockResult()),
+            mock.patch(
                 "builtins.open",
                 mock.mock_open(
                     read_data="[![Test Coverage](https://img.shields.io/badge/test_coverage-100%25-brightgreen.svg)](#)"
                 ),
-            ) as m_open:
-                ub.main()
-                assert m_open.called
+            ) as m_open,
+        ):
+            ub.main()
+            assert m_open.called
 
 
 def test_run_petstore_test_all_branches(
@@ -278,19 +298,24 @@ def test_run_petstore_test_all_branches(
     )
 
     # 2. Active mock server pingable + SDK test passes
-    with mock.patch("subprocess.run") as m_run:
-        with mock.patch("urllib.request.urlopen", return_value=mock.MagicMock()):
-            with mock.patch("shutil.rmtree"):
-                rp.main()
-                assert m_run.call_count == 2
+    with (
+        mock.patch("subprocess.run") as m_run,
+        mock.patch("urllib.request.urlopen", return_value=mock.MagicMock()),
+        mock.patch("shutil.rmtree"),
+    ):
+        rp.main()
+        assert m_run.call_count == 2
 
     # 3. Docker fallback: primary fails, fallback succeeds, ready on 2nd poll, SDK test fails, docker rm runs
     def side_effect_run(cmd, *args, **kwargs):
         """Mock subprocess.run for docker fallback and CLI failure."""
-        if cmd[:2] == ["docker", "run"] and "openapitools/openapi-petstore" in cmd:
-            if not hasattr(side_effect_run, "failed_once"):
-                side_effect_run.failed_once = True
-                raise subprocess.CalledProcessError(1, cmd)
+        if (
+            cmd[:2] == ["docker", "run"]
+            and "openapitools/openapi-petstore" in cmd
+            and not hasattr(side_effect_run, "failed_once")
+        ):
+            side_effect_run.failed_once = True
+            raise subprocess.CalledProcessError(1, cmd)
         if "cli_main.py" in " ".join(cmd):
             raise subprocess.CalledProcessError(1, cmd, stderr="CLI error")
         return mock.MagicMock(stdout="ok", returncode=0)
@@ -302,11 +327,13 @@ def test_run_petstore_test_all_branches(
         OSError("down"),
         mock.MagicMock(),
     ]
-    with mock.patch("subprocess.run", side_effect=side_effect_run):
-        with mock.patch("urllib.request.urlopen", side_effect=urlopen_calls):
-            with mock.patch("time.sleep"):
-                with mock.patch("shutil.rmtree"):
-                    rp.main()
+    with (
+        mock.patch("subprocess.run", side_effect=side_effect_run),
+        mock.patch("urllib.request.urlopen", side_effect=urlopen_calls),
+        mock.patch("time.sleep"),
+        mock.patch("shutil.rmtree"),
+    ):
+        rp.main()
 
     # 4. Docker fallback: both primary and fallback fail (swagger 2.0)
     spec_sw = tmp_path / "swagger_petstore.json"
@@ -321,10 +348,12 @@ def test_run_petstore_test_all_branches(
             raise OSError("Docker not installed")
         return mock.MagicMock(returncode=0)
 
-    with mock.patch("subprocess.run", side_effect=side_effect_both_fail):
-        with mock.patch("urllib.request.urlopen", side_effect=OSError("down")):
-            with mock.patch("shutil.rmtree"):
-                rp.main()
+    with (
+        mock.patch("subprocess.run", side_effect=side_effect_both_fail),
+        mock.patch("urllib.request.urlopen", side_effect=OSError("down")),
+        mock.patch("shutil.rmtree"),
+    ):
+        rp.main()
 
 
 def test_run_generated_server_test_all_branches(
@@ -373,14 +402,16 @@ def test_run_generated_server_test_all_branches(
     mock_proc = mock.MagicMock()
     mock_proc.communicate.return_value = (b"server logs", b"")
 
-    with mock.patch("subprocess.run", return_value=mock.MagicMock(stdout="200 OK")):
-        with mock.patch("subprocess.Popen", return_value=mock_proc):
-            with mock.patch(
-                "urllib.request.urlopen",
-                side_effect=[OSError("starting"), mock.MagicMock()],
-            ):
-                with mock.patch("time.sleep"):
-                    rg.main()
+    with (
+        mock.patch("subprocess.run", return_value=mock.MagicMock(stdout="200 OK")),
+        mock.patch("subprocess.Popen", return_value=mock_proc),
+        mock.patch(
+            "urllib.request.urlopen",
+            side_effect=[OSError("starting"), mock.MagicMock()],
+        ),
+        mock.patch("time.sleep"),
+    ):
+        rg.main()
 
     # 5. Server fails to become ready in time + TimeoutExpired on wait
     mock_proc_timeout = mock.MagicMock()
@@ -389,14 +420,16 @@ def test_run_generated_server_test_all_branches(
         cmd="main.py", timeout=5
     )
 
-    with mock.patch("subprocess.run", return_value=mock.MagicMock(stdout="ok")):
-        with mock.patch("subprocess.Popen", return_value=mock_proc_timeout):
-            with mock.patch("urllib.request.urlopen", side_effect=OSError("down")):
-                with mock.patch("time.sleep"):
-                    with pytest.raises(SystemExit) as exc4:
-                        rg.main()
-                    assert exc4.value.code == 1
-                    mock_proc_timeout.kill.assert_called_once()
+    with (
+        mock.patch("subprocess.run", return_value=mock.MagicMock(stdout="ok")),
+        mock.patch("subprocess.Popen", return_value=mock_proc_timeout),
+        mock.patch("urllib.request.urlopen", side_effect=OSError("down")),
+        mock.patch("time.sleep"),
+        pytest.raises(SystemExit) as exc4,
+    ):
+        rg.main()
+    assert exc4.value.code == 1
+    mock_proc_timeout.kill.assert_called_once()
 
     # 6. Server ready, but SDK test command fails with CalledProcessError
     out_dir.mkdir(exist_ok=True)
@@ -407,11 +440,13 @@ def test_run_generated_server_test_all_branches(
             raise subprocess.CalledProcessError(1, cmd, stderr="SDK failed")
         return mock.MagicMock(stdout="ok")
 
-    with mock.patch("subprocess.run", side_effect=run_fail_sdk):
-        with mock.patch("subprocess.Popen", return_value=mock_proc):
-            with mock.patch("urllib.request.urlopen", return_value=mock.MagicMock()):
-                with mock.patch("time.sleep"):
-                    with mock.patch("shutil.rmtree"):
-                        with pytest.raises(SystemExit) as exc5:
-                            rg.main()
-                        assert exc5.value.code == 1
+    with (
+        mock.patch("subprocess.run", side_effect=run_fail_sdk),
+        mock.patch("subprocess.Popen", return_value=mock_proc),
+        mock.patch("urllib.request.urlopen", return_value=mock.MagicMock()),
+        mock.patch("time.sleep"),
+        mock.patch("shutil.rmtree"),
+        pytest.raises(SystemExit) as exc5,
+    ):
+        rg.main()
+    assert exc5.value.code == 1

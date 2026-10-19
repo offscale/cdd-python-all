@@ -183,14 +183,20 @@ def something():
 
 def test_cli_edge_cases(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test CLI edge cases including truth options and write_generated branches."""
-    with mock.patch("sys.argv", ["cli.py", "serve_json_rpc", "--port", "1234"]):
-        with mock.patch("openapi_client.cli.serve_json_rpc") as mock_run:
-            main()
-            mock_run.assert_called_once()
+    with (
+        mock.patch("sys.argv", ["cli.py", "serve_json_rpc", "--port", "1234"]),
+        mock.patch("openapi_client.cli.serve_json_rpc") as mock_run,
+    ):
+        main()
+        mock_run.assert_called_once()
 
-    with tempfile.TemporaryDirectory() as d, mock.patch(
-        "sys.argv", ["cli.py", "from_openapi", "to_unknown", "--input-dir", d]
-    ), pytest.raises(SystemExit):
+    with (
+        tempfile.TemporaryDirectory() as d,
+        mock.patch(
+            "sys.argv", ["cli.py", "from_openapi", "to_unknown", "--input-dir", d]
+        ),
+        pytest.raises(SystemExit),
+    ):
         main()
 
     with tempfile.TemporaryDirectory() as d:
@@ -461,7 +467,8 @@ def stream_new_endpoint():
             "to_sdk", str(spec_file), None, str(tmp_path / "out_d"), True, True, True
         )
 
-    with mock.patch("openapi_client.cli.emit_seeder", return_value=""), mock.patch(
-        "openapi_client.cli.emit_dao", return_value={"empty_dao.py": ""}
+    with (
+        mock.patch("openapi_client.cli.emit_seeder", return_value=""),
+        mock.patch("openapi_client.cli.emit_dao", return_value={"empty_dao.py": ""}),
     ):
         sync_dir(str(tmp_path / "out_s"))

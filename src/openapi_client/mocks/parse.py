@@ -21,10 +21,12 @@ class ReturnExtractor(cst.CSTVisitor):
         Args:
             node: The LibCST Return node being visited.
         """
-        if isinstance(node.value, cst.Call):
-            if isinstance(node.value.func, cst.Name):
-                if node.value.func.value == "EventSourceResponse":
-                    self.has_event_stream = True
+        if (
+            isinstance(node.value, cst.Call)
+            and isinstance(node.value.func, cst.Name)
+            and node.value.func.value == "EventSourceResponse"
+        ):
+            self.has_event_stream = True
 
 
 class MockServerExtractor(cst.CSTVisitor):
@@ -52,49 +54,49 @@ class MockServerExtractor(cst.CSTVisitor):
             for decorator in node.decorators:
                 if isinstance(decorator.decorator, cst.Call):
                     call = decorator.decorator
-                    if isinstance(call.func, cst.Attribute) and isinstance(
-                        call.func.value, cst.Name
+                    if (
+                        isinstance(call.func, cst.Attribute)
+                        and isinstance(call.func.value, cst.Name)
+                        and call.func.value.value == "app"
                     ):
-                        if call.func.value.value == "app":
-                            method = call.func.attr.value
-                            if method in ["get", "post", "put", "delete", "patch"]:
-                                if call.args and isinstance(
-                                    call.args[0].value, cst.SimpleString
-                                ):
-                                    path = str(call.args[0].value.evaluated_value)
+                        method = call.func.attr.value
+                        if (
+                            method in ["get", "post", "put", "delete", "patch"]
+                            and call.args
+                            and isinstance(call.args[0].value, cst.SimpleString)
+                        ):
+                            path = str(call.args[0].value.evaluated_value)
 
-                                    if (
-                                        self.spec.paths is not None
-                                        and path not in self.spec.paths
-                                    ):
-                                        self.spec.paths[path] = PathItem()
+                            if (
+                                self.spec.paths is not None
+                                and path not in self.spec.paths
+                            ):
+                                self.spec.paths[path] = PathItem()
 
-                                    summary, description = parse_docstring(node)
+                            summary, description = parse_docstring(node)
 
-                                    operation = Operation(operationId=name)
-                                    if summary:
-                                        operation.summary = summary
-                                    if description:
-                                        operation.description = description
+                            operation = Operation(operationId=name)
+                            if summary:
+                                operation.summary = summary
+                            if description:
+                                operation.description = description
 
-                                    ret_extractor = ReturnExtractor()
-                                    node.visit(ret_extractor)
-                                    if ret_extractor.has_event_stream:
-                                        operation.responses = {
-                                            "200": Response(
-                                                description="Server-sent events stream",
-                                                content={
-                                                    "text/event-stream": MediaType()
-                                                },
-                                            )
-                                        }
+                            ret_extractor = ReturnExtractor()
+                            node.visit(ret_extractor)
+                            if ret_extractor.has_event_stream:
+                                operation.responses = {
+                                    "200": Response(
+                                        description="Server-sent events stream",
+                                        content={"text/event-stream": MediaType()},
+                                    )
+                                }
 
-                                    if self.spec.paths is not None:
-                                        setattr(
-                                            self.spec.paths[path],
-                                            method,
-                                            operation,
-                                        )
+                            if self.spec.paths is not None:
+                                setattr(
+                                    self.spec.paths[path],
+                                    method,
+                                    operation,
+                                )
 
 
 def extract_mocks_from_ast(module: cst.Module, spec: OpenAPI) -> None:

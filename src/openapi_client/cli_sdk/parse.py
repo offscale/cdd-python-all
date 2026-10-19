@@ -36,7 +36,7 @@ class CLIExtractor(cst.CSTVisitor):
 
                 found = False
                 if self.spec.paths:
-                    for _path, path_item in self.spec.paths.items():
+                    for path_item in self.spec.paths.values():
                         for method in ["get", "post", "put", "delete", "patch"]:
                             op = getattr(path_item, method, None)
                             if op and op.operationId == op_id:
@@ -56,27 +56,25 @@ class CLIExtractor(cst.CSTVisitor):
         elif (
             isinstance(node.func, cst.Attribute)
             and node.func.attr.value == "add_argument"
+            and self.current_op
+            and node.args
+            and isinstance(node.args[0].value, cst.SimpleString)
         ):
-            if (
-                self.current_op
-                and node.args
-                and isinstance(node.args[0].value, cst.SimpleString)
-            ):
-                arg_name = node.args[0].value.value.strip("\"'")
-                if arg_name.startswith("--"):
-                    p_name = arg_name[2:]
+            arg_name = node.args[0].value.value.strip("\"'")
+            if arg_name.startswith("--"):
+                p_name = arg_name[2:]
 
-                    p_desc = ""
-                    for arg in node.args:
-                        if getattr(arg.keyword, "value", None) == "help" and isinstance(
-                            arg.value, cst.SimpleString
-                        ):
-                            p_desc = arg.value.value.strip("\"'")
+                p_desc = ""
+                for arg in node.args:
+                    if getattr(arg.keyword, "value", None) == "help" and isinstance(
+                        arg.value, cst.SimpleString
+                    ):
+                        p_desc = arg.value.value.strip("\"'")
 
-                    if self.current_op.parameters:
-                        for p in self.current_op.parameters:
-                            if getattr(p, "name", "").replace("-", "_") == p_name:
-                                p.description = p_desc
+                if self.current_op.parameters:
+                    for p in self.current_op.parameters:
+                        if getattr(p, "name", "").replace("-", "_") == p_name:
+                            p.description = p_desc
 
 
 def extract_cli_from_ast(module: cst.Module, spec: OpenAPI) -> None:

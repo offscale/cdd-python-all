@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import libcst as cst
+import pytest
 
 from openapi_client.functions.emit import emit_function
 from openapi_client.mocks.parse import MockServerExtractor
@@ -141,7 +142,7 @@ def test_emit_tests_exception_content():
 
         def __contains__(self, item):
             """Test __contains__."""
-            raise Exception("Mock error")
+            raise RuntimeError("Mock error")
 
     op = Operation.model_construct(
         operationId="test_exception",
@@ -165,15 +166,13 @@ def test_emit_tests_body_param_exception():
         @property
         def schema_(self):
             """Test schema_."""
-            raise Exception("Mock error")
+            raise RuntimeError("Mock error")
 
     op = Operation.model_construct(
         operationId="test_body_param_exception", parameters=[BadParameter()]
     )
-    try:
+    with pytest.raises(RuntimeError, match="Mock error"):
         emit_operation_test("post", "/test", op)
-    except Exception:
-        pass
 
 
 def test_emit_tests_other_param():
@@ -218,15 +217,13 @@ def test_emit_tests_other_param_exception():
         @property
         def schema_(self):
             """Test schema_."""
-            raise Exception("Mock error")
+            raise RuntimeError("Mock error")
 
     op = Operation.model_construct(
         operationId="test_other_param_exception", parameters=[BadParameter3()]
     )
-    try:
+    with pytest.raises(RuntimeError, match="Mock error"):
         emit_operation_test("post", "/test", op)
-    except Exception:
-        pass
 
 
 def test_emit_tests_other_param_exception_real():
@@ -527,7 +524,7 @@ def test_emit_tests_exception():
 
         def __contains__(self, item):
             """Test __contains__."""
-            raise Exception("Mock error")
+            raise RuntimeError("Mock error")
 
     rb = RequestBody.model_construct(content=Bad())
     op = Operation(operationId="err", requestBody=rb)

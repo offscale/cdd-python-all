@@ -187,7 +187,9 @@ def main() -> None:
         finally:
             if container_name:
                 subprocess.run(
-                    ["docker", "rm", "-f", container_name], capture_output=True
+                    ["docker", "rm", "-f", container_name],
+                    check=False,
+                    capture_output=True,
                 )
 
     finally:
