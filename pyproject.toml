@@ -23,6 +23,7 @@ dev = [
     "pytest-cov",
     "interrogate",
     "build",
+    "mypy",
     "pdoc",
     "py2wasm",
 ]
@@ -37,6 +38,12 @@ packages = ["src/openapi_client"]
 [tool.pytest.ini_options]
 testpaths = ["tests", "test"]
 
+[tool.mypy]
+strict = true
+disallow_any_generics = true
+warn_return_any = true
+warn_unused_ignores = true
+
 [dependency-groups]
 dev = [
     "pre-commit>=4.3.0",
@@ -45,4 +52,5 @@ dev = [
     "pytest-cov>=4.1.0",
     "interrogate>=1.7.0",
     "build>=1.0.0",
+    "mypy>=1.10.0",
 ]

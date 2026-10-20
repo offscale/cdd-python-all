@@ -6,6 +6,7 @@ import re
 
 import libcst as cst
 
+from openapi_client.classes.parse import _infer_schema_from_type_node
 from openapi_client.docstrings.parse import parse_docstring
 from openapi_client.models import (
     MediaType,
@@ -31,32 +32,7 @@ def _extract_schema_from_annotation(
     Returns:
         The mapped OpenAPI Schema or Reference.
     """
-    ann_node = annotation.annotation
-    if isinstance(ann_node, cst.Name):
-        type_str = ann_node.value
-        if type_str == "int":
-            return Schema(type="integer")
-        elif type_str == "str":
-            return Schema(type="string")
-        elif type_str == "bool":
-            return Schema(type="boolean")
-        elif type_str == "float":
-            return Schema(type="number")
-        elif type_str == "Any":
-            return Schema(type="string")
-        else:
-            return Reference(**{"$ref": f"#/components/schemas/{type_str}"})
-    elif isinstance(ann_node, cst.Subscript):
-        base_name = getattr(ann_node.value, "value", None)
-        if base_name in ("List", "list"):
-            slice_node = ann_node.slice[0].slice
-            if isinstance(slice_node, cst.Index):
-                item_ann = cst.Annotation(annotation=slice_node.value)
-                item_schema = _extract_schema_from_annotation(item_ann)
-                return Schema(type="array", items=item_schema)
-        elif base_name in ("Dict", "dict"):
-            return Schema(type="object")
-    return Schema(type="string")
+    return _infer_schema_from_type_node(annotation.annotation)
 
 
 def _extract_method_and_path_from_body(
@@ -125,6 +101,63 @@ def _extract_method_and_path_from_body(
     return found_method, found_path
 
 
+def _extract_param_locations_from_body(
+    node: cst.FunctionDef,
+) -> dict[str, tuple[str, str]]:
+    """Scan a client method body for `fields`, `headers`, and `cookies` parameter bindings.
+
+    Args:
+        node: The LibCST FunctionDef node to inspect.
+
+    Returns:
+        Mapping of Python parameter variable names to `(in_location, raw_param_name)`.
+    """
+    loc_map: dict[str, tuple[str, str]] = {}
+    container_to_in = {
+        "fields": "formData",
+        "headers": "header",
+        "cookies": "cookie",
+    }
+    if not isinstance(node.body, cst.IndentedBlock):
+        return loc_map
+    for stmt in node.body.body:
+        if not isinstance(stmt, cst.SimpleStatementLine):
+            continue
+        for item in stmt.body:
+            if not isinstance(item, cst.Assign):
+                continue
+            target = item.targets[0].target
+            if (
+                isinstance(target, cst.Name)
+                and target.value in container_to_in
+                and isinstance(item.value, cst.Dict)
+            ):
+                p_in = container_to_in[target.value]
+                for el in item.value.elements:
+                    if (
+                        isinstance(el, cst.DictElement)
+                        and isinstance(el.key, cst.SimpleString)
+                        and isinstance(el.value, cst.Name)
+                    ):
+                        loc_map[el.value.value] = (
+                            p_in,
+                            str(el.key.evaluated_value),
+                        )
+            elif (
+                isinstance(target, cst.Subscript)
+                and isinstance(target.value, cst.Name)
+                and target.value.value in container_to_in
+                and target.slice
+                and isinstance(target.slice[0].slice, cst.Index)
+                and isinstance(target.slice[0].slice.value, cst.SimpleString)
+                and isinstance(item.value, cst.Name)
+            ):
+                p_in = container_to_in[target.value.value]
+                raw_key = str(target.slice[0].slice.value.evaluated_value)
+                loc_map[item.value.value] = (p_in, raw_key)
+    return loc_map
+
+
 class FunctionExtractor(cst.CSTVisitor):
     """AST Visitor to extract method definitions into OpenAPI Path/Operation structures."""
 
@@ -163,7 +196,11 @@ class FunctionExtractor(cst.CSTVisitor):
                             operation.tags = tags_list
 
     def _extract_parameters(
-        self, node: cst.FunctionDef, operation: Operation, path: str
+        self,
+        node: cst.FunctionDef,
+        operation: Operation,
+        path: str,
+        has_explicit_path: bool = True,
     ) -> None:
         """Extract parameters and request body from function arguments.
 
@@ -171,9 +208,11 @@ class FunctionExtractor(cst.CSTVisitor):
             node: The LibCST FunctionDef node.
             operation: The OpenAPI Operation to populate.
             path: The route path string.
+            has_explicit_path: Whether `path` was extracted from an explicit URL in the body.
         """
         parameters: list[Parameter] = []
         path_vars = set(re.findall(r"\{([^}]+)\}", path))
+        loc_map = _extract_param_locations_from_body(node)
 
         for param in node.params.params:
             name = param.name.value
@@ -185,7 +224,8 @@ class FunctionExtractor(cst.CSTVisitor):
                 schema = _extract_schema_from_annotation(param.annotation)
 
             in_path = (name in path_vars) or (
-                (param.default is None)
+                not has_explicit_path
+                and (param.default is None)
                 and not path_vars
                 and not (
                     name in ("body", "data", "payload")
@@ -206,9 +246,17 @@ class FunctionExtractor(cst.CSTVisitor):
                         required=param.default is None,
                     )
             else:
+                if in_path:
+                    param_in = "path"
+                    raw_name = name
+                elif name in loc_map:
+                    param_in, raw_name = loc_map[name]
+                else:
+                    param_in = "query"
+                    raw_name = name
                 p = Parameter(
-                    name=name,
-                    **{"in": "path" if in_path else "query"},
+                    name=raw_name,
+                    **{"in": param_in},
                     required=in_path or (param.default is None),
                     **({"schema": schema} if schema else {}),
                 )
@@ -243,7 +291,8 @@ class FunctionExtractor(cst.CSTVisitor):
         if name.startswith("__"):
             return
 
-        method, path = _extract_method_and_path_from_body(node)
+        found_method, found_path = _extract_method_and_path_from_body(node)
+        method, path = found_method, found_path
         if (not method or not path) and "_" in name:
             parts = name.split("_", 1)
             candidate = parts[0].lower()
@@ -264,7 +313,9 @@ class FunctionExtractor(cst.CSTVisitor):
                 operation.description = description
 
             self._extract_decorators(node, operation)
-            self._extract_parameters(node, operation, path)
+            self._extract_parameters(
+                node, operation, path, has_explicit_path=(found_path is not None)
+            )
             self._extract_returns(node, operation)
 
             if self.spec.paths is not None:

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from src.openapi_client.mcp_client.models import (
+from openapi_client.mcp_client.models import (
     Annotated,
     BlobResourceContents,
     CallToolRequest,
@@ -103,7 +103,7 @@ from src.openapi_client.mcp_client.models import (
 )
 
 
-def test_models_instantiation():
+def test_models_instantiation() -> None:
     """Test test_models_instantiation."""
     req = RequestId("123")
     assert req.root == "123"
@@ -351,10 +351,88 @@ def test_models_instantiation():
     assert unsub_req.method == "resources/unsubscribe"
 
 
-def test_error_code_enum():
-    """Test test_error_code_enum."""
+def test_error_code_enum() -> None:
+    """Test ErrorCode integer enum values."""
     assert ErrorCode.PARSE_ERROR == -32700
     assert ErrorCode.INVALID_REQUEST == -32600
     assert ErrorCode.METHOD_NOT_FOUND == -32601
     assert ErrorCode.INVALID_PARAMS == -32602
     assert ErrorCode.INTERNAL_ERROR == -32603
+
+
+def test_models_validation_aliases_and_json_roundtrip() -> None:
+    """Test negative validation errors, field aliases (_meta, $ref, $self, in, schema), and JSON round-trips."""
+    import pytest
+    from pydantic import ValidationError
+
+    from openapi_client.models import (
+        Info,
+        MediaType,
+        OpenAPI,
+        Parameter,
+        Reference,
+        Schema,
+    )
+
+    # Negative validation tests
+    with pytest.raises(ValidationError):
+        Reference()  # type: ignore[call-arg]
+    with pytest.raises(ValidationError):
+        Parameter(name="q")  # type: ignore[call-arg]
+    with pytest.raises(ValidationError):
+        OpenAPI()  # type: ignore[call-arg]
+    with pytest.raises(ValidationError):
+        CallToolRequest(id=RequestId(1))  # type: ignore[call-arg]
+
+    # Alias and JSON round-trip for OpenAPI 3.2.0 models ($self, $ref, in, schema)
+    spec = OpenAPI(
+        openapi="3.2.0",
+        **{"$self": "https://example.com/openapi.json"},
+        info=Info(title="Roundtrip API", version="1.2.3"),
+    )
+    assert spec.self_ == "https://example.com/openapi.json"
+    spec_json = spec.model_dump_json(by_alias=True, exclude_none=True)
+    assert '"$self":"https://example.com/openapi.json"' in spec_json
+    spec_rt = OpenAPI.model_validate_json(spec_json)
+    assert spec_rt.self_ == "https://example.com/openapi.json"
+    assert spec_rt.info.title == "Roundtrip API"
+
+    param = Parameter(
+        name="filter",
+        **{"in": "query", "schema": Schema(type="string", format="uuid")},
+    )
+    assert param.in_ == "query"
+    assert isinstance(param.schema_, Schema)
+    param_json = param.model_dump_json(by_alias=True, exclude_none=True)
+    assert '"in":"query"' in param_json
+    assert '"schema":' in param_json
+    param_rt = Parameter.model_validate_json(param_json)
+    assert param_rt.in_ == "query"
+    assert isinstance(param_rt.schema_, Schema)
+    assert param_rt.schema_.format == "uuid"
+
+    ref = Reference(**{"$ref": "#/components/schemas/Pet"})
+    ref_json = ref.model_dump_json(by_alias=True, exclude_none=True)
+    assert '"$ref":"#/components/schemas/Pet"' in ref_json
+    assert Reference.model_validate_json(ref_json).ref == "#/components/schemas/Pet"
+
+    mt = MediaType(schema=ref)
+    assert isinstance(mt.schema_, Reference)
+
+    # Alias (_meta) and JSON round-trip for MCP models
+    rparams = RequestParams(_meta=RequestMeta(progressToken=ProgressToken("tok-1")))
+    rparams_json = rparams.model_dump_json(by_alias=True, exclude_none=True)
+    assert '"_meta":' in rparams_json
+    rparams_rt = RequestParams.model_validate_json(rparams_json)
+    assert rparams_rt.meta is not None
+    assert rparams_rt.meta.progressToken is not None
+    assert rparams_rt.meta.progressToken.root == "tok-1"
+
+    ct_req = CallToolRequest(
+        params=CallToolRequestParams(name="sync_dir", arguments={"project_dir": "."}),
+        id=RequestId(42),
+    )
+    ct_json = ct_req.model_dump_json(by_alias=True, exclude_none=True)
+    ct_rt = CallToolRequest.model_validate_json(ct_json)
+    assert ct_rt.params.name == "sync_dir"
+    assert ct_rt.id.root == 42

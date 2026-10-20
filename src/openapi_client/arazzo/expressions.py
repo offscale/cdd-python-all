@@ -372,6 +372,55 @@ def _parse_literal_or_expr(token: str, context_data: dict[str, Any]) -> Any:
     return tok
 
 
+def _split_outside_quotes(text: str, sep: str, maxsplit: int = -1) -> list[str]:
+    """Split `text` by `sep` only when `sep` occurs outside single or double quotes.
+
+    Args:
+        text: The raw condition string to split.
+        sep: The operator delimiter string (e.g. `'||'`, `'&&'`, `'=='`).
+        maxsplit: Maximum number of splits to perform (`-1` for unlimited).
+
+    Returns:
+        List of substrings split outside quoted string literals.
+    """
+    parts: list[str] = []
+    buf: list[str] = []
+    quote_char: str | None = None
+    i = 0
+    n = len(text)
+    sep_len = len(sep)
+    splits = 0
+    bs = chr(92)
+
+    while i < n:
+        ch = text[i]
+        if quote_char is not None:
+            if ch == bs and i + 1 < n:
+                buf.append(text[i : i + 2])
+                i += 2
+                continue
+            if ch == quote_char:
+                quote_char = None
+            buf.append(ch)
+            i += 1
+        else:
+            if ch in ("'", '"'):
+                quote_char = ch
+                buf.append(ch)
+                i += 1
+            elif (maxsplit < 0 or splits < maxsplit) and text.startswith(sep, i):
+                parts.append("".join(buf))
+                buf = []
+                splits += 1
+                i += sep_len
+            else:
+                buf.append(ch)
+                i += 1
+
+    parts.append("".join(buf))
+    return parts
+
+
 def _evaluate_simple_condition(
     condition: str, context_val: Any, context_data: dict[str, Any]
 ) -> bool:
@@ -385,21 +434,24 @@ def _evaluate_simple_condition(
     Returns:
         `True` if the condition holds, `False` otherwise.
     """
-    if "||" in condition:
+    or_parts = _split_outside_quotes(condition, "||")
+    if len(or_parts) > 1:
         return any(
             _evaluate_simple_condition(part, context_val, context_data)
-            for part in condition.split("||")
+            for part in or_parts
         )
-    if "&&" in condition:
+    and_parts = _split_outside_quotes(condition, "&&")
+    if len(and_parts) > 1:
         return all(
             _evaluate_simple_condition(part, context_val, context_data)
-            for part in condition.split("&&")
+            for part in and_parts
         )
 
     cond = condition.strip()
     for op_str in ("==", "!=", "<=", ">=", "<", ">"):
-        if op_str in cond:
-            lhs_raw, rhs_raw = cond.split(op_str, 1)
+        op_parts = _split_outside_quotes(cond, op_str, maxsplit=1)
+        if len(op_parts) == 2:
+            lhs_raw, rhs_raw = op_parts
             lhs_tok = lhs_raw.strip()
             if lhs_tok.startswith("$.") and context_val is not None:
                 lhs = evaluate_jsonpath(context_val, lhs_tok)
@@ -549,8 +601,13 @@ def compile_expression_to_cst(expr: Any) -> cst.BaseExpression:
         A `libcst.BaseExpression` node representing the runtime lookup in generated Python code.
     """
     if isinstance(expr, SelectorObject):
+        type_arg = ""
+        if isinstance(expr.type, ExpressionTypeObject):
+            type_arg = f", type=ExpressionTypeObject(type={expr.type.type!r}, version={expr.type.version!r})"
+        elif isinstance(expr.type, str):
+            type_arg = f", type={expr.type!r}"
         return cst.parse_expression(
-            f"evaluate_selector(SelectorObject(context={expr.context!r}, selector={expr.selector!r}), context)"
+            f"evaluate_selector(SelectorObject(context={expr.context!r}, selector={expr.selector!r}{type_arg}), context)"
         )
     if not isinstance(expr, str):
         return cst.parse_expression(repr(expr))
@@ -571,10 +628,12 @@ def compile_expression_to_cst(expr: Any) -> cst.BaseExpression:
         )
     if stripped.startswith("$steps."):
         parts = stripped[len("$steps.") :].split(".")
-        step_id, _, out_key = parts
-        return cst.parse_expression(
-            f"steps_context[{step_id!r}]['outputs'][{out_key!r}]"
-        )
+        if len(parts) == 3 and parts[1] == "outputs":
+            step_id, _, out_key = parts
+            return cst.parse_expression(
+                f"steps_context[{step_id!r}]['outputs'][{out_key!r}]"
+            )
+        return cst.parse_expression(f"evaluate_runtime_expression({expr!r}, context)")
     if stripped == "$statusCode":
         return cst.parse_expression("response.status")
     if stripped.startswith("$response.body."):
@@ -600,14 +659,34 @@ def extract_expression_from_cst(node: cst.BaseExpression) -> Any:
     if m_eval:
         return str(cst.SimpleString(m_eval.group(1)).evaluated_value)
 
+    m_sel_eto = re.match(
+        r"""^evaluate_selector\(\s*SelectorObject\(\s*context=(['"].*?['"])\s*,\s*selector=(['"].*?['"])\s*,\s*type=ExpressionTypeObject\(\s*type=(['"].*?['"])\s*,\s*version=(['"].*?['"])\s*\)\s*\)""",
+        code,
+    )
+    if m_sel_eto:
+        return SelectorObject(
+            context=str(cst.SimpleString(m_sel_eto.group(1)).evaluated_value),
+            selector=str(cst.SimpleString(m_sel_eto.group(2)).evaluated_value),
+            type=ExpressionTypeObject(
+                type=str(cst.SimpleString(m_sel_eto.group(3)).evaluated_value),
+                version=str(cst.SimpleString(m_sel_eto.group(4)).evaluated_value),
+            ),
+        )
+
     m_sel = re.match(
-        r"""^evaluate_selector\(\s*SelectorObject\(\s*context=(['"].*?['"])\s*,\s*selector=(['"].*?['"])\s*\)""",
+        r"""^evaluate_selector\(\s*SelectorObject\(\s*context=(['"].*?['"])\s*,\s*selector=(['"].*?['"])(?:\s*,\s*type=(['"].*?['"]))?\s*\)""",
         code,
     )
     if m_sel:
+        sel_type = (
+            str(cst.SimpleString(m_sel.group(3)).evaluated_value)
+            if m_sel.group(3)
+            else None
+        )
         return SelectorObject(
             context=str(cst.SimpleString(m_sel.group(1)).evaluated_value),
             selector=str(cst.SimpleString(m_sel.group(2)).evaluated_value),
+            type=sel_type,
         )
 
     m_in = re.match(r"""^inputs\[\s*(['"])([^'"]+)\1\s*\]$""", code)

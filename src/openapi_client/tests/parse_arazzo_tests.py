@@ -13,6 +13,7 @@ from openapi_client.arazzo_models import (
     ArazzoInfo,
     ArazzoParameter,
     CriterionObject,
+    SelectorObject,
     SourceDescription,
     StepObject,
     WorkflowObject,
@@ -20,25 +21,44 @@ from openapi_client.arazzo_models import (
 from openapi_client.docstrings.parse import parse_docstring
 
 
+def _safe_eval(code_str: str) -> Any:
+    """Safely evaluate a Python literal expression string via `ast.literal_eval`.
+
+    Args:
+        code_str: Source code string of the expression.
+
+    Returns:
+        The evaluated Python literal.
+    """
+    return ast.literal_eval(code_str)
+
+
 class ASTWorkflowTestExtractor(cst.CSTVisitor):
     """LibCST Visitor to extract Arazzo workflows from pytest test functions."""
 
     def __init__(self) -> None:
         """Initialize the `ASTWorkflowTestExtractor`."""
-        self.snapshot_spec: dict[str, Any] | None = None
+        self.info_dict: dict[str, Any] | None = None
+        self.source_descriptions: list[dict[str, Any]] | None = None
         self.workflows: list[WorkflowObject] = []
 
     def visit_AnnAssign(self, node: cst.AnnAssign) -> None:
-        """Extract `__arazzo_test_spec__` metadata if present.
+        """Extract module-level `__arazzo_info__` and `__source_descriptions__` metadata.
 
         Args:
             node: The `libcst.AnnAssign` node being visited.
         """
-        code = (
-            cst.Module([]).code_for_node(node.value).strip() if node.value else "None"
-        )
-        val = ast.literal_eval(code)
-        self.snapshot_spec = val if isinstance(val, dict) else None
+        t_name = node.target.value if isinstance(node.target, cst.Name) else ""
+        attr = {
+            "__arazzo_info__": "info_dict",
+            "__source_descriptions__": "source_descriptions",
+        }.get(t_name)
+        if attr and node.value is not None:
+            setattr(
+                self,
+                attr,
+                _safe_eval(cst.Module([]).code_for_node(node.value).strip()),
+            )
 
     def visit_FunctionDef(self, node: cst.FunctionDef) -> None:
         """Extract a `WorkflowObject` from `test_workflow_*` or multi-step `test_*` functions.
@@ -55,12 +75,44 @@ class ASTWorkflowTestExtractor(cst.CSTVisitor):
             if fn_name.startswith("test_workflow_")
             else fn_name[len("test_") :]
         )
-        summary, description = parse_docstring(node)
+        raw_summary, description = parse_docstring(node)
+        summary = (
+            None if raw_summary == f"Test Arazzo workflow {wf_id}." else raw_summary
+        )
         steps: list[StepObject] = []
         var_to_step: dict[str, str] = {}
+        inputs_schema: dict[str, Any] | None = None
+        outputs_map: dict[str, str | SelectorObject] | None = None
 
         for stmt in node.body.body:
             stmt_code = cst.Module([]).code_for_node(stmt).strip()
+
+            item = stmt.body[0] if isinstance(stmt, cst.SimpleStatementLine) else None
+            if (
+                isinstance(item, cst.AnnAssign)
+                and isinstance(item.target, cst.Name)
+                and item.value is not None
+            ):
+                parsed_val = _safe_eval(
+                    cst.Module([]).code_for_node(item.value).strip()
+                )
+                if item.target.value == "workflow_inputs_schema" and isinstance(
+                    parsed_val, dict
+                ):
+                    inputs_schema = parsed_val if parsed_val else None
+                    continue
+                if item.target.value == "expected_outputs" and isinstance(
+                    parsed_val, dict
+                ):
+                    outputs_map = (
+                        {
+                            k: (SelectorObject(**v) if isinstance(v, dict) else str(v))
+                            for k, v in parsed_val.items()
+                        }
+                        if parsed_val
+                        else None
+                    )
+                    continue
 
             m_target = re.match(
                 r"""^step_([A-Za-z0-9_]+)_target\s*=\s*(['"])([^'"]+)\2$""", stmt_code
@@ -114,7 +166,9 @@ class ASTWorkflowTestExtractor(cst.CSTVisitor):
                 workflowId=wf_id,
                 summary=summary,
                 description=description,
+                inputs=inputs_schema,
                 steps=steps,
+                outputs=outputs_map,
             )
         )
 
@@ -131,15 +185,21 @@ def extract_arazzo_from_test_ast(module: cst.Module) -> Arazzo:
     visitor = ASTWorkflowTestExtractor()
     module.visit(visitor)
 
-    if visitor.snapshot_spec is not None:
-        return Arazzo(**visitor.snapshot_spec)
+    info_obj = (
+        ArazzoInfo(**visitor.info_dict)
+        if visitor.info_dict
+        else ArazzoInfo(title="Extracted Test Workflows", version="1.0.0")
+    )
+    sources = (
+        [SourceDescription(**sd) for sd in visitor.source_descriptions]
+        if visitor.source_descriptions
+        else [SourceDescription(name="default", url="openapi.json", type="openapi")]
+    )
 
     return Arazzo(
         arazzo="1.1.0",
-        info=ArazzoInfo(title="Extracted Test Workflows", version="1.0.0"),
-        sourceDescriptions=[
-            SourceDescription(name="default", url="openapi.json", type="openapi")
-        ],
+        info=info_obj,
+        sourceDescriptions=sources,
         workflows=visitor.workflows,
     )
 

@@ -59,7 +59,7 @@ from openapi_client.tests.emit_server_tests import emit_server_tests
 from openapi_client.tests.parse import extract_tests_from_ast
 
 
-def test_emit_readme():
+def test_emit_readme() -> None:
     """Test emit_readme with empty spec."""
     spec = OpenAPI(info={"title": "Test Title", "version": "1.0"}, openapi="3.2.0")
     code = emit_readme(spec)
@@ -182,7 +182,11 @@ def something():
 
 
 def test_cli_edge_cases(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test CLI edge cases including truth options and write_generated branches."""
+    """Test CLI edge cases including truth options and write_generated branches.
+
+    Args:
+        monkeypatch: Parameter .
+    """
     with (
         mock.patch("sys.argv", ["cli.py", "serve_json_rpc", "--port", "1234"]),
         mock.patch("openapi_client.cli.serve_json_rpc") as mock_run,
@@ -278,7 +282,11 @@ def test_cli_param_no_name() -> None:
 
 
 def test_openapi_parse_edge_cases(tmp_path: Path) -> None:
-    """Test resolve_external_refs cycle detection and non-file refs."""
+    """Test resolve_external_refs cycle detection and non-file refs.
+
+    Args:
+        tmp_path: Parameter .
+    """
     f1 = tmp_path / "cycle.json"
     f1.write_text('{"$ref": "cycle.json"}', encoding="utf-8")
     res = resolve_external_refs({"$ref": "cycle.json"}, base_path=tmp_path)
@@ -318,7 +326,11 @@ def test_sqlalchemy_and_cli_cdd_parse_edge_cases() -> None:
 
 
 def test_mocks_and_tests_emit_parse_edge_cases(tmp_path: Path) -> None:
-    """Test remaining branches in classes, tests, fastapi, and seeder modules."""
+    """Test remaining branches in classes, tests, fastapi, and seeder modules.
+
+    Args:
+        tmp_path: Parameter .
+    """
     assert (
         _schema_to_type_annotation(Reference(**{"$ref": "#/components/schemas/123bad"}))
         == "Any"
@@ -379,7 +391,7 @@ def test_mocks_and_tests_emit_parse_edge_cases(tmp_path: Path) -> None:
         },
     )
     test_code = """
-def test_stream_events():
+def test_stream_events() -> None:
     res = "text/event-stream"
 
 def stream_new_endpoint():
@@ -472,3 +484,336 @@ def stream_new_endpoint():
         mock.patch("openapi_client.cli.emit_dao", return_value={"empty_dao.py": ""}),
     ):
         sync_dir(str(tmp_path / "out_s"))
+
+
+def test_emit_fastapi_dao_routes_and_execution(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test emit_fastapi with typed parameters, request bodies, response models, and live SQLite DAO execution.
+
+    Args:
+        tmp_path: Parameter .
+        monkeypatch: Parameter .
+    """
+    import importlib
+    import types
+
+    from openapi_client.dao.emit import emit_dao
+    from openapi_client.db.emit import emit_db
+    from tests.test_dao_db_seeder import _install_sqlite_sqlalchemy_shim
+
+    _install_sqlite_sqlalchemy_shim(monkeypatch)
+
+    # Lightweight FastAPI + Uvicorn shim for executing generated main.py and routes/users.py
+    fastapi_mod = types.ModuleType("fastapi")
+
+    class APIRouter:
+        """Minimal APIRouter shim recording registered route handlers."""
+
+        def __init__(self, tags: list[str] | None = None) -> None:
+            """Initialize router with tags.
+
+            Args:
+                tags: Parameter .
+            """
+            self.tags = tags or []
+            self.routes: dict[tuple[str, str], object] = {}
+
+        def _register(self, method: str, path: str):
+            """Return decorator registering `(method, path)`.
+
+            Args:
+                method: Parameter .
+                path: Parameter .
+            """
+
+            def _dec(fn: object) -> object:
+                """Store route function.
+
+                Args:
+                    fn: Parameter .
+                """
+                self.routes[(method, path)] = fn
+                return fn
+
+            return _dec
+
+        def get(self, path: str):
+            """Register GET handler.
+
+            Args:
+                path: Parameter .
+            """
+            return self._register("GET", path)
+
+        def post(self, path: str):
+            """Register POST handler.
+
+            Args:
+                path: Parameter .
+            """
+            return self._register("POST", path)
+
+        def put(self, path: str):
+            """Register PUT handler.
+
+            Args:
+                path: Parameter .
+            """
+            return self._register("PUT", path)
+
+        def delete(self, path: str):
+            """Register DELETE handler.
+
+            Args:
+                path: Parameter .
+            """
+            return self._register("DELETE", path)
+
+        def patch(self, path: str):
+            """Register PATCH handler.
+
+            Args:
+                path: Parameter .
+            """
+            return self._register("PATCH", path)
+
+    class FastAPI(APIRouter):
+        """Minimal FastAPI app shim."""
+
+        def __init__(
+            self, title: str = "", version: str = "", description: str = ""
+        ) -> None:
+            """Initialize FastAPI app metadata.
+
+            Args:
+                title: Parameter .
+                version: Parameter .
+                description: Parameter .
+            """
+            super().__init__()
+            self.title = title
+            self.version = version
+            self.description = description
+            self.routers: list[APIRouter] = []
+
+        def add_middleware(self, *args: object, **kwargs: object) -> None:
+            """Record middleware registration.
+
+            Args:
+                *args: Parameter .
+                **kwargs: Parameter .
+            """
+
+        def middleware(self, kind: str):
+            """Return middleware decorator.
+
+            Args:
+                kind: Parameter .
+            """
+            _ = kind
+            return lambda fn: fn
+
+        def include_router(self, router: APIRouter) -> None:
+            """Include a sub-router.
+
+            Args:
+                router: Parameter .
+            """
+            self.routers.append(router)
+            self.routes.update(router.routes)
+
+    fastapi_mod.APIRouter = APIRouter  # type: ignore[attr-defined]
+    fastapi_mod.FastAPI = FastAPI  # type: ignore[attr-defined]
+    fastapi_mod.HTTPException = Exception  # type: ignore[attr-defined]
+    fastapi_mod.Request = object  # type: ignore[attr-defined]
+
+    cors_mod = types.ModuleType("fastapi.middleware.cors")
+    cors_mod.CORSMiddleware = object  # type: ignore[attr-defined]
+
+    uvicorn_mod = types.ModuleType("uvicorn")
+    uvicorn_mod.run = lambda *a, **kw: None  # type: ignore[attr-defined]
+
+    monkeypatch.setitem(sys.modules, "fastapi", fastapi_mod)
+    monkeypatch.setitem(
+        sys.modules, "fastapi.middleware", types.ModuleType("fastapi.middleware")
+    )
+    monkeypatch.setitem(sys.modules, "fastapi.middleware.cors", cors_mod)
+    monkeypatch.setitem(sys.modules, "uvicorn", uvicorn_mod)
+
+    # Empty paths spec
+    empty_fa = emit_fastapi(
+        OpenAPI(
+            openapi="3.2.0",
+            info=Info(title="Empty", version="1.0", description="Server description"),
+            paths=None,
+        )
+    )
+    assert "Server description" in empty_fa["main.py"]
+
+    # Rich spec with User model, parameters, requestBody variants, and response variants
+    spec = OpenAPI(
+        openapi="3.2.0",
+        info=Info(title="Users API", version="1.0", description="Users service"),
+        components=Components(
+            schemas={
+                "Other": Schema(
+                    type="object",
+                    properties={"id": Schema(type="integer")},
+                ),
+                "User": Schema(
+                    type="object",
+                    properties={
+                        "id": Schema(type="integer"),
+                        "name": Schema(type="string"),
+                        "email": Schema(type="string"),
+                    },
+                ),
+            }
+        ),
+        paths={
+            "/users": PathItem(
+                get=Operation(
+                    operationId="list_users",
+                    parameters=[
+                        Parameter(
+                            name="limit", in_="query", schema=Schema(type="integer")
+                        ),
+                        Parameter(
+                            name="limit", in_="query", schema=Schema(type="integer")
+                        ),
+                    ],
+                    responses={
+                        "200": Response(
+                            description="OK",
+                            content={
+                                "application/json": MediaType(
+                                    schema=Schema(type="string")
+                                )
+                            },
+                        )
+                    },
+                ),
+                post=Operation(
+                    operationId="create_user",
+                    requestBody=RequestBody(
+                        content={
+                            "application/json": MediaType(
+                                schema=Reference(ref="#/components/schemas/User")
+                            )
+                        }
+                    ),
+                    responses={
+                        "201": Response(
+                            description="Created",
+                            content={
+                                "application/json": MediaType(
+                                    schema=Reference(ref="#/components/schemas/User")
+                                )
+                            },
+                        )
+                    },
+                ),
+                put=Operation(
+                    operationId="replace_users",
+                    requestBody=RequestBody(
+                        content={
+                            "application/json": MediaType(schema=Schema(type="object"))
+                        }
+                    ),
+                    responses={"200": Response(description="No content", content={})},
+                ),
+                patch=Operation(
+                    operationId="patch_users",
+                    requestBody=RequestBody(
+                        content={"application/json": MediaType(schema=Schema())}
+                    ),
+                    responses={
+                        "200": Response(
+                            description="Any schema",
+                            content={"application/json": MediaType(schema=Schema())},
+                        )
+                    },
+                ),
+                delete=Operation(
+                    operationId="clear_users",
+                    requestBody=RequestBody(content={}),
+                    responses={
+                        "200": Response(
+                            description="Null media schema",
+                            content={"application/json": MediaType(schema=None)},
+                        )
+                    },
+                ),
+            ),
+            "/users/{id}": PathItem(
+                get=Operation(
+                    operationId="get_user",
+                    parameters=[
+                        Parameter(name="id", in_="path", schema=Schema(type="integer"))
+                    ],
+                ),
+                delete=Operation(operationId="delete_user"),
+            ),
+        },
+    )
+
+    files: dict[str, str] = {}
+    files.update(emit_sqlalchemy(spec))
+    files.update(emit_dao(spec))
+    files["db.py"] = emit_db(spec)
+    files.update(emit_seeder(spec))
+    files.update(emit_fastapi(spec))
+
+    for rel_path, content in files.items():
+        full_path = tmp_path / rel_path
+        full_path.parent.mkdir(parents=True, exist_ok=True)
+        full_path.write_text(content, encoding="utf-8")
+
+    monkeypatch.syspath_prepend(str(tmp_path))
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("EPHEMERAL_DB", raising=False)
+
+    for mod_name in ("models", "db", "dao", "mocks", "seeder", "routes", "main"):
+        for loaded in list(sys.modules):
+            if loaded == mod_name or loaded.startswith(f"{mod_name}."):
+                sys.modules.pop(loaded, None)
+
+    db_mod = importlib.import_module("db")
+    users_route = importlib.import_module("routes.users")
+
+    # 1. Stub mode (no DB configured -> returns {"message": "Not implemented"})
+    assert users_route.list_users() == {"message": "Not implemented"}
+    assert users_route.get_user(1) == {"message": "Not implemented"}
+    assert users_route.create_user({"name": "Bob", "email": "b@example.com"}) == {
+        "message": "Not implemented"
+    }
+    assert users_route.delete_user(1) == {"message": "Not implemented"}
+    assert users_route.clear_users() == {"message": "Not implemented"}
+
+    # 2. Ephemeral DB mode -> executes real CRUD via ConcreteUserDAO
+    monkeypatch.setenv("EPHEMERAL_DB", "1")
+    db_mod.setup_database(ephemeral=True)
+
+    created = users_route.create_user({"name": "Bob", "email": "b@example.com"})
+    assert created["name"] == "Bob"
+    user_id = created["id"]
+
+    all_users = users_route.list_users()
+    assert len(all_users) == 1
+    assert all_users[0]["email"] == "b@example.com"
+
+    fetched = users_route.get_user(user_id)
+    assert fetched is not None
+    assert fetched["name"] == "Bob"
+
+    assert users_route.clear_users() == {"message": "Not implemented"}
+
+    deleted = users_route.delete_user(user_id)
+    assert deleted == {"deleted": True}
+    assert users_route.get_user(user_id) is None
+
+    for mod_name in ("models", "db", "dao", "mocks", "seeder", "routes", "main"):
+        for loaded in list(sys.modules):
+            if loaded == mod_name or loaded.startswith(f"{mod_name}."):
+                sys.modules.pop(loaded, None)

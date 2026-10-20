@@ -7,28 +7,8 @@ from collections import OrderedDict
 
 from cdd.emit.sqlalchemy import sqlalchemy
 
-from openapi_client.functions.utils import sanitize_name
+from openapi_client.functions.utils import map_openapi_type_to_python, sanitize_name
 from openapi_client.models import OpenAPI
-
-
-def map_openapi_type_to_python(openapi_type: str) -> str:
-    """Map OpenAPI type to Python type for SQLAlchemy emission.
-
-    Args:
-        openapi_type: The OpenAPI type string.
-
-    Returns:
-        The mapped Python type string.
-    """
-    type_map = {
-        "string": "str",
-        "integer": "int",
-        "number": "float",
-        "boolean": "bool",
-        "array": "dict",
-        "object": "dict",
-    }
-    return type_map.get(openapi_type, "str")
 
 
 def emit_sqlalchemy(spec: OpenAPI) -> dict[str, str]:
@@ -102,3 +82,6 @@ def emit_sqlalchemy(spec: OpenAPI) -> dict[str, str]:
     files["models/__init__.py"] = "\n".join(init_body)
 
     return files
+
+
+emit_sqlalchemy_cdd = emit_sqlalchemy

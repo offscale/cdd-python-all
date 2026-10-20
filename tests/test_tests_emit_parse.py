@@ -20,13 +20,13 @@ from openapi_client.tests.emit import emit_tests
 from openapi_client.tests.emit_server_tests import emit_server_tests
 
 
-def test_emit_server_tests_empty():
+def test_emit_server_tests_empty() -> None:
     """Test emit_server_tests with empty spec."""
     spec = OpenAPI(info={"title": "Test", "version": "1.0"}, openapi="3.2.0")
     assert emit_server_tests(spec) == {}
 
 
-def test_emit_server_tests_with_models():
+def test_emit_server_tests_with_models() -> None:
     """Test emit_server_tests with models."""
     spec = OpenAPI(
         info={"title": "Test", "version": "1.0"},
@@ -57,7 +57,7 @@ def test_emit_server_tests_with_models():
     assert "def test_auth_endpoints_mock():" in code["test_advanced.py"]
 
 
-def test_emit_server_tests_no_paths():
+def test_emit_server_tests_no_paths() -> None:
     """Test emit_server_tests with models but no paths."""
     spec = OpenAPI(
         info={"title": "Test", "version": "1.0"},
@@ -74,7 +74,7 @@ def test_emit_server_tests_no_paths():
     assert "pass # No GET endpoints found in spec" in code["test_stub.py"]
 
 
-def test_emit_tests_xml_array():
+def test_emit_tests_xml_array() -> None:
     """Test test_emit_tests_xml_array."""
     from openapi_client.models import MediaType, Operation, RequestBody, Schema
     from openapi_client.tests.emit import emit_operation_test
@@ -93,7 +93,7 @@ def test_emit_tests_xml_array():
     assert func.name.value == "test_test_xml"
 
 
-def test_emit_tests_empty_content():
+def test_emit_tests_empty_content() -> None:
     """Test test_emit_tests_empty_content."""
     from openapi_client.models import Operation, RequestBody
     from openapi_client.tests.emit import emit_operation_test
@@ -103,7 +103,7 @@ def test_emit_tests_empty_content():
     assert func.name.value == "test_test_empty"
 
 
-def test_emit_tests_other_content():
+def test_emit_tests_other_content() -> None:
     """Test test_emit_tests_other_content."""
     from openapi_client.models import MediaType, Operation, RequestBody, Schema
     from openapi_client.tests.emit import emit_operation_test
@@ -118,7 +118,7 @@ def test_emit_tests_other_content():
     assert func.name.value == "test_test_other"
 
 
-def test_get_stub_body_array_of_objects():
+def test_get_stub_body_array_of_objects() -> None:
     """Test test_get_stub_body_array_of_objects."""
     from openapi_client.models import Schema
     from openapi_client.tests.emit import get_stub_body
@@ -132,7 +132,7 @@ def test_get_stub_body_array_of_objects():
     assert val.elements[0].value.elements[0].key.value == '"id"'
 
 
-def test_emit_tests_exception_content():
+def test_emit_tests_exception_content() -> None:
     """Test test_emit_tests_exception_content."""
     from openapi_client.models import Operation, RequestBody
     from openapi_client.tests.emit import emit_operation_test
@@ -152,7 +152,7 @@ def test_emit_tests_exception_content():
     assert func.name.value == "test_test_exception"
 
 
-def test_emit_tests_body_param_exception():
+def test_emit_tests_body_param_exception() -> None:
     """Test test_emit_tests_body_param_exception."""
     from openapi_client.models import Operation
     from openapi_client.tests.emit import emit_operation_test
@@ -175,7 +175,7 @@ def test_emit_tests_body_param_exception():
         emit_operation_test("post", "/test", op)
 
 
-def test_emit_tests_other_param():
+def test_emit_tests_other_param() -> None:
     """Test test_emit_tests_other_param."""
     from openapi_client.models import Operation, Parameter, Schema
     from openapi_client.tests.emit import emit_operation_test
@@ -190,7 +190,7 @@ def test_emit_tests_other_param():
     assert func.name.value == "test_test_other_param"
 
 
-def test_emit_tests_request_body_reference():
+def test_emit_tests_request_body_reference() -> None:
     """Test emit_operation_test when requestBody is a Reference without content."""
     from openapi_client.models import Operation, Reference
     from openapi_client.tests.emit import emit_operation_test
@@ -203,7 +203,7 @@ def test_emit_tests_request_body_reference():
     assert func.name.value == "test_test_request_body_reference"
 
 
-def test_emit_tests_other_param_exception():
+def test_emit_tests_other_param_exception() -> None:
     """Test test_emit_tests_other_param_exception."""
     from openapi_client.models import Operation
     from openapi_client.tests.emit import emit_operation_test
@@ -226,7 +226,7 @@ def test_emit_tests_other_param_exception():
         emit_operation_test("post", "/test", op)
 
 
-def test_emit_tests_other_param_exception_real():
+def test_emit_tests_other_param_exception_real() -> None:
     """Test test_emit_tests_other_param_exception_real."""
     from openapi_client.models import Operation, Parameter
     from openapi_client.tests.emit import emit_operation_test
@@ -239,7 +239,7 @@ def test_emit_tests_other_param_exception_real():
     assert func.name.value == "test_test_other_param_exception"
 
 
-def test_emit_tests_body_param_exception_real():
+def test_emit_tests_body_param_exception_real() -> None:
     """Test test_emit_tests_body_param_exception_real."""
     from openapi_client.models import Operation, Parameter
     from openapi_client.tests.emit import emit_operation_test
@@ -283,7 +283,7 @@ def test_coverage_emit_branches_4() -> None:
     assert "test_get_bad" not in mod.code
 
 
-def test_parse_tests_coverage():
+def test_parse_tests_coverage() -> None:
     """Test test_parse_tests_coverage."""
     import libcst as cst
 
@@ -293,22 +293,22 @@ def test_parse_tests_coverage():
     spec = OpenAPI(openapi="3.2.0", info={"title": "Test", "version": "1.0.0"})
 
     code = '''
-def test_stream_something():
+def test_stream_something() -> None:
     """Test stream something."""
     response = "text/event-stream"
 
-def test_stream_but_no_event_stream():
+def test_stream_but_no_event_stream() -> None:
     """Test stream but no event stream."""
     response = "application/json"
 
-def test_normal_function():
+def test_normal_function() -> None:
     pass
 '''
     module = cst.parse_module(code)
     extract_tests_from_ast(module, spec)
 
 
-def test_emit_complex_query_parameter():
+def test_emit_complex_query_parameter() -> None:
     # spaceDelimited, pipeDelimited
     """Test test_emit_complex_query_parameter."""
     op = Operation(
@@ -336,7 +336,7 @@ def test_emit_complex_query_parameter():
     assert "pipeDelimited" in code or "'|'" in code
 
 
-def test_mock_streaming_extraction():
+def test_mock_streaming_extraction() -> None:
     """Test test_mock_streaming_extraction."""
     spec = OpenAPI(openapi="3.2.0", info={"title": "test", "version": "1.0"})
     extractor = MockServerExtractor(spec)
@@ -349,7 +349,7 @@ def test_mock_streaming_extraction():
     assert "text/event-stream" in op.responses["200"].content
 
 
-def test_parse_sqlalchemy_cdd():
+def test_parse_sqlalchemy_cdd() -> None:
     """Test test_parse_sqlalchemy_cdd."""
     import libcst as cst
 
@@ -362,7 +362,7 @@ def test_parse_sqlalchemy_cdd():
     )
 
 
-def test_parse_cli_sdk_cdd():
+def test_parse_cli_sdk_cdd() -> None:
     """Test test_parse_cli_sdk_cdd."""
     import libcst as cst
 
@@ -375,7 +375,7 @@ def test_parse_cli_sdk_cdd():
     )
 
 
-def test_emit_function_requestBody():
+def test_emit_function_requestBody() -> None:
     """Test test_emit_function_requestBody."""
     from openapi_client.functions.emit import emit_function
     from openapi_client.models import Operation, RequestBody
@@ -388,7 +388,7 @@ def test_emit_function_requestBody():
     assert "body" in str(node)
 
 
-def test_emit_tests():
+def test_emit_tests() -> None:
     """Test test_emit_tests."""
     from openapi_client.models import (
         OpenAPI,
@@ -437,7 +437,7 @@ def test_emit_tests():
     assert "post_things" in str(module.code)
 
 
-def test_get_dummy_value_for_schema():
+def test_get_dummy_value_for_schema() -> None:
     """Test test_get_dummy_value_for_schema."""
     from openapi_client.models import Schema
     from openapi_client.tests.emit import get_dummy_value_for_schema
@@ -459,7 +459,7 @@ def test_get_dummy_value_for_schema():
     assert "None" in str(get_dummy_value_for_schema(Schema(type="unknown")))
 
 
-def test_emit_tests_more():
+def test_emit_tests_more() -> None:
     """Test test_emit_tests_more."""
     from openapi_client.models import (
         OpenAPI,
@@ -513,7 +513,7 @@ def test_emit_tests_more():
     emit_tests(spec, composable=False)
 
 
-def test_emit_tests_exception():
+def test_emit_tests_exception() -> None:
     """Test test_emit_tests_exception."""
     from openapi_client.models import OpenAPI, Operation, PathItem, RequestBody
     from openapi_client.tests.emit import emit_tests
@@ -534,4 +534,6 @@ def test_emit_tests_exception():
         info={"title": "test", "version": "1.0"},
         paths={"/err": PathItem(post=op)},
     )
-    emit_tests(spec)
+    mod = emit_tests(spec)
+    assert "def test_err():" in mod.code
+    assert "response = client.err(" in mod.code

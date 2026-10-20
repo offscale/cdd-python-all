@@ -90,7 +90,7 @@ import traceback
 
 def start_mcp_server(client):
     """Run the MCP server reading from stdin and writing to stdout."""
-    tools = {tools_json}
+    tools = json.loads({tools_json!r})
 
     def send_response(id, result=None, error=None):
         resp = {{"jsonrpc": "2.0", "id": id}}

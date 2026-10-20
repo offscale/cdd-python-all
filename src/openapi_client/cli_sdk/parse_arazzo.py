@@ -37,20 +37,26 @@ class CLIArazzoExtractor(cst.CSTVisitor):
 
     def __init__(self) -> None:
         """Initialize the `CLIArazzoExtractor`."""
-        self.snapshot_spec: dict[str, Any] | None = None
+        self.info_dict: dict[str, Any] | None = None
+        self.source_descriptions: list[dict[str, Any]] | None = None
         self.title: str = "CLI Workflows"
         self.description: str | None = None
         self.version: str = "1.0.0"
         self.parser_var_to_workflow: dict[str, dict[str, Any]] = {}
 
     def visit_AnnAssign(self, node: cst.AnnAssign) -> None:
-        """Check for `__arazzo_cli_spec__` snapshot assignment.
+        """Extract module-level `__arazzo_info__` and `__source_descriptions__` annotations.
 
         Args:
             node: The `libcst.AnnAssign` node being visited.
         """
-        lit = _eval_arg_literal(node.value) if node.value else None
-        self.snapshot_spec = lit if isinstance(lit, dict) else self.snapshot_spec
+        t_name = node.target.value if isinstance(node.target, cst.Name) else ""
+        attr = {
+            "__arazzo_info__": "info_dict",
+            "__source_descriptions__": "source_descriptions",
+        }.get(t_name)
+        if attr and node.value is not None:
+            setattr(self, attr, _eval_arg_literal(node.value))
 
     def visit_Assign(self, node: cst.Assign) -> None:
         """Extract `ArgumentParser(...)` and `subparsers.add_parser(...)` assignments.
@@ -78,23 +84,44 @@ class CLIArazzoExtractor(cst.CSTVisitor):
             )
         elif func_code.endswith(".add_parser") and call.args:
             wf_id = str(_eval_arg_literal(call.args[0].value))
+            help_val = str(kwargs["help"]) if "help" in kwargs else None
+            desc_val = str(kwargs["description"]) if "description" in kwargs else None
             self.parser_var_to_workflow[var_name] = {
                 "workflowId": wf_id,
-                "summary": str(kwargs["help"]) if "help" in kwargs else None,
-                "description": str(kwargs["description"])
-                if "description" in kwargs
-                else None,
+                "summary": None if help_val == f"Run workflow {wf_id}" else help_val,
+                "description": None
+                if desc_val in (help_val, f"Run workflow {wf_id}")
+                else desc_val,
                 "properties": {},
                 "required": [],
+                "steps": None,
             }
 
     def visit_Call(self, node: cst.Call) -> None:
-        """Extract `.add_argument(...)` flags on parser and workflow subparsers.
+        """Extract `.add_argument(...)` and `.set_defaults(...)` calls on workflow subparsers.
 
         Args:
             node: The `libcst.Call` node being visited.
         """
         func_code = cst.Module([]).code_for_node(node.func).strip()
+        if func_code.endswith(".set_defaults"):
+            owner_var = func_code[: -len(".set_defaults")]
+            wf_entry = self.parser_var_to_workflow.get(owner_var)
+            if wf_entry is not None:
+                defaults_map = {
+                    arg.keyword.value: _eval_arg_literal(arg.value)
+                    for arg in node.args
+                    if arg.keyword is not None
+                }
+                wf_entry["steps"] = [
+                    StepObject(**s) for s in defaults_map.get("_steps", [])
+                ] or wf_entry["steps"]
+                wf_entry["summary"] = defaults_map.get("_summary", wf_entry["summary"])
+                wf_entry["description"] = defaults_map.get(
+                    "_description", wf_entry["description"]
+                )
+            return
+
         if not func_code.endswith(".add_argument") or not node.args:
             return
         owner_var = func_code[: -len(".add_argument")]
@@ -139,7 +166,9 @@ class CLIArazzoExtractor(cst.CSTVisitor):
             else:
                 help_text = str(_eval_arg_literal(arg.value))
 
-        prop_schema: dict[str, Any] = {"type": json_type, "description": help_text}
+        prop_schema: dict[str, Any] = {"type": json_type}
+        if help_text and help_text != f"Input parameter {prop_name}":
+            prop_schema["description"] = help_text
         if default_val is not None:
             prop_schema["default"] = default_val
         wf_entry["properties"][prop_name] = prop_schema
@@ -159,9 +188,6 @@ def extract_arazzo_from_cli_ast(module: cst.Module) -> Arazzo:
     visitor = CLIArazzoExtractor()
     module.visit(visitor)
 
-    if visitor.snapshot_spec is not None:
-        return Arazzo(**visitor.snapshot_spec)
-
     workflows: list[WorkflowObject] = []
     for wf_data in visitor.parser_var_to_workflow.values():
         wf_id = wf_data["workflowId"]
@@ -176,26 +202,36 @@ def extract_arazzo_from_cli_ast(module: cst.Module) -> Arazzo:
             if props
             else None
         )
+        steps = wf_data["steps"] or [StepObject(stepId="step_1", operationId=wf_id)]
         workflows.append(
             WorkflowObject(
                 workflowId=wf_id,
                 summary=wf_data["summary"],
                 description=wf_data["description"],
                 inputs=inputs,
-                steps=[StepObject(stepId="step_1", operationId=wf_id)],
+                steps=steps,
             )
         )
 
-    return Arazzo(
-        arazzo="1.1.0",
-        info=ArazzoInfo(
+    info_obj = (
+        ArazzoInfo(**visitor.info_dict)
+        if visitor.info_dict
+        else ArazzoInfo(
             title=visitor.title,
             description=visitor.description,
             version=visitor.version,
-        ),
-        sourceDescriptions=[
-            SourceDescription(name="default", url="openapi.json", type="openapi")
-        ],
+        )
+    )
+    sources = (
+        [SourceDescription(**sd) for sd in visitor.source_descriptions]
+        if visitor.source_descriptions
+        else [SourceDescription(name="default", url="openapi.json", type="openapi")]
+    )
+
+    return Arazzo(
+        arazzo="1.1.0",
+        info=info_obj,
+        sourceDescriptions=sources,
         workflows=workflows,
     )
 

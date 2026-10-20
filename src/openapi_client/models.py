@@ -118,8 +118,10 @@ class Schema(OpenAPIBase):
     example: Any | None = None
     ref: str | None = Field(None, alias="$ref")
     type: str | list[str] | None = None
+    format: str | None = None
     properties: dict[str, SchemaOrReference] | None = None
-    items: SchemaOrReference | list[SchemaOrReference] | None = None
+    additionalProperties: SchemaOrReference | bool | None = None
+    items: SchemaOrReference | list[SchemaOrReference] | bool | None = None
     allOf: list[SchemaOrReference] | None = None
     anyOf: list[SchemaOrReference] | None = None
     oneOf: list[SchemaOrReference] | None = None
@@ -405,6 +407,26 @@ class OpenAPI(OpenAPIBase):
 
 SchemaOrReference = Union[Schema, Reference]
 
-for model in list(locals().values()):
-    if isinstance(model, type) and issubclass(model, BaseModel) and model != BaseModel:
-        model.model_rebuild()
+for _model in (
+    Discriminator,
+    XML,
+    ExternalDocumentation,
+    Schema,
+    Example,
+    Encoding,
+    MediaType,
+    Header,
+    Parameter,
+    RequestBody,
+    Link,
+    Response,
+    Callback,
+    Operation,
+    ServerVariable,
+    Server,
+    PathItem,
+    Paths,
+    Components,
+    OpenAPI,
+):
+    _model.model_rebuild()

@@ -35,7 +35,7 @@ class MCPSSEServer(BaseHTTPRequestHandler):
     """HTTP Server handling SSE connections for MCP."""
 
     clients = {{}}
-    tools = {tools_json}
+    tools = json.loads({tools_json!r})
 
     def do_OPTIONS(self):
         self.send_response(200)

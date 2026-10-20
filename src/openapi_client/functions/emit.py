@@ -2,11 +2,28 @@
 
 from __future__ import annotations
 
+import keyword
+import re as _re
+
 import libcst as cst
 
 from openapi_client.docstrings.emit import emit_function_docstring
 from openapi_client.functions.utils import get_annotation_for_schema, sanitize_name
 from openapi_client.models import OpenAPI, Operation
+
+
+def _safe_param_name(raw_name: str) -> str:
+    """Sanitize a parameter name while preserving valid camelCase identifiers.
+
+    Args:
+        raw_name: Raw parameter name from OpenAPI.
+
+    Returns:
+        A valid non-keyword Python identifier string.
+    """
+    if raw_name.isidentifier() and not keyword.iskeyword(raw_name):
+        return raw_name
+    return sanitize_name(raw_name)
 
 
 def emit_function(method: str, path: str, operation: Operation) -> cst.FunctionDef:
@@ -21,6 +38,8 @@ def emit_function(method: str, path: str, operation: Operation) -> cst.FunctionD
         The generated LibCST FunctionDef node for the method.
     """
     params_list = [cst.Param(name=cst.Name("self"))]
+    required_params: list[cst.Param] = []
+    optional_params: list[cst.Param] = []
 
     docstring = emit_function_docstring(operation)
 
@@ -40,7 +59,7 @@ def emit_function(method: str, path: str, operation: Operation) -> cst.FunctionD
             if getattr(p, "in_", getattr(p, "in", None)) == "body":
                 has_body_param = True
                 if hasattr(p, "name"):
-                    body_param_name = p.name.replace("-", "_")
+                    body_param_name = _safe_param_name(p.name)
 
         has_query_params = any(
             getattr(p, "in_", getattr(p, "in", None)) == "query"
@@ -61,22 +80,38 @@ def emit_function(method: str, path: str, operation: Operation) -> cst.FunctionD
 
         for param in operation.parameters:
             if hasattr(param, "name"):
-                param_name = param.name.replace("-", "_")
+                param_name = _safe_param_name(param.name)
 
                 schema_obj = getattr(param, "schema_", getattr(param, "schema", None))
                 annotation_str = get_annotation_for_schema(schema_obj)
 
-                if annotation_str.startswith(("list", "dict")):
+                if (
+                    annotation_str.startswith(("list", "dict"))
+                    or "|" in annotation_str
+                    or "." in annotation_str
+                ):
                     ann_node = cst.parse_expression(annotation_str)
                 else:
                     ann_node = cst.Name(annotation_str)
 
-                params_list.append(
-                    cst.Param(
-                        name=cst.Name(param_name),
-                        annotation=cst.Annotation(ann_node),
+                param_default = getattr(param, "default", None)
+                if param_default is None and schema_obj is not None:
+                    param_default = getattr(schema_obj, "default", None)
+                if param_default is not None:
+                    optional_params.append(
+                        cst.Param(
+                            name=cst.Name(param_name),
+                            annotation=cst.Annotation(ann_node),
+                            default=cst.Name("None"),
+                        )
                     )
-                )
+                else:
+                    required_params.append(
+                        cst.Param(
+                            name=cst.Name(param_name),
+                            annotation=cst.Annotation(ann_node),
+                        )
+                    )
 
                 p_in = getattr(param, "in_", getattr(param, "in", None))
                 if p_in in ("formData", "form"):
@@ -190,17 +225,22 @@ def emit_function(method: str, path: str, operation: Operation) -> cst.FunctionD
                         )
 
     if operation.requestBody:
-        params_list.append(
+        optional_params.append(
             cst.Param(
                 name=cst.Name("body"),
                 annotation=cst.Annotation(cst.Name("dict")),
                 default=cst.Name("None"),
             )
         )
+    params_list.extend(required_params)
+    params_list.extend(optional_params)
     body_statements.extend(query_statements)
 
     if "{" in path and "}" in path:
-        url_value = cst.parse_expression(f'self.base_url + f"{path}"')
+        safe_path = _re.sub(
+            r"\{([^}]+)\}", lambda m: "{" + _safe_param_name(m.group(1)) + "}", path
+        )
+        url_value = cst.parse_expression(f'self.base_url + f"{safe_path}"')
     else:
         url_value = cst.BinaryOperation(
             left=cst.Attribute(value=cst.Name("self"), attr=cst.Name("base_url")),

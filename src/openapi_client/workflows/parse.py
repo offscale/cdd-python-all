@@ -120,6 +120,7 @@ def _extract_step_from_call(
     timeout_val: int | None = None
     action_val: Any = None
     corr_val: str | None = None
+    content_type_val: str | None = None
     req_body: ArazzoRequestBody | None = None
 
     for arg in call_node.args:
@@ -127,9 +128,15 @@ def _extract_step_from_call(
             continue
         kw = arg.keyword.value
         val = extract_expression_from_cst(arg.value)
-        if kw == "body":
+        if kw == "operation_path" and isinstance(val, str):
+            operation_path = val
+            operation_id = None
+        elif kw == "content_type" and isinstance(val, str):
+            content_type_val = val
+        elif kw == "body":
             payload_val = step_body_expr if step_body_expr is not None else val
             req_body = ArazzoRequestBody(
+                contentType=content_type_val,
                 payload=payload_val,
                 replacements=step_replacements,
             )
@@ -190,7 +197,6 @@ class WorkflowExtractor(cst.CSTVisitor):
             {"name": "default", "url": "openapi.json", "type": "openapi"}
         ]
         self.components_dict: dict[str, Any] | None = None
-        self.snapshot_spec: dict[str, Any] | None = None
         self.extracted_workflows: list[WorkflowObject] = []
 
     def visit_ClassDef(self, node: cst.ClassDef) -> None:
@@ -236,20 +242,16 @@ class WorkflowExtractor(cst.CSTVisitor):
                             "components_dict",
                             lit if isinstance(lit, dict) else None,
                         ),
-                        "__arazzo_spec__": (
-                            "snapshot_spec",
-                            lit if isinstance(lit, dict) else None,
-                        ),
                     }
                     attr_key, attr_val = attr_map.get(target_name, ("_ignored", None))
                     setattr(self, attr_key, attr_val)
 
-            else:
-                assert isinstance(stmt, cst.FunctionDef)
-                if not stmt.name.value.startswith("_"):
-                    self.extracted_workflows.append(
-                        self._extract_workflow_from_method(stmt)
-                    )
+            elif isinstance(stmt, cst.FunctionDef) and not stmt.name.value.startswith(
+                "_"
+            ):
+                self.extracted_workflows.append(
+                    self._extract_workflow_from_method(stmt)
+                )
 
     def _extract_workflow_from_method(self, node: cst.FunctionDef) -> WorkflowObject:
         """Extract a `WorkflowObject` from a workflow method `FunctionDef`.
@@ -262,12 +264,23 @@ class WorkflowExtractor(cst.CSTVisitor):
         """
         wf_id = node.name.value
         summary, description = parse_docstring(node)
+        param_docs: dict[str, str] = {}
+        if description and "Args:" in description:
+            args_part = description.split("Args:", 1)[1].split("Returns:", 1)[0]
+            for line in args_part.splitlines():
+                if ":" in line:
+                    k_p, v_p = line.split(":", 1)
+                    param_docs[k_p.strip()] = v_p.strip()
         description = (
             description.split("Args:", 1)[0].split("Returns:", 1)[0].strip() or None
             if description
             else None
         )
-        summary = summary.split("Returns:", 1)[0].strip() or None if summary else None
+        summary = (
+            summary.split("Returns:", 1)[0].strip() or None
+            if summary and summary != f"Execute workflow {wf_id}."
+            else None
+        )
 
         props: dict[str, Any] = {}
         required: list[str] = []
@@ -281,12 +294,15 @@ class WorkflowExtractor(cst.CSTVisitor):
                 else "str"
             )
             prop_entry: dict[str, Any] = {"type": _python_type_to_json_type(ann_code)}
+            if param_docs.get(p_name, f"Workflow input {p_name}.") != (
+                f"Workflow input {p_name}."
+            ):
+                prop_entry["description"] = param_docs[p_name]
             if param.default is None:
                 required.append(p_name)
             else:
                 def_code = cst.Module([]).code_for_node(param.default).strip()
-                def_val = _safe_literal_eval(def_code)
-                prop_entry["default"] = def_val
+                prop_entry["default"] = _safe_literal_eval(def_code)
             props[p_name] = prop_entry
 
         inputs_schema: dict[str, Any] | None = (
@@ -302,6 +318,9 @@ class WorkflowExtractor(cst.CSTVisitor):
         depends_on_workflows: list[str] = []
         steps: list[StepObject] = []
         wf_outputs: dict[str, str | SelectorObject] = {}
+        wf_parameters: list[ArazzoParameter] | None = None
+        wf_success_actions: list[SuccessAction] | None = None
+        wf_failure_actions: list[FailureAction] | None = None
 
         pending_step_deps: list[str] = []
         pending_body_expr: Any | None = None
@@ -331,6 +350,37 @@ class WorkflowExtractor(cst.CSTVisitor):
 
             if isinstance(stmt, cst.SimpleStatementLine):
                 inner = stmt.body[0]
+                if (
+                    isinstance(inner, cst.AnnAssign)
+                    and isinstance(inner.target, cst.Name)
+                    and inner.target.value == "context"
+                    and isinstance(inner.value, cst.Dict)
+                ):
+                    ctx_map = {
+                        _safe_literal_eval(
+                            cst.Module([]).code_for_node(el.key).strip()
+                        ): _safe_literal_eval(
+                            cst.Module([]).code_for_node(el.value).strip()
+                        )
+                        for el in inner.value.elements
+                        if isinstance(el, cst.DictElement)
+                    }
+                    if isinstance(ctx_map.get("workflow_parameters"), list):
+                        wf_parameters = [
+                            ArazzoParameter(**p) for p in ctx_map["workflow_parameters"]
+                        ]
+                    if isinstance(ctx_map.get("workflow_success_actions"), list):
+                        wf_success_actions = [
+                            SuccessAction(**s)
+                            for s in ctx_map["workflow_success_actions"]
+                        ]
+                    if isinstance(ctx_map.get("workflow_failure_actions"), list):
+                        wf_failure_actions = [
+                            FailureAction(**f)
+                            for f in ctx_map["workflow_failure_actions"]
+                        ]
+                    continue
+
                 if isinstance(inner, cst.Assign):
                     t_code = (
                         cst.Module([]).code_for_node(inner.targets[0].target).strip()
@@ -362,7 +412,12 @@ class WorkflowExtractor(cst.CSTVisitor):
                                 )
                             ]
                         else:
-                            pending_body_expr = extract_expression_from_cst(inner.value)
+                            lit_body = _safe_literal_eval(val_code)
+                            pending_body_expr = (
+                                lit_body
+                                if isinstance(lit_body, (dict, list))
+                                else extract_expression_from_cst(inner.value)
+                            )
                         continue
 
                     if t_code == "response" and isinstance(inner.value, cst.Call):
@@ -396,24 +451,73 @@ class WorkflowExtractor(cst.CSTVisitor):
                             and isinstance(first_elem.value, cst.Dict)
                             else cst.Dict([])
                         )
-                        out_map: dict[str, str | SelectorObject] = {
-                            str(
+                        out_map: dict[str, str | SelectorObject] = {}
+                        for out_el in [
+                            e
+                            for e in out_dict_node.elements
+                            if isinstance(e, cst.DictElement)
+                        ]:
+                            k_str = str(
                                 _safe_literal_eval(
                                     cst.Module([]).code_for_node(out_el.key).strip()
                                 )
-                            ): (
-                                ov
-                                if isinstance(
-                                    (ov := extract_expression_from_cst(out_el.value)),
-                                    (str, SelectorObject),
-                                )
-                                else str(ov)
                             )
-                            for out_el in out_dict_node.elements
-                            if isinstance(out_el, cst.DictElement)
-                        }
+                            el_code = cst.Module([]).code_for_node(out_el.value).strip()
+                            m_sel_dict = re.search(
+                                r"SelectorObject\(\*\*(\{.*?\})\)", el_code
+                            )
+                            if m_sel_dict and isinstance(
+                                (s_d := _safe_literal_eval(m_sel_dict.group(1))),
+                                dict,
+                            ):
+                                out_map[k_str] = SelectorObject(**s_d)
+                            else:
+                                ov = extract_expression_from_cst(out_el.value)
+                                out_map[k_str] = (
+                                    ov
+                                    if isinstance(ov, (str, SelectorObject))
+                                    else str(ov)
+                                )
                         if out_map:
                             current_step.outputs = out_map
+
+                        sc_elems = {
+                            _safe_literal_eval(
+                                cst.Module([]).code_for_node(el.key).strip()
+                            ): _safe_literal_eval(
+                                cst.Module([]).code_for_node(el.value).strip()
+                            )
+                            for el in inner.value.elements
+                            if isinstance(el, cst.DictElement)
+                        }
+                        meta_dict = sc_elems.get("meta") or {}
+                        has_meta_params = "parameters" in meta_dict
+                        has_meta_success = "onSuccess" in meta_dict
+                        has_meta_failure = "onFailure" in meta_dict
+                        if has_meta_params:
+                            current_step.parameters = [
+                                ArazzoParameter(**p) for p in meta_dict["parameters"]
+                            ]
+                        if has_meta_success:
+                            current_step.onSuccess = [
+                                SuccessAction(**s) for s in meta_dict["onSuccess"]
+                            ]
+                        if has_meta_failure:
+                            current_step.onFailure = [
+                                FailureAction(**f) for f in meta_dict["onFailure"]
+                            ]
+                        if not has_meta_params and wf_parameters:
+                            wf_param_names = {p.name for p in wf_parameters}
+                            rem_params = [
+                                p
+                                for p in (current_step.parameters or [])
+                                if p.name not in wf_param_names
+                            ]
+                            current_step.parameters = rem_params or None
+                        if not has_meta_success and wf_success_actions:
+                            current_step.onSuccess = None
+                        if not has_meta_failure and wf_failure_actions:
+                            current_step.onFailure = None
                         continue
 
                     m_wo = re.match(
@@ -421,12 +525,21 @@ class WorkflowExtractor(cst.CSTVisitor):
                     )
                     if m_wo:
                         out_name = m_wo.group(2)
-                        out_val = extract_expression_from_cst(inner.value)
-                        wf_outputs[out_name] = (
-                            out_val
-                            if isinstance(out_val, (str, SelectorObject))
-                            else str(out_val)
+                        val_code = cst.Module([]).code_for_node(inner.value).strip()
+                        m_sel_dict = re.search(
+                            r"SelectorObject\(\*\*(\{.*?\})\)", val_code
                         )
+                        if m_sel_dict and isinstance(
+                            (s_d := _safe_literal_eval(m_sel_dict.group(1))), dict
+                        ):
+                            wf_outputs[out_name] = SelectorObject(**s_d)
+                        else:
+                            out_val = extract_expression_from_cst(inner.value)
+                            wf_outputs[out_name] = (
+                                out_val
+                                if isinstance(out_val, (str, SelectorObject))
+                                else str(out_val)
+                            )
                         continue
 
                 if isinstance(inner, cst.Assert) and current_step is not None:
@@ -449,11 +562,15 @@ class WorkflowExtractor(cst.CSTVisitor):
                 s_val = m_sleep.group(1) if m_sleep else "0"
                 retry_delay: float | int = float(s_val) if "." in s_val else int(s_val)
                 first_stmt = stmt.body.body[0]
-                assert isinstance(first_stmt, cst.SimpleStatementLine)
-                assert isinstance(first_stmt.body[0], cst.Assign)
-                assert isinstance(first_stmt.body[0].value, cst.Call)
+                call_val = (
+                    first_stmt.body[0].value
+                    if isinstance(first_stmt, cst.SimpleStatementLine)
+                    and isinstance(first_stmt.body[0], cst.Assign)
+                    and isinstance(first_stmt.body[0].value, cst.Call)
+                    else cst.Call(func=cst.Name("noop"))
+                )
                 step_obj = _extract_step_from_call(
-                    first_stmt.body[0].value,
+                    call_val,
                     len(steps) + 1,
                     pending_body_expr,
                     pending_replacements,
@@ -500,7 +617,10 @@ class WorkflowExtractor(cst.CSTVisitor):
             description=description,
             inputs=inputs_schema,
             dependsOn=depends_on_workflows if depends_on_workflows else None,
+            parameters=wf_parameters,
             steps=steps,
+            successActions=wf_success_actions,
+            failureActions=wf_failure_actions,
             outputs=wf_outputs if wf_outputs else None,
         )
 
@@ -519,24 +639,6 @@ def extract_arazzo_from_ast(
     """
     visitor = WorkflowExtractor(openapi_spec)
     module.visit(visitor)
-
-    if visitor.snapshot_spec is not None:
-        base_spec = Arazzo(**visitor.snapshot_spec)
-        snapshot_by_norm = {
-            wf.workflowId.lower().replace("-", "_"): wf for wf in base_spec.workflows
-        }
-        merged_workflows: list[WorkflowObject] = []
-        for ext_wf in visitor.extracted_workflows:
-            norm = ext_wf.workflowId.lower().replace("-", "_")
-            orig_wf = snapshot_by_norm[norm].model_copy(deep=True)
-            default_summary = f"Execute workflow {orig_wf.workflowId}."
-            if ext_wf.summary and ext_wf.summary != default_summary:
-                orig_wf.summary = ext_wf.summary
-            if ext_wf.description:
-                orig_wf.description = ext_wf.description
-            merged_workflows.append(orig_wf)
-        base_spec.workflows = merged_workflows
-        return base_spec
 
     return Arazzo(
         arazzo=visitor.arazzo_version,

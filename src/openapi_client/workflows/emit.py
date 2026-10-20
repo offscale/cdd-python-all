@@ -6,7 +6,6 @@ from typing import Any
 
 import libcst as cst
 
-from openapi_client.arazzo.emit import emit_arazzo_dict
 from openapi_client.arazzo.expressions import compile_expression_to_cst
 from openapi_client.arazzo.parse import (
     resolve_operation_path,
@@ -20,7 +19,7 @@ from openapi_client.arazzo_models import (
     StepObject,
     WorkflowObject,
 )
-from openapi_client.functions.utils import sanitize_name
+from openapi_client.functions.utils import get_annotation_for_schema, sanitize_name
 from openapi_client.models import OpenAPI, Reference, Schema
 
 
@@ -66,20 +65,7 @@ def _json_type_to_python_type(prop_schema: dict[str, Any]) -> str:
     Returns:
         Python type annotation string (`str`, `int`, `float`, `bool`, `list[Any]`, `dict[str, Any]`, or `Any`).
     """
-    t = prop_schema.get("type")
-    if t == "string":
-        return "str"
-    if t == "integer":
-        return "int"
-    if t == "number":
-        return "float"
-    if t == "boolean":
-        return "bool"
-    if t == "array":
-        return "list[Any]"
-    if t == "object":
-        return "dict[str, Any]"
-    return "Any"
+    return get_annotation_for_schema(prop_schema)
 
 
 def _emit_step_statements(
@@ -137,6 +123,8 @@ def _emit_step_statements(
             val_cst = compile_expression_to_cst(base_payload)
             val_code = cst.Module([]).code_for_node(val_cst)
             stmts.append(cst.parse_statement(f"step_body = {val_code}"))
+        if step.requestBody.contentType is not None:
+            call_kwargs.append(f"content_type={step.requestBody.contentType!r}")
         call_kwargs.append("body=step_body")
 
     if step.timeout is not None:
@@ -164,17 +152,19 @@ def _emit_step_statements(
         src_name, method, path, resolved_op = resolve_operation_path(
             step.operationPath, sources
         )
+        op_path_kw = f"operation_path={step.operationPath!r}"
+        combined_kw = f"{kwargs_str}, {op_path_kw}" if kwargs_str else op_path_kw
         if resolved_op and resolved_op.operationId:
             op_name = sanitize_name(resolved_op.operationId)
             call_expr_code = (
-                f"self.clients[{src_name!r}].{op_name}({kwargs_str})"
+                f"self.clients[{src_name!r}].{op_name}({combined_kw})"
                 if src_name and len(sources) > 1
-                else f"self.client.{op_name}({kwargs_str})"
+                else f"self.client.{op_name}({combined_kw})"
             )
         else:
             verb = (method or "get").upper()
             route = path or step.operationPath
-            call_expr_code = f"self.client.request({verb!r}, {route!r}{', ' + kwargs_str if kwargs_str else ''})"
+            call_expr_code = f"self.client.request({verb!r}, {route!r}, {combined_kw})"
     elif step.workflowId:
         wf_method = sanitize_name(step.workflowId)
         call_expr_code = f"self.{wf_method}({kwargs_str})"
@@ -273,9 +263,23 @@ def _emit_step_statements(
                 step_outputs_entries.append(f"{out_key!r}: {out_code}")
 
     outputs_dict_str = "{" + ", ".join(step_outputs_entries) + "}"
+    step_meta: dict[str, Any] = {}
+    if step.parameters:
+        step_meta["parameters"] = [
+            p.model_dump(by_alias=True, exclude_none=True) for p in step.parameters
+        ]
+    if step.onSuccess:
+        step_meta["onSuccess"] = [
+            s.model_dump(by_alias=True, exclude_none=True) for s in step.onSuccess
+        ]
+    if step.onFailure:
+        step_meta["onFailure"] = [
+            f.model_dump(by_alias=True, exclude_none=True) for f in step.onFailure
+        ]
+    meta_suffix = f", 'meta': {step_meta!r}" if step_meta else ""
     stmts.append(
         cst.parse_statement(
-            f"steps_context[{step.stepId!r}] = {{'outputs': {outputs_dict_str}, 'response': response}}"
+            f"steps_context[{step.stepId!r}] = {{'outputs': {outputs_dict_str}, 'response': response{meta_suffix}}}"
         )
     )
 
@@ -366,10 +370,31 @@ def emit_workflow_method(
         cst.parse_statement("steps_context: dict[str, dict[str, Any]] = {}")
     )
     body_stmts.append(cst.parse_statement("workflow_outputs: dict[str, Any] = {}"))
+    ctx_entries = [
+        "'inputs': inputs",
+        "'steps': steps_context",
+        "'outputs': workflow_outputs",
+        "'self': self.__self_uri__",
+    ]
+    if workflow.parameters:
+        wf_params_dump = [
+            p.model_dump(by_alias=True, exclude_none=True) for p in workflow.parameters
+        ]
+        ctx_entries.append(f"'workflow_parameters': {wf_params_dump!r}")
+    if workflow.successActions:
+        wf_sa_dump = [
+            s.model_dump(by_alias=True, exclude_none=True)
+            for s in workflow.successActions
+        ]
+        ctx_entries.append(f"'workflow_success_actions': {wf_sa_dump!r}")
+    if workflow.failureActions:
+        wf_fa_dump = [
+            f.model_dump(by_alias=True, exclude_none=True)
+            for f in workflow.failureActions
+        ]
+        ctx_entries.append(f"'workflow_failure_actions': {wf_fa_dump!r}")
     body_stmts.append(
-        cst.parse_statement(
-            "context: dict[str, Any] = {'inputs': inputs, 'steps': steps_context, 'outputs': workflow_outputs, 'self': self.__self_uri__}"
-        )
+        cst.parse_statement(f"context: dict[str, Any] = {{{', '.join(ctx_entries)}}}")
     )
 
     if workflow.dependsOn:
@@ -397,7 +422,6 @@ def emit_workflow_method(
                 )
 
     body_stmts.append(cst.parse_statement("return workflow_outputs"))
-
     return cst.FunctionDef(
         name=cst.Name(method_name),
         params=cst.Parameters(params=all_params),
@@ -423,8 +447,6 @@ def emit_workflows_module(
     mod_summary = spec.info.summary or spec.info.title
     mod_desc = spec.info.description or "Generated Arazzo 1.1.0 workflow orchestrator."
     mod_doc = f'"""{mod_summary}{chr(10)}{chr(10)}{mod_desc}"""'
-
-    arazzo_snapshot = emit_arazzo_dict(spec)
 
     header_code = chr(10).join(
         [
@@ -486,7 +508,6 @@ def emit_workflows_module(
         cst.parse_statement(
             f"__components__: dict[str, Any] | None = {spec.components.model_dump(by_alias=True, exclude_none=True) if spec.components else None!r}"
         ),
-        cst.parse_statement(f"__arazzo_spec__: dict[str, Any] = {arazzo_snapshot!r}"),
         cst.parse_statement(init_code),
     ]
 

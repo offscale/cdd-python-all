@@ -6,7 +6,6 @@ from typing import Any
 
 import libcst as cst
 
-from openapi_client.arazzo.emit import emit_arazzo_dict
 from openapi_client.arazzo_models import Arazzo, WorkflowObject
 from openapi_client.functions.utils import sanitize_name
 from openapi_client.workflows.emit import _get_json_schema_dict
@@ -70,6 +69,10 @@ def _emit_workflow_subparser_stmts(
             )
         )
 
+    step_choices = [s.stepId for s in workflow.steps]
+    step_targets = [
+        {"stepId": s.stepId, "operationId": s.operationId} for s in workflow.steps
+    ]
     stmts.append(
         cst.parse_statement(
             f"{wf_var}.add_argument('--format', default='json', choices=['json', 'yaml', 'table'], help='Output format')"
@@ -77,7 +80,12 @@ def _emit_workflow_subparser_stmts(
     )
     stmts.append(
         cst.parse_statement(
-            f"{wf_var}.add_argument('--step', default=None, help='Selective stepId to inspect')"
+            f"{wf_var}.add_argument('--step', default=None, choices={step_choices!r}, help='Selective stepId to inspect')"
+        )
+    )
+    stmts.append(
+        cst.parse_statement(
+            f"{wf_var}.set_defaults(_steps={step_targets!r}, _summary={workflow.summary!r}, _description={workflow.description!r})"
         )
     )
     stmts.append(
@@ -97,8 +105,10 @@ def emit_arazzo_cli(spec: Arazzo) -> cst.Module:
     Returns:
         A `libcst.Module` node containing the generated CLI application.
     """
-    arazzo_snapshot = emit_arazzo_dict(spec)
     desc = spec.info.description or spec.info.summary or spec.info.title
+    sources_list = [
+        s.model_dump(by_alias=True, exclude_none=True) for s in spec.sourceDescriptions
+    ]
 
     header_code = chr(10).join(
         [
@@ -114,7 +124,8 @@ def emit_arazzo_cli(spec: Arazzo) -> cst.Module:
             "from client import Client",
             "from workflows import Workflows",
             "",
-            f"__arazzo_cli_spec__: dict[str, Any] = {arazzo_snapshot!r}",
+            f"__arazzo_info__: dict[str, Any] = {spec.info.model_dump(by_alias=True, exclude_none=True)!r}",
+            f"__source_descriptions__: list[dict[str, Any]] = {sources_list!r}",
             "",
         ]
     )

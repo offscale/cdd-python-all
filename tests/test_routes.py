@@ -20,7 +20,7 @@ from openapi_client.tests.emit import emit_tests
 from openapi_client.tests.parse import extract_tests_from_ast
 
 
-def test_extract_mock_and_test():
+def test_extract_mock_and_test() -> None:
     """Test test_extract_mock_and_test."""
     mock_code = '''
 from fastapi import FastAPI
@@ -42,7 +42,7 @@ def get_pets():
     assert spec.paths["/pets"].get.description == "Description"
 
     test_code = '''
-def test_get_pets():
+def test_get_pets() -> None:
     """Test test_get_pets."""
     pass
 '''
@@ -50,7 +50,7 @@ def test_get_pets():
     extract_tests_from_ast(test_module, spec)
 
 
-def test_parse_openapi():
+def test_parse_openapi() -> None:
     """Test test_parse_openapi."""
     spec_dict = {
         "openapi": "3.2.0",
@@ -71,7 +71,7 @@ def test_parse_openapi():
     assert spec.paths["/pets"].get.operationId == "get_pets"
 
 
-def test_generate_code():
+def test_generate_code() -> None:
     """Test test_generate_code."""
     spec_dict = {
         "openapi": "3.2.0",
@@ -124,7 +124,7 @@ def test_generate_code():
     assert "class Empty(BaseModel):" in models_code
 
 
-def test_extract_code():
+def test_extract_code() -> None:
     """Test test_extract_code."""
     code = '''
 class Pet(BaseModel):
@@ -175,7 +175,7 @@ class Client:
     assert pet_schema.properties["is_friendly"].type == "boolean"
 
 
-def test_emit_tests_and_mocks():
+def test_emit_tests_and_mocks() -> None:
     """Test test_emit_tests_and_mocks."""
     spec_dict = {
         "openapi": "3.2.0",
@@ -256,7 +256,11 @@ def test_emit_tests_and_mocks():
 
 
 def test_mock_server(monkeypatch) -> None:
-    """Test executing test/mock_server.py with a mocked FastAPI module."""
+    """Test executing test/mock_server.py with a mocked FastAPI module.
+
+    Args:
+        monkeypatch: Parameter .
+    """
     monkeypatch.setitem(sys.modules, "fastapi", unittest.mock.MagicMock())
     mock_server_path = os.path.abspath(
         os.path.join(os.path.dirname(__file__), "../test/mock_server.py")
@@ -266,7 +270,12 @@ def test_mock_server(monkeypatch) -> None:
 
 
 def test_test_client(tmp_path: Path, monkeypatch) -> None:
-    """Test test_client module execution in an isolated temporary workspace."""
+    """Test test_client module execution in an isolated temporary workspace.
+
+    Args:
+        tmp_path: Parameter .
+        monkeypatch: Parameter .
+    """
     src_dir = tmp_path / "src"
     src_dir.mkdir(parents=True, exist_ok=True)
     (src_dir / "client.py").write_text(
@@ -279,3 +288,103 @@ def test_test_client(tmp_path: Path, monkeypatch) -> None:
 
     importlib.reload(tc)
     assert tc.test_client() is None
+
+
+def test_execute_generated_client_http_requests() -> None:
+    """Execute generated Client class with a mock PoolManager and verify request arguments."""
+    from typing import Any
+
+    from openapi_client.openapi.parse import parse_openapi_dict
+
+    spec_dict = {
+        "openapi": "3.2.0",
+        "info": {"title": "Petstore", "version": "1.0.0"},
+        "paths": {
+            "/pets/{pet_id}": {
+                "get": {
+                    "operationId": "getPet",
+                    "parameters": [
+                        {"name": "pet_id", "in": "path", "schema": {"type": "integer"}},
+                        {
+                            "name": "tags",
+                            "in": "query",
+                            "style": "form",
+                            "explode": True,
+                            "schema": {"type": "array", "items": {"type": "string"}},
+                        },
+                        {
+                            "name": "space_tags",
+                            "in": "query",
+                            "style": "spaceDelimited",
+                            "explode": False,
+                            "schema": {"type": "array", "items": {"type": "string"}},
+                        },
+                        {
+                            "name": "pipe_tags",
+                            "in": "query",
+                            "style": "pipeDelimited",
+                            "explode": False,
+                            "schema": {"type": "array", "items": {"type": "string"}},
+                        },
+                    ],
+                },
+                "post": {
+                    "operationId": "updatePetForm",
+                    "parameters": [
+                        {"name": "pet_id", "in": "path", "schema": {"type": "integer"}},
+                        {
+                            "name": "name",
+                            "in": "formData",
+                            "schema": {"type": "string"},
+                        },
+                    ],
+                },
+                "put": {
+                    "operationId": "replacePet",
+                    "parameters": [
+                        {"name": "pet_id", "in": "path", "schema": {"type": "integer"}}
+                    ],
+                    "requestBody": {
+                        "content": {"application/json": {"schema": {"type": "object"}}}
+                    },
+                },
+            }
+        },
+    }
+    spec = parse_openapi_dict(spec_dict)
+    code = ClientGenerator(spec).generate_code()
+    ns: dict[str, Any] = {}
+    exec(compile(code, "<client>", "exec"), ns)  # noqa: S102
+    client_cls = ns["Client"]
+
+    client = client_cls(base_url="https://api.example.com", api_key="secret-token")
+    mock_http = unittest.mock.MagicMock()
+    client.http = mock_http
+
+    expected_headers = {
+        "api_key": "secret-token",
+        "Authorization": "Bearer secret-token",
+    }
+
+    client.get_pet(10, "available", ["c", "d"], ["e", "f"])
+    mock_http.request.assert_called_with(
+        "GET",
+        "https://api.example.com/pets/10?tags=available&space_tags=c d&pipe_tags=e|f",
+        headers=expected_headers,
+    )
+
+    client.update_pet_form(10, "Fluffy")
+    mock_http.request.assert_called_with(
+        "POST",
+        "https://api.example.com/pets/10",
+        headers=expected_headers,
+        fields={"name": "Fluffy"},
+    )
+
+    client.replace_pet(10, body={"status": "sold"})
+    mock_http.request.assert_called_with(
+        "PUT",
+        "https://api.example.com/pets/10",
+        headers=expected_headers,
+        json={"status": "sold"},
+    )

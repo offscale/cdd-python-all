@@ -19,19 +19,27 @@ def test_ast_test_extractor_manual_cases() -> None:
     spec = OpenAPI(openapi="3.2.0", info={"title": "Test", "version": "1.0.0"})
 
     code = """
-def test_stream_something():
+def test_stream_something() -> None:
     response = "text/event-stream"
 
-def test_stream_but_no_event_stream():
+def test_stream_but_no_event_stream() -> None:
     response = "application/json"
 
-def test_normal_function():
+def test_normal_function() -> None:
     pass
 """
     module = cst.parse_module(code)
     visitor = ASTTestExtractor(spec)
     module.visit(visitor)
-    assert visitor.spec.openapi == "3.2.0"
+    assert visitor.spec.paths is not None
+    assert "/stream_something" in visitor.spec.paths
+    stream_op = visitor.spec.paths["/stream_something"].get
+    assert stream_op is not None
+    assert stream_op.responses is not None
+    resp_200 = stream_op.responses["200"]
+    assert getattr(resp_200, "content", None) is not None
+    assert "text/event-stream" in resp_200.content
+    assert "/stream_but_no_event_stream" not in visitor.spec.paths
 
 
 def test_build_wasm() -> None:
@@ -57,28 +65,43 @@ def test_build_wasm() -> None:
 
 
 def test_doc_coverage(tmp_path: Path) -> None:
-    """Test calculate_doc_coverage on sample Python files."""
+    """Test calculate_doc_coverage on sample Python files, *args/**kwargs, and SyntaxError failure.
+
+    Args:
+        tmp_path: Parameter .
+    """
     import scripts.doc_coverage as dc
 
+    nl = chr(10)
     p1 = tmp_path / "f1.py"
     p1.write_text(
-        '"""Mod doc."""\n\n\ndef f(x: int) -> None:\n    """Doc for x."""\n    pass\n'
+        f'"""Mod doc."""{nl}{nl}{nl}def f(x: int, /, y: str, *args: int, kw: bool = True, **kwargs: str) -> None:{nl}    """Doc.{nl}{nl}    Args:{nl}        x: Posonly.{nl}        y: Regular.{nl}        *args: Varargs.{nl}        kw: Kwonly.{nl}        **kwargs: Kwargs.{nl}    """{nl}    pass{nl}',
+        encoding="utf-8",
     )
     p2 = tmp_path / "f2.py"
-    p2.write_text("def g(y):\n    pass\n")
+    p2.write_text(f"def g(y):{nl}    pass{nl}", encoding="utf-8")
     p3 = tmp_path / "f3.txt"
-    p3.write_text("not python")
+    p3.write_text("not python", encoding="utf-8")
     p4 = tmp_path / "f4.py"
-    p4.write_text("invalid syntax here")
+    p4.write_text("invalid syntax here", encoding="utf-8")
     p5 = tmp_path / "f5.py"
     p5.write_text(
-        '"""Mod doc."""\n\n\nclass C:\n    """Doc."""\n\n    def __init__(self) -> None:\n        """Doc."""\n        pass\n\n    def __private(self) -> None:\n        pass\n'
+        f'"""Mod doc."""{nl}{nl}{nl}class C:{nl}    """Doc."""{nl}{nl}    def __init__(self) -> None:{nl}        """Doc."""{nl}        pass{nl}{nl}    def __private(self) -> None:{nl}        pass{nl}',
+        encoding="utf-8",
     )
 
+    with pytest.raises(SyntaxError):
+        dc.calculate_doc_coverage(str(tmp_path))
+
+    p4.unlink()
     pct, w, t = dc.calculate_doc_coverage(str(tmp_path))
     assert t > 0
-    assert 0.0 <= pct <= 100.0
-    assert w <= t
+    assert 0.0 < pct < 100.0
+    assert w < t
+
+    empty_dir = tmp_path / "empty_sub"
+    empty_dir.mkdir()
+    assert dc.calculate_doc_coverage(str(empty_dir)) == (0.0, 0, 0)
 
     with mock.patch(
         "scripts.doc_coverage.calculate_doc_coverage", return_value=(50.0, 1, 2)
@@ -87,7 +110,12 @@ def test_doc_coverage(tmp_path: Path) -> None:
 
 
 def test_run_petstore_test(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """Test run_petstore_test script argument validation and execution."""
+    """Test run_petstore_test script argument validation and execution.
+
+    Args:
+        monkeypatch: Parameter .
+        tmp_path: Parameter .
+    """
     monkeypatch.setenv("RUN_SLOW_TESTS", "1")
     import scripts.run_petstore_test as rp
 
@@ -228,7 +256,12 @@ def test_build_wasm_more() -> None:
 def test_run_petstore_test_no_tmp(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """Test run_petstore_test when temporary directory does not exist at cleanup."""
+    """Test run_petstore_test when temporary directory does not exist at cleanup.
+
+    Args:
+        monkeypatch: Parameter .
+        tmp_path: Parameter .
+    """
     monkeypatch.setenv("RUN_SLOW_TESTS", "1")
     import scripts.run_petstore_test as rp
 
@@ -271,7 +304,12 @@ def test_update_badges_no_match() -> None:
 def test_run_petstore_test_all_branches(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """Test all branches of scripts/run_petstore_test.py."""
+    """Test all branches of scripts/run_petstore_test.py.
+
+    Args:
+        monkeypatch: Parameter .
+        tmp_path: Parameter .
+    """
     import subprocess
 
     import scripts.run_petstore_test as rp
@@ -308,7 +346,13 @@ def test_run_petstore_test_all_branches(
 
     # 3. Docker fallback: primary fails, fallback succeeds, ready on 2nd poll, SDK test fails, docker rm runs
     def side_effect_run(cmd, *args, **kwargs):
-        """Mock subprocess.run for docker fallback and CLI failure."""
+        """Mock subprocess.run for docker fallback and CLI failure.
+
+        Args:
+            cmd: Parameter .
+            *args: Parameter .
+            **kwargs: Parameter .
+        """
         if (
             cmd[:2] == ["docker", "run"]
             and "openapitools/openapi-petstore" in cmd
@@ -343,7 +387,13 @@ def test_run_petstore_test_all_branches(
     )
 
     def side_effect_both_fail(cmd, *args, **kwargs):
-        """Mock subprocess.run where docker run raises OSError."""
+        """Mock subprocess.run where docker run raises OSError.
+
+        Args:
+            cmd: Parameter .
+            *args: Parameter .
+            **kwargs: Parameter .
+        """
         if cmd[:2] == ["docker", "run"]:
             raise OSError("Docker not installed")
         return mock.MagicMock(returncode=0)
@@ -359,7 +409,12 @@ def test_run_petstore_test_all_branches(
 def test_run_generated_server_test_all_branches(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """Test all branches of scripts/run_generated_server_test.py."""
+    """Test all branches of scripts/run_generated_server_test.py.
+
+    Args:
+        monkeypatch: Parameter .
+        tmp_path: Parameter .
+    """
     import subprocess
 
     import scripts.run_generated_server_test as rg
@@ -435,7 +490,13 @@ def test_run_generated_server_test_all_branches(
     out_dir.mkdir(exist_ok=True)
 
     def run_fail_sdk(cmd, *args, **kwargs):
-        """Mock subprocess.run where cli_main.py fails."""
+        """Mock subprocess.run where cli_main.py fails.
+
+        Args:
+            cmd: Parameter .
+            *args: Parameter .
+            **kwargs: Parameter .
+        """
         if "cli_main.py" in " ".join(cmd):
             raise subprocess.CalledProcessError(1, cmd, stderr="SDK failed")
         return mock.MagicMock(stdout="ok")

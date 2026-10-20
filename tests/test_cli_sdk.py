@@ -21,7 +21,7 @@ from openapi_client.models import (
 )
 
 
-def test_emit_cli_sdk_with_servers():
+def test_emit_cli_sdk_with_servers() -> None:
     """Test test_emit_cli_sdk_with_servers."""
     from openapi_client.cli_sdk_cdd.emit import emit_cli_sdk as emit_cli_sdk_cdd
     from openapi_client.models import Server
@@ -38,7 +38,7 @@ def test_emit_cli_sdk_with_servers():
     assert 'os.environ.get("API_BASE_URL", "https://api.example.com")' in code
 
 
-def test_emit_cli_sdk():
+def test_emit_cli_sdk() -> None:
     """Test test_emit_cli_sdk."""
     spec = OpenAPI(
         openapi="3.2.0",
@@ -69,7 +69,7 @@ def test_emit_cli_sdk():
     assert "--param1" in code
 
 
-def test_emit_mcp_server():
+def test_emit_mcp_server() -> None:
     """Test test_emit_mcp_server."""
     from openapi_client.cli_sdk.emit_mcp import emit_mcp_server
 
@@ -104,7 +104,7 @@ def test_emit_mcp_server():
     compile(code, "mcp_server.py", "exec")
 
 
-def test_emit_mcp_sse_server():
+def test_emit_mcp_sse_server() -> None:
     """Test test_emit_mcp_sse_server."""
     from openapi_client.cli_sdk.emit_mcp_sse import emit_mcp_sse_server
 
@@ -139,7 +139,7 @@ def test_emit_mcp_sse_server():
     compile(code, "mcp_sse_server.py", "exec")
 
 
-def test_extract_cli_from_ast():
+def test_extract_cli_from_ast() -> None:
     """Test test_extract_cli_from_ast."""
     code = """
 import argparse
@@ -177,7 +177,7 @@ get_test_parser.add_argument("--param1", type=str, help="test param updated", re
     assert spec.paths["/test"].get.parameters[0].description == "test param updated"
 
 
-def test_emit_mcp_server_lists():
+def test_emit_mcp_server_lists() -> None:
     """Test test_emit_mcp_server_lists."""
     from openapi_client.cli_sdk.emit_mcp import emit_mcp_server
 
@@ -206,7 +206,7 @@ def test_emit_mcp_server_lists():
     assert '"type": "string"' in code
 
 
-def test_emit_mcp_sse_server_lists():
+def test_emit_mcp_sse_server_lists() -> None:
     """Test test_emit_mcp_sse_server_lists."""
     from openapi_client.cli_sdk.emit_mcp_sse import emit_mcp_sse_server
 
@@ -235,7 +235,7 @@ def test_emit_mcp_sse_server_lists():
     assert '"type": "string"' in code
 
 
-def test_emit_mcp_adapter():
+def test_emit_mcp_adapter() -> None:
     """Test test_emit_mcp_adapter."""
     from openapi_client.cli_sdk.emit_mcp_adapter import emit_mcp_adapter
 
@@ -266,7 +266,7 @@ def test_emit_mcp_adapter():
     assert '"type": "number"' in code
 
 
-def test_emit_mcp_adapter_no_paths():
+def test_emit_mcp_adapter_no_paths() -> None:
     """Test test_emit_mcp_adapter_no_paths."""
     from openapi_client.cli_sdk.emit_mcp_adapter import emit_mcp_adapter
 
@@ -341,9 +341,12 @@ def test_emit_mcp_schema_missing_paths() -> None:
     c1 = emit_mcp_server(spec)
     c2 = emit_mcp_adapter(spec)
     c3 = emit_mcp_sse_server(spec)
-    assert "tools = []" in c1
-    assert "self._tools = []" in c2
-    assert "tools = []" in c3
+    assert "tools = json.loads('[]')" in c1
+    assert "self._tools = json.loads('[]')" in c2
+    assert "tools = json.loads('[]')" in c3
+    compile(c1, "<mcp_server>", "exec")
+    compile(c2, "<mcp_adapter>", "exec")
+    compile(c3, "<mcp_sse_server>", "exec")
 
 
 def test_emit_mcp_schema_no_parameters() -> None:
@@ -434,12 +437,15 @@ def test_emit_mcp_missing_method() -> None:
     c1 = emit_mcp_server(spec)
     c2 = emit_mcp_adapter(spec)
     c3 = emit_mcp_sse_server(spec)
-    assert "tools = []" in c1
-    assert "self._tools = []" in c2
-    assert "tools = []" in c3
+    assert "tools = json.loads('[]')" in c1
+    assert "self._tools = json.loads('[]')" in c2
+    assert "tools = json.loads('[]')" in c3
+    compile(c1, "<mcp_server>", "exec")
+    compile(c2, "<mcp_adapter>", "exec")
+    compile(c3, "<mcp_sse_server>", "exec")
 
 
-def test_emit_mcp_param_no_schema():
+def test_emit_mcp_param_no_schema() -> None:
     """Test emit MCP server param with no schema explicit."""
     from openapi_client.cli_sdk.emit_mcp import emit_mcp_server
     from openapi_client.cli_sdk.emit_mcp_adapter import emit_mcp_adapter
@@ -565,3 +571,4 @@ def test_cli_sdk_cdd_emit_branches() -> None:
     assert "def set_cli_args_test1" in code
     assert "def set_cli_args_test2" in code
     assert "def set_cli_args_test3" in code
+    extract_cli_from_ast(cst.parse_module(code), spec)

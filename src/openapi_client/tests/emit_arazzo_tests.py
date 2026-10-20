@@ -6,7 +6,6 @@ from typing import Any
 
 import libcst as cst
 
-from openapi_client.arazzo.emit import emit_arazzo_dict
 from openapi_client.arazzo_models import Arazzo, WorkflowObject
 from openapi_client.functions.utils import sanitize_name
 from openapi_client.workflows.emit import _get_json_schema_dict
@@ -68,10 +67,28 @@ def _emit_workflow_test_fn(workflow: WorkflowObject, spec: Arazzo) -> cst.Functi
         safe_param = sanitize_name(prop_name) or prop_name
         call_kwargs.append(f"{safe_param}={val!r}")
 
+    outputs_map: dict[str, Any] = {
+        k: (
+            v.model_dump(by_alias=True, exclude_none=True)
+            if hasattr(v, "model_dump")
+            else v
+        )
+        for k, v in (workflow.outputs or {}).items()
+    }
+
     stmts: list[cst.BaseStatement] = [
         cst.SimpleStatementLine([cst.Expr(cst.SimpleString(f'"""{summary}"""'))]),
         cst.parse_statement("runner = Workflows()"),
         cst.parse_statement(f"assert hasattr(runner, {safe_wf!r})"),
+        cst.parse_statement(
+            f"workflow_inputs_schema: dict[str, Any] = {schema_dict!r}"
+        ),
+        cst.parse_statement(f"expected_outputs: dict[str, Any] = {outputs_map!r}"),
+        cst.parse_statement(
+            f"call_kwargs: dict[str, Any] = {{{', '.join(repr(k.split('=', 1)[0]) + ': ' + k.split('=', 1)[1] for k in call_kwargs)}}}"
+        ),
+        cst.parse_statement("assert isinstance(expected_outputs, dict)"),
+        cst.parse_statement("assert isinstance(call_kwargs, dict)"),
     ]
 
     for step in workflow.steps:
@@ -110,7 +127,10 @@ def emit_arazzo_tests(spec: Arazzo) -> cst.Module:
     Returns:
         A `libcst.Module` node containing the generated test suite.
     """
-    arazzo_snapshot = emit_arazzo_dict(spec)
+    info_dict = spec.info.model_dump(by_alias=True, exclude_none=True)
+    sources_list = [
+        s.model_dump(by_alias=True, exclude_none=True) for s in spec.sourceDescriptions
+    ]
     header_code = chr(10).join(
         [
             f'"""End-to-end Arazzo 1.1.0 workflow tests for {spec.info.title}."""',
@@ -121,7 +141,8 @@ def emit_arazzo_tests(spec: Arazzo) -> cst.Module:
             "",
             "from workflows import Workflows",
             "",
-            f"__arazzo_test_spec__: dict[str, Any] = {arazzo_snapshot!r}",
+            f"__arazzo_info__: dict[str, Any] = {info_dict!r}",
+            f"__source_descriptions__: list[dict[str, Any]] = {sources_list!r}",
             "",
         ]
     )

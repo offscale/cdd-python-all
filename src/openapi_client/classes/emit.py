@@ -5,7 +5,8 @@ from __future__ import annotations
 import libcst as cst
 
 from openapi_client.docstrings.emit import emit_class_docstring
-from openapi_client.models import Reference, Schema, SchemaOrReference
+from openapi_client.functions.utils import get_annotation_for_schema
+from openapi_client.models import Schema, SchemaOrReference
 
 
 def _schema_to_type_annotation(prop_schema: SchemaOrReference) -> str:
@@ -17,35 +18,56 @@ def _schema_to_type_annotation(prop_schema: SchemaOrReference) -> str:
     Returns:
         A valid Python type expression string.
     """
-    if isinstance(prop_schema, Reference):
-        ref_str = getattr(prop_schema, "ref", "")
-        if ref_str and "/" in ref_str:
-            ref_name = ref_str.split("/")[-1]
-            if ref_name.isidentifier():
-                return ref_name
-        return "Any"
+    return get_annotation_for_schema(prop_schema)
 
-    prop_type = getattr(prop_schema, "type", None)
-    if isinstance(prop_type, list) and prop_type:
-        non_null = [t for t in prop_type if t != "null"]
-        prop_type = non_null[0] if non_null else prop_type[0]
 
-    if prop_type == "string":
-        return "str"
-    if prop_type == "integer":
-        return "int"
-    if prop_type == "number":
-        return "float"
-    if prop_type == "boolean":
-        return "bool"
-    if prop_type == "array":
-        items = getattr(prop_schema, "items", None)
-        if isinstance(items, (Schema, Reference)):
-            return f"list[{_schema_to_type_annotation(items)}]"
-        return "list[Any]"
-    if prop_type == "object":
-        return "dict[str, Any]"
-    return "Any"
+def _build_field_default(
+    prop_schema: SchemaOrReference, is_required: bool
+) -> cst.BaseExpression | None:
+    """Build a default value or `Field(...)` call when schema constraints/metadata exist.
+
+    Args:
+        prop_schema: The property Schema or Reference object.
+        is_required: Whether the property is in the parent schema's `required` list.
+
+    Returns:
+        A LibCST expression for the field default/Field(...) or `None` if required without metadata.
+    """
+    if isinstance(prop_schema, Schema):
+        field_kwargs: list[str] = []
+        if prop_schema.default is not None:
+            field_kwargs.append(f"default={prop_schema.default!r}")
+        elif not is_required:
+            field_kwargs.append("default=None")
+        else:
+            field_kwargs.append("default=...")
+
+        has_meta = False
+        if prop_schema.description:
+            field_kwargs.append(f"description={prop_schema.description!r}")
+            has_meta = True
+        if prop_schema.minimum is not None:
+            field_kwargs.append(f"ge={prop_schema.minimum!r}")
+            has_meta = True
+        if prop_schema.maximum is not None:
+            field_kwargs.append(f"le={prop_schema.maximum!r}")
+            has_meta = True
+        if prop_schema.minLength is not None:
+            field_kwargs.append(f"min_length={prop_schema.minLength!r}")
+            has_meta = True
+        if prop_schema.maxLength is not None:
+            field_kwargs.append(f"max_length={prop_schema.maxLength!r}")
+            has_meta = True
+        if prop_schema.pattern is not None:
+            field_kwargs.append(f"pattern={prop_schema.pattern!r}")
+            has_meta = True
+        if prop_schema.default is not None:
+            has_meta = True
+
+        if has_meta:
+            return cst.parse_expression(f"Field({', '.join(field_kwargs)})")
+
+    return None if is_required else cst.Name("None")
 
 
 def emit_class(name: str, schema: Schema) -> cst.ClassDef:
@@ -70,17 +92,18 @@ def emit_class(name: str, schema: Schema) -> cst.ClassDef:
         for prop_name, prop_schema in schema.properties.items():
             prop_type = _schema_to_type_annotation(prop_schema)
             type_expr = cst.parse_expression(prop_type)
+            is_req = prop_name in required_fields
 
-            if prop_name in required_fields:
+            if is_req:
                 ann_expr = type_expr
-                default_val: cst.BaseExpression | None = None
             else:
                 ann_expr = cst.BinaryOperation(
                     left=type_expr,
                     operator=cst.BitOr(),
                     right=cst.Name("None"),
                 )
-                default_val = cst.Name("None")
+
+            default_val = _build_field_default(prop_schema, is_req)
 
             class_body.append(
                 cst.SimpleStatementLine(

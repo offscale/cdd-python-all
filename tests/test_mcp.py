@@ -18,7 +18,7 @@ from openapi_client.mocks.parse import MockServerExtractor
 from openapi_client.models import Components, OpenAPI, Reference, Schema
 
 
-def test_mcp_client_build_request():
+def test_mcp_client_build_request() -> None:
     """Test test_mcp_client_build_request."""
     client = MCPClient()
     req = client.build_request("test/method", {"foo": "bar"})
@@ -28,7 +28,7 @@ def test_mcp_client_build_request():
     assert req["id"] == 1
 
 
-def test_mcp_client_parse_response():
+def test_mcp_client_parse_response() -> None:
     """Test test_mcp_client_parse_response."""
     client = MCPClient()
     res = client.parse_response(
@@ -38,7 +38,7 @@ def test_mcp_client_parse_response():
     assert res["result"]["success"] is True
 
 
-def test_mcp_client_build_call_tool():
+def test_mcp_client_build_call_tool() -> None:
     """Test test_mcp_client_build_call_tool."""
     client = MCPClient()
     req = client.build_call_tool_request("my_tool", {"arg1": 1})
@@ -47,7 +47,7 @@ def test_mcp_client_build_call_tool():
     assert req["params"]["arguments"] == {"arg1": 1}
 
 
-def test_mcp_client_build_initialize():
+def test_mcp_client_build_initialize() -> None:
     """Test test_mcp_client_build_initialize."""
     client = MCPClient()
     req = client.build_initialize_request()
@@ -56,7 +56,7 @@ def test_mcp_client_build_initialize():
     assert "clientInfo" in req["params"]
 
 
-def test_mcp_client_build_notification():
+def test_mcp_client_build_notification() -> None:
     """Test test_mcp_client_build_notification."""
     client = MCPClient()
     notif = client.build_notification("notifications/initialized", {})
@@ -65,7 +65,7 @@ def test_mcp_client_build_notification():
     assert "id" not in notif
 
 
-def test_mcp_client_build_subscribe():
+def test_mcp_client_build_subscribe() -> None:
     """Test test_mcp_client_build_subscribe."""
     client = MCPClient()
     req = client.build_subscribe_request("schema://foo")
@@ -73,7 +73,7 @@ def test_mcp_client_build_subscribe():
     assert req["params"]["uri"] == "schema://foo"
 
 
-def test_mcp_client_build_unsubscribe():
+def test_mcp_client_build_unsubscribe() -> None:
     """Test test_mcp_client_build_unsubscribe."""
     client = MCPClient()
     req = client.build_unsubscribe_request("schema://bar")
@@ -81,7 +81,7 @@ def test_mcp_client_build_unsubscribe():
     assert req["params"]["uri"] == "schema://bar"
 
 
-def test_mcp_client_extended_requests():
+def test_mcp_client_extended_requests() -> None:
     """Test test_mcp_client_extended_requests."""
     client = MCPClient()
     req1 = client.build_list_prompts_request("curs1")
@@ -122,7 +122,7 @@ def test_mcp_client_extended_requests():
     assert "params" not in req5_nocur or "cursor" not in req5_nocur["params"]
 
 
-def test_mcp_client_pagination():
+def test_mcp_client_pagination() -> None:
     """Test test_mcp_client_pagination."""
     client = MCPClient()
     req = client.build_paginated_request("test/paginate", "my_cursor")
@@ -139,7 +139,7 @@ def test_mcp_client_pagination():
     assert ncur == "next_page"
 
 
-def test_mcp_client_create_message():
+def test_mcp_client_create_message() -> None:
     """Test test_mcp_client_create_message."""
     client = MCPClient()
     req = client.build_create_message_request(
@@ -161,7 +161,7 @@ def test_mcp_client_create_message():
     assert res["content"] == "response"
 
 
-def test_mcp_client_misc_requests():
+def test_mcp_client_misc_requests() -> None:
     """Test test_mcp_client_misc_requests."""
     client = MCPClient()
     req1 = client.build_complete_request(
@@ -181,7 +181,7 @@ def test_mcp_client_misc_requests():
     assert req4["method"] == "ping"
 
 
-def test_mcp_client_parse_client_result():
+def test_mcp_client_parse_client_result() -> None:
     """Test test_mcp_client_parse_client_result."""
     client = MCPClient()
     res = client.parse_client_result(
@@ -198,7 +198,7 @@ def test_mcp_client_parse_client_result():
     assert "MCP JSON-RPC Error -32603: Internal error" in str(exc_info.value)
 
 
-def test_mcp_client_complete_request_prompt():
+def test_mcp_client_complete_request_prompt() -> None:
     """Test test_mcp_client_complete_request_prompt."""
     client = MCPClient()
     req = client.build_complete_request(
@@ -208,7 +208,7 @@ def test_mcp_client_complete_request_prompt():
     assert req["params"]["ref"]["name"] == "foo"
 
 
-def test_mcp_client_request_resolution():
+def test_mcp_client_request_resolution() -> None:
     """Test test_mcp_client_request_resolution."""
     client = MCPClient()
     req = client.build_ping_request()
@@ -227,7 +227,7 @@ def test_mcp_client_request_resolution():
     assert client._resolved_responses[req["id"]] == resp
 
 
-def test_mcp_client_request_resolution_missing_id():
+def test_mcp_client_request_resolution_missing_id() -> None:
     """Test test_mcp_client_request_resolution_missing_id."""
     client = MCPClient()
 
@@ -240,7 +240,7 @@ def test_mcp_client_request_resolution_missing_id():
     assert not client._resolved_responses
 
 
-def test_mcp_client_request_resolution_unknown_id():
+def test_mcp_client_request_resolution_unknown_id() -> None:
     """Test test_mcp_client_request_resolution_unknown_id."""
     client = MCPClient()
 
@@ -249,7 +249,7 @@ def test_mcp_client_request_resolution_unknown_id():
     assert 999 not in client._resolved_responses
 
 
-def test_classes_emit_ref():
+def test_classes_emit_ref() -> None:
     """Test test_classes_emit_ref."""
     spec = OpenAPI(
         openapi="3.2.0",
@@ -269,7 +269,7 @@ def test_classes_emit_ref():
     assert len(defs) == 1
 
 
-def test_classes_parse_empty_components():
+def test_classes_parse_empty_components() -> None:
     """Test test_classes_parse_empty_components."""
     spec = OpenAPI(
         openapi="3.2.0",
@@ -282,7 +282,7 @@ def test_classes_parse_empty_components():
     assert "MyClass" in spec.components.schemas
 
 
-def test_functions_parse_empty_paths():
+def test_functions_parse_empty_paths() -> None:
     """Test test_functions_parse_empty_paths."""
     spec = OpenAPI(openapi="3.2.0", info={"title": "test", "version": "1.0"})
     extractor = FunctionExtractor(spec)
@@ -291,7 +291,7 @@ def test_functions_parse_empty_paths():
     assert "/pets" in spec.paths
 
 
-def test_mocks_parse_empty_paths():
+def test_mocks_parse_empty_paths() -> None:
     """Test test_mocks_parse_empty_paths."""
     spec = OpenAPI(openapi="3.2.0", info={"title": "test", "version": "1.0"})
     extractor = MockServerExtractor(spec)
@@ -300,7 +300,7 @@ def test_mocks_parse_empty_paths():
     assert "/pets" in spec.paths
 
 
-def test_functions_parse_full_features():
+def test_functions_parse_full_features() -> None:
     """Test test_functions_parse_full_features."""
     spec = OpenAPI(openapi="3.2.0", info={"title": "test", "version": "1.0"})
     extractor = FunctionExtractor(spec)
@@ -359,7 +359,7 @@ def post_user(user_id: str, limit: int = 10, is_active: bool = True, ratio: floa
     )
 
 
-def test_functions_parse_fallback_annotation():
+def test_functions_parse_fallback_annotation() -> None:
     """Test test_functions_parse_fallback_annotation."""
     spec = OpenAPI(openapi="3.2.0", info={"title": "test", "version": "1.0"})
     extractor = FunctionExtractor(spec)
@@ -373,7 +373,7 @@ def post_user(arg: "ForwardRef"):
     assert op.parameters[0].schema_.type == "string"
 
 
-def test_mcp_get_prompt():
+def test_mcp_get_prompt() -> None:
     """Test get_prompt."""
     from openapi_client.mcp import get_prompt
 
@@ -385,7 +385,7 @@ def test_mcp_get_prompt():
         get_prompt("unknown_prompt", {})
 
 
-def test_mcp_get_prompts():
+def test_mcp_get_prompts() -> None:
     """Test get_prompts."""
     from openapi_client.mcp import get_prompts
 
@@ -394,7 +394,7 @@ def test_mcp_get_prompts():
     assert prompts[0]["name"] == "generate_tests"
 
 
-def test_mcp_read_resource_error():
+def test_mcp_read_resource_error() -> None:
     """Test read_resource error."""
     from openapi_client.mcp import read_resource
 
@@ -402,7 +402,7 @@ def test_mcp_read_resource_error():
         read_resource("invalid://uri")
 
 
-def test_mcp_client_notifications():
+def test_mcp_client_notifications() -> None:
     """Test building various notifications."""
     from openapi_client.mcp_client.client import MCPClient
 
@@ -438,7 +438,7 @@ def test_mcp_client_notifications():
     )
 
 
-def test_mcp_client_cursor():
+def test_mcp_client_cursor() -> None:
     """Test building various requests with cursor."""
     from openapi_client.mcp_client.client import MCPClient
 
@@ -449,7 +449,7 @@ def test_mcp_client_cursor():
     )
 
 
-def test_mcp_client_more_methods():
+def test_mcp_client_more_methods() -> None:
     """Test test_mcp_client_more_methods."""
     from openapi_client.mcp_client.client import MCPClient
 
@@ -470,7 +470,7 @@ def test_mcp_client_more_methods():
     assert client.build_list_resource_templates_request("c")["params"]["cursor"] == "c"
 
 
-def test_mcp_all_methods():
+def test_mcp_all_methods() -> None:
     """Test test_mcp_all_methods."""
     from openapi_client.mcp import execute_tool, get_resources, get_tools, read_resource
 
@@ -507,7 +507,7 @@ def test_mcp_all_methods():
             sdk.generate_docs_json = old_docs
 
 
-def test_mcp_client_more_missing():
+def test_mcp_client_more_missing() -> None:
     """Test test_mcp_client_more_missing."""
     from openapi_client.mcp_client.client import MCPClient
 
@@ -517,7 +517,7 @@ def test_mcp_client_more_missing():
     )
 
 
-def test_mcp_client_cursor_none_no_params():
+def test_mcp_client_cursor_none_no_params() -> None:
     """Test test_mcp_client_cursor_none_no_params."""
     from openapi_client.mcp_client.client import MCPClient
 
@@ -569,7 +569,11 @@ def test_mcp() -> None:
 
 
 def test_sdk_end_to_end_roundtrip(tmp_path: Path) -> None:
-    """Test end-to-end SDK generation and OpenAPI extraction on a temporary project."""
+    """Test end-to-end SDK generation and OpenAPI extraction on a temporary project.
+
+    Args:
+        tmp_path: Parameter .
+    """
     spec_file = tmp_path / "openapi.json"
     spec_file.write_text(
         json.dumps(

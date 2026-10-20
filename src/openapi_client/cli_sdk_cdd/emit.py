@@ -7,28 +7,12 @@ from collections import OrderedDict
 
 from cdd.emit.argparse_function import argparse_function
 
-from openapi_client.functions.utils import get_default_server_url, sanitize_name
+from openapi_client.functions.utils import (
+    get_default_server_url,
+    map_openapi_type_to_python,
+    sanitize_name,
+)
 from openapi_client.models import OpenAPI
-
-
-def map_openapi_type_to_python(openapi_type: str) -> str:
-    """Map an OpenAPI type string to the corresponding Python type string.
-
-    Args:
-        openapi_type: The OpenAPI type string.
-
-    Returns:
-        The corresponding Python type string.
-    """
-    type_map = {
-        "string": "str",
-        "integer": "int",
-        "number": "float",
-        "boolean": "bool",
-        "array": "list",
-        "object": "dict",
-    }
-    return type_map.get(openapi_type, "str")
 
 
 def emit_cli_sdk(spec: OpenAPI) -> str:

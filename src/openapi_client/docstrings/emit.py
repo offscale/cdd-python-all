@@ -26,7 +26,7 @@ def emit_class_docstring(schema: Schema) -> cst.SimpleStatementLine | None:
         parts.append(desc)
 
     if parts:
-        doc = "\\n\\n".join(parts)
+        doc = "\\n\\n".join(parts).replace('"""', '\\"\\"\\"')
         return cst.SimpleStatementLine(
             [cst.Expr(value=cst.SimpleString(f'"""{doc}"""'))]
         )
@@ -52,7 +52,7 @@ def emit_function_docstring(operation: Operation) -> cst.SimpleStatementLine | N
         parts.append(desc)
 
     if parts:
-        doc = "\\n\\n".join(parts)
+        doc = "\\n\\n".join(parts).replace('"""', '\\"\\"\\"')
         return cst.SimpleStatementLine(
             [cst.Expr(value=cst.SimpleString(f'"""{doc}"""'))]
         )

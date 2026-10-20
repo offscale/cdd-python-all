@@ -34,8 +34,12 @@ from openapi_client.openapi.parse import parse_openapi_dict
 from openapi_client.sqlalchemy_cdd.emit import emit_sqlalchemy
 
 
-def test_cli_sync_from_openapi(tmp_path):
-    """Test test_cli_sync_from_openapi."""
+def test_cli_sync_from_openapi(tmp_path) -> None:
+    """Test test_cli_sync_from_openapi.
+
+    Args:
+        tmp_path: Parameter .
+    """
     spec = {
         "openapi": "3.2.0",
         "info": {"title": "Test API", "version": "1.0"},
@@ -52,8 +56,12 @@ def test_cli_sync_from_openapi(tmp_path):
     assert (out_dir / "main.py").exists()
 
 
-def test_cli_generate_to_openapi(tmp_path):
-    """Test test_cli_generate_to_openapi."""
+def test_cli_generate_to_openapi(tmp_path) -> None:
+    """Test test_cli_generate_to_openapi.
+
+    Args:
+        tmp_path: Parameter .
+    """
     py_code = "class Client:\n    pass\n"
     py_path = tmp_path / "client.py"
     py_path.write_text(py_code)
@@ -66,8 +74,13 @@ def test_cli_generate_to_openapi(tmp_path):
     assert data["openapi"] == "3.2.0"
 
 
-def test_cli_main_from_openapi(tmp_path, monkeypatch):
-    """Test test_cli_main_from_openapi."""
+def test_cli_main_from_openapi(tmp_path, monkeypatch) -> None:
+    """Test test_cli_main_from_openapi.
+
+    Args:
+        tmp_path: Parameter .
+        monkeypatch: Parameter .
+    """
     spec = {
         "openapi": "3.2.0",
         "info": {"title": "Test API", "version": "1.0"},
@@ -117,8 +130,13 @@ def test_cli_main_from_openapi(tmp_path, monkeypatch):
     assert (out_dir_cli / "src" / "models.py").exists()
 
 
-def test_cli_main_to_openapi(tmp_path, monkeypatch):
-    """Test test_cli_main_to_openapi."""
+def test_cli_main_to_openapi(tmp_path, monkeypatch) -> None:
+    """Test test_cli_main_to_openapi.
+
+    Args:
+        tmp_path: Parameter .
+        monkeypatch: Parameter .
+    """
     py_code = "class Client:\n    pass\n"
     py_path = tmp_path / "client.py"
     py_path.write_text(py_code)
@@ -132,8 +150,12 @@ def test_cli_main_to_openapi(tmp_path, monkeypatch):
     assert out_spec.exists()
 
 
-def test_cli_generate_to_openapi_with_models(tmp_path):
-    """Test test_cli_generate_to_openapi_with_models."""
+def test_cli_generate_to_openapi_with_models(tmp_path) -> None:
+    """Test test_cli_generate_to_openapi_with_models.
+
+    Args:
+        tmp_path: Parameter .
+    """
     py_code = "class Client:\n    pass\n"
     py_path = tmp_path / "client.py"
     py_path.write_text(py_code)
@@ -153,8 +175,12 @@ def test_cli_generate_to_openapi_with_models(tmp_path):
     assert "Pet" in data["components"]["schemas"]
 
 
-def test_cli_sync_dir(tmp_path):
-    """Test test_cli_sync_dir."""
+def test_cli_sync_dir(tmp_path) -> None:
+    """Test test_cli_sync_dir.
+
+    Args:
+        tmp_path: Parameter .
+    """
     project_dir = tmp_path / "project"
     project_dir.mkdir()
 
@@ -188,7 +214,7 @@ def get_pets():
     # test_client.py
     test_py = project_dir / "test_client.py"
     test_py.write_text("""
-def test_get_pets():
+def test_get_pets() -> None:
     pass
 """)
 
@@ -212,8 +238,13 @@ def test_get_pets():
     assert (project_dir2 / "client.py").exists()
 
 
-def test_cli_main_sync(tmp_path, monkeypatch):
-    """Test test_cli_main_sync."""
+def test_cli_main_sync(tmp_path, monkeypatch) -> None:
+    """Test test_cli_main_sync.
+
+    Args:
+        tmp_path: Parameter .
+        monkeypatch: Parameter .
+    """
     project_dir = tmp_path / "project"
     project_dir.mkdir()
     client_py = project_dir / "client.py"
@@ -224,15 +255,25 @@ def test_cli_main_sync(tmp_path, monkeypatch):
     assert (project_dir / "openapi.json").exists()
 
 
-def test_cli_main_invalid(monkeypatch):
-    """Test test_cli_main_invalid."""
+def test_cli_main_invalid(monkeypatch) -> None:
+    """Test test_cli_main_invalid.
+
+    Args:
+        monkeypatch: Parameter .
+    """
     monkeypatch.setattr("sys.argv", ["cdd-python"])
     with pytest.raises(SystemExit):
         main()
 
 
-def test_cli_to_docs_json(tmp_path, monkeypatch, capsys):
-    """Test test_cli_to_docs_json."""
+def test_cli_to_docs_json(tmp_path, monkeypatch, capsys) -> None:
+    """Test test_cli_to_docs_json.
+
+    Args:
+        tmp_path: Parameter .
+        monkeypatch: Parameter .
+        capsys: Parameter .
+    """
     import json
 
     spec = {
@@ -320,8 +361,14 @@ def test_cli_to_docs_json(tmp_path, monkeypatch, capsys):
     assert "response = client.get_pets(limit=limit)" in code
 
 
-def test_cli_to_docs_json_no_operation_id(tmp_path, monkeypatch, capsys):
-    """Test test_cli_to_docs_json_no_operation_id."""
+def test_cli_to_docs_json_no_operation_id(tmp_path, monkeypatch, capsys) -> None:
+    """Test test_cli_to_docs_json_no_operation_id.
+
+    Args:
+        tmp_path: Parameter .
+        monkeypatch: Parameter .
+        capsys: Parameter .
+    """
     import json
 
     spec = {
@@ -349,8 +396,12 @@ def test_cli_to_docs_json_no_operation_id(tmp_path, monkeypatch, capsys):
     assert "post_dogs(" in code
 
 
-def test_generate_from_openapi_input_dir(tmp_path):
-    """Test test_generate_from_openapi_input_dir."""
+def test_generate_from_openapi_input_dir(tmp_path) -> None:
+    """Test test_generate_from_openapi_input_dir.
+
+    Args:
+        tmp_path: Parameter .
+    """
     import json
 
     spec = {
@@ -367,16 +418,24 @@ def test_generate_from_openapi_input_dir(tmp_path):
     assert (out_dir / "src" / "cli_main.py").exists()
 
 
-def test_generate_from_openapi_no_input(capsys):
-    """Test test_generate_from_openapi_no_input."""
+def test_generate_from_openapi_no_input(capsys) -> None:
+    """Test test_generate_from_openapi_no_input.
+
+    Args:
+        capsys: Parameter .
+    """
     import pytest
 
     with pytest.raises(SystemExit):
         generate_from_openapi("to_sdk", None, None, "out")
 
 
-def test_generate_to_openapi_cli(tmp_path):
-    """Test test_generate_to_openapi_cli."""
+def test_generate_to_openapi_cli(tmp_path) -> None:
+    """Test test_generate_to_openapi_cli.
+
+    Args:
+        tmp_path: Parameter .
+    """
     py_code = 'import argparse\nparser = argparse.ArgumentParser()\nsubparsers = parser.add_subparsers()\nsubparsers.add_parser("test")'
     py_path = tmp_path / "cli_main.py"
     py_path.write_text(py_code)
@@ -391,8 +450,12 @@ def test_generate_to_openapi_cli(tmp_path):
     assert data["info"]["title"] == "Extracted API"
 
 
-def test_sync_dir_with_cli(tmp_path):
-    """Test test_sync_dir_with_cli."""
+def test_sync_dir_with_cli(tmp_path) -> None:
+    """Test test_sync_dir_with_cli.
+
+    Args:
+        tmp_path: Parameter .
+    """
     project_dir = tmp_path / "project"
     project_dir.mkdir()
     (project_dir / "cli_main.py").write_text(
@@ -403,8 +466,13 @@ def test_sync_dir_with_cli(tmp_path):
     assert (project_dir / "openapi.json").exists()
 
 
-def test_cli_main_from_openapi_missing_input(monkeypatch, capsys):
-    """Test test_cli_main_from_openapi_missing_input."""
+def test_cli_main_from_openapi_missing_input(monkeypatch, capsys) -> None:
+    """Test test_cli_main_from_openapi_missing_input.
+
+    Args:
+        monkeypatch: Parameter .
+        capsys: Parameter .
+    """
     import pytest
 
     monkeypatch.setattr("sys.argv", ["cdd-python", "from_openapi", "to_sdk"])
@@ -413,8 +481,13 @@ def test_cli_main_from_openapi_missing_input(monkeypatch, capsys):
     assert excinfo.value.code == 1
 
 
-def test_cli_main_from_openapi_missing_subcmd(monkeypatch, capsys):
-    """Test test_cli_main_from_openapi_missing_subcmd."""
+def test_cli_main_from_openapi_missing_subcmd(monkeypatch, capsys) -> None:
+    """Test test_cli_main_from_openapi_missing_subcmd.
+
+    Args:
+        monkeypatch: Parameter .
+        capsys: Parameter .
+    """
     import pytest
 
     monkeypatch.setattr("sys.argv", ["cdd-python", "from_openapi"])
@@ -422,8 +495,13 @@ def test_cli_main_from_openapi_missing_subcmd(monkeypatch, capsys):
         main()
 
 
-def test_cli_to_docs_json_url(monkeypatch, capsys):
-    """Test test_cli_to_docs_json_url."""
+def test_cli_to_docs_json_url(monkeypatch, capsys) -> None:
+    """Test test_cli_to_docs_json_url.
+
+    Args:
+        monkeypatch: Parameter .
+        capsys: Parameter .
+    """
     import json
 
     spec = {
@@ -454,8 +532,14 @@ def test_cli_to_docs_json_url(monkeypatch, capsys):
         def __exit__(self, exc_type, exc_val, exc_tb):
             """Test __exit__."""
 
-    def mock_urlopen(req):
-        """Test mock_urlopen."""
+    def mock_urlopen(req, timeout=30):
+        """Test mock_urlopen.
+
+        Args:
+            req: The URL Request object.
+            timeout: Connection timeout in seconds.
+        """
+        assert timeout == 30
         return MockResponse()
 
     import urllib.request
@@ -474,8 +558,12 @@ def test_cli_to_docs_json_url(monkeypatch, capsys):
     assert "body=body" in code
 
 
-def test_generate_from_openapi_tests_flag(tmp_path):
-    """Test test_generate_from_openapi_tests_flag."""
+def test_generate_from_openapi_tests_flag(tmp_path) -> None:
+    """Test test_generate_from_openapi_tests_flag.
+
+    Args:
+        tmp_path: Parameter .
+    """
     spec = {
         "openapi": "3.2.0",
         "info": {"title": "Test API", "version": "1.0"},
@@ -492,8 +580,12 @@ def test_generate_from_openapi_tests_flag(tmp_path):
     assert (out_dir / "test" / "mock_server.py").exists()
 
 
-def test_generate_from_openapi_to_sdk_cli_tests(tmp_path):
-    """Test to_sdk_cli with tests."""
+def test_generate_from_openapi_to_sdk_cli_tests(tmp_path) -> None:
+    """Test to_sdk_cli with tests.
+
+    Args:
+        tmp_path: Parameter .
+    """
     spec = {
         "openapi": "3.2.0",
         "info": {"title": "Test API", "version": "1.0"},
@@ -510,8 +602,12 @@ def test_generate_from_openapi_to_sdk_cli_tests(tmp_path):
     assert (out_dir / "test" / "mock_server.py").exists()
 
 
-def test_generate_from_openapi_to_sdk_cli_mcp(tmp_path):
-    """Test to_sdk_cli with mcp."""
+def test_generate_from_openapi_to_sdk_cli_mcp(tmp_path) -> None:
+    """Test to_sdk_cli with mcp.
+
+    Args:
+        tmp_path: Parameter .
+    """
     spec = {
         "openapi": "3.2.0",
         "info": {"title": "Test API", "version": "1.0"},
@@ -529,9 +625,14 @@ def test_generate_from_openapi_to_sdk_cli_mcp(tmp_path):
     assert (out_dir / "src" / "mcp_adapter.py").exists()
 
 
-def test_apply_env_vars_to_parser(monkeypatch, tmp_path):
+def test_apply_env_vars_to_parser(monkeypatch, tmp_path) -> None:
     # Setup files
-    """Test test_apply_env_vars_to_parser."""
+    """Test test_apply_env_vars_to_parser.
+
+    Args:
+        monkeypatch: Parameter .
+        tmp_path: Parameter .
+    """
     input_file = tmp_path / "dummy.json"
     spec = {"openapi": "3.2.0", "info": {"title": "T", "version": "1"}, "paths": {}}
     input_file.write_text(json.dumps(spec))
@@ -546,8 +647,13 @@ def test_apply_env_vars_to_parser(monkeypatch, tmp_path):
     assert not (tmp_path / ".github" / "workflows" / "ci.yml").exists()
 
 
-def test_scaffold_package(monkeypatch, tmp_path):
-    """Test test_scaffold_package."""
+def test_scaffold_package(monkeypatch, tmp_path) -> None:
+    """Test test_scaffold_package.
+
+    Args:
+        monkeypatch: Parameter .
+        tmp_path: Parameter .
+    """
     spec = {"openapi": "3.2.0", "info": {"title": "T", "version": "1"}, "paths": {}}
     input_file = tmp_path / "dummy.json"
     input_file.write_text(json.dumps(spec))
@@ -569,15 +675,25 @@ def test_scaffold_package(monkeypatch, tmp_path):
     assert (tmp_path / ".github" / "workflows" / "ci.yml").exists()
 
 
-def test_json_rpc_handler_direct(monkeypatch, capsys):
+def test_json_rpc_handler_direct(monkeypatch, capsys) -> None:
     # Mock HTTPServer
-    """Test test_json_rpc_handler_direct."""
+    """Test test_json_rpc_handler_direct.
+
+    Args:
+        monkeypatch: Parameter .
+        capsys: Parameter .
+    """
 
     class MockHTTPServer:
         """Test MockHTTPServer."""
 
         def __init__(self, addr, handler_class):
-            """Test __init__."""
+            """Test __init__.
+
+            Args:
+                addr: Parameter .
+                handler_class: Parameter .
+            """
             self.addr = addr
             self.handler_class = handler_class
             self.handled = []
@@ -591,13 +707,23 @@ def test_json_rpc_handler_direct(monkeypatch, capsys):
                 """Test MockRequest."""
 
                 def makefile(self, mode, *args, **kwargs):
-                    """Test makefile."""
+                    """Test makefile.
+
+                    Args:
+                        mode: Parameter .
+                        *args: Parameter .
+                        **kwargs: Parameter .
+                    """
                     if "b" in mode:
                         return BytesIO(b"{}")  # pragma: no cover
                     return BytesIO()
 
                 def sendall(self, data):
-                    """Test sendall."""
+                    """Test sendall.
+
+                    Args:
+                        data: Parameter .
+                    """
 
             handler = self.handler_class(MockRequest(), self.addr, self)
             handler.rfile = BytesIO(
@@ -614,7 +740,12 @@ def test_json_rpc_handler_direct(monkeypatch, capsys):
 
             # mock generate_to_openapi
             def mock_generate_to_openapi(p, o):
-                """Test mock_generate_to_openapi."""
+                """Test mock_generate_to_openapi.
+
+                Args:
+                    p: Parameter .
+                    o: Parameter .
+                """
                 print("MOCK SYNC")
 
             monkeypatch.setattr(
@@ -639,7 +770,12 @@ def test_json_rpc_handler_direct(monkeypatch, capsys):
             handler.headers = {"Content-Length": str(len(handler.rfile.getvalue()))}
 
             def mock_generate_from_openapi(*args, **kwargs):
-                """Test mock_generate_from_openapi."""
+                """Test mock_generate_from_openapi.
+
+                Args:
+                    *args: Parameter .
+                    **kwargs: Parameter .
+                """
                 print("MOCK PROCESS")
 
             monkeypatch.setattr(
@@ -660,7 +796,12 @@ def test_json_rpc_handler_direct(monkeypatch, capsys):
             handler.headers = {"Content-Length": str(len(handler.rfile.getvalue()))}
 
             def mock_generate_docs_json(*args, **kwargs):
-                """Test mock_generate_docs_json."""
+                """Test mock_generate_docs_json.
+
+                Args:
+                    *args: Parameter .
+                    **kwargs: Parameter .
+                """
                 print("MOCK DOCS")
 
             monkeypatch.setattr(
@@ -677,7 +818,12 @@ def test_json_rpc_handler_direct(monkeypatch, capsys):
             handler.headers = {"Content-Length": str(len(handler.rfile.getvalue()))}
 
             def mock_sync_dir(*args, **kwargs):
-                """Test mock_sync_dir."""
+                """Test mock_sync_dir.
+
+                Args:
+                    *args: Parameter .
+                    **kwargs: Parameter .
+                """
                 print("MOCK SYNC DIR")
 
             monkeypatch.setattr(openapi_client.cli, "sync_dir", mock_sync_dir)
@@ -704,7 +850,12 @@ def test_json_rpc_handler_direct(monkeypatch, capsys):
             handler.headers = {"Content-Length": str(len(handler.rfile.getvalue()))}
 
             def raise_exc(*args, **kwargs):
-                """Test raise_exc."""
+                """Test raise_exc.
+
+                Args:
+                    *args: Parameter .
+                    **kwargs: Parameter .
+                """
                 raise ValueError("ERROR")
 
             monkeypatch.setattr(openapi_client.cli, "sync_dir", raise_exc)
@@ -725,8 +876,13 @@ def test_json_rpc_handler_direct(monkeypatch, capsys):
     assert "MOCK SYNC DIR" in out
 
 
-def test_to_docs_json_output_file(tmp_path, monkeypatch):
-    """Test test_to_docs_json_output_file."""
+def test_to_docs_json_output_file(tmp_path, monkeypatch) -> None:
+    """Test test_to_docs_json_output_file.
+
+    Args:
+        tmp_path: Parameter .
+        monkeypatch: Parameter .
+    """
     spec = {"openapi": "3.2.0", "info": {"title": "T", "version": "1"}, "paths": {}}
     input_file = tmp_path / "dummy.json"
     input_file.write_text(json.dumps(spec))
@@ -740,8 +896,13 @@ def test_to_docs_json_output_file(tmp_path, monkeypatch):
     assert out_file.exists()
 
 
-def test_cli_missing_coverage(monkeypatch, tmp_path):
-    """Test test_cli_missing_coverage."""
+def test_cli_missing_coverage(monkeypatch, tmp_path) -> None:
+    """Test test_cli_missing_coverage.
+
+    Args:
+        monkeypatch: Parameter .
+        tmp_path: Parameter .
+    """
     import json
 
     import openapi_client.cli
@@ -754,7 +915,12 @@ def test_cli_missing_coverage(monkeypatch, tmp_path):
 
     # generate_from_openapi output_dir="." fallback
     def mock_mkdir(*args, **kwargs):  # pragma: no cover
-        """Test mock_mkdir."""
+        """Test mock_mkdir.
+
+        Args:
+            *args: Parameter .
+            **kwargs: Parameter .
+        """
 
     monkeypatch.chdir(tmp_path)
     spec = {"openapi": "3.2.0", "info": {"title": "T", "version": "1"}, "paths": {}}
@@ -771,8 +937,13 @@ def test_cli_missing_coverage(monkeypatch, tmp_path):
     openapi_client.cli.generate_to_openapi(str(py_file), None)
 
 
-def test_jsonrpc_invalid_rpc(monkeypatch, capsys):
-    """Test test_jsonrpc_invalid_rpc."""
+def test_jsonrpc_invalid_rpc(monkeypatch, capsys) -> None:
+    """Test test_jsonrpc_invalid_rpc.
+
+    Args:
+        monkeypatch: Parameter .
+        capsys: Parameter .
+    """
     import http.server
     import json
     from io import BytesIO
@@ -783,7 +954,12 @@ def test_jsonrpc_invalid_rpc(monkeypatch, capsys):
         """Test MockHTTPServer."""
 
         def __init__(self, addr, handler_class):
-            """Test __init__."""
+            """Test __init__.
+
+            Args:
+                addr: Parameter .
+                handler_class: Parameter .
+            """
             self.addr = addr
             self.handler_class = handler_class
 
@@ -794,13 +970,23 @@ def test_jsonrpc_invalid_rpc(monkeypatch, capsys):
                 """Test MockRequest."""
 
                 def makefile(self, mode, *args, **kwargs):
-                    """Test makefile."""
+                    """Test makefile.
+
+                    Args:
+                        mode: Parameter .
+                        *args: Parameter .
+                        **kwargs: Parameter .
+                    """
                     if "b" in mode:
                         return BytesIO(b"{}")  # pragma: no cover
                     return BytesIO()
 
                 def sendall(self, data):
-                    """Test sendall."""
+                    """Test sendall.
+
+                    Args:
+                        data: Parameter .
+                    """
 
             handler = self.handler_class(MockRequest(), self.addr, self)
             handler.rfile = BytesIO(
@@ -814,23 +1000,42 @@ def test_jsonrpc_invalid_rpc(monkeypatch, capsys):
     openapi_client.cli.main()
 
 
-def test_openapi_client_mcp(monkeypatch):
-    """Test test_openapi_client_mcp."""
+def test_openapi_client_mcp(monkeypatch) -> None:
+    """Test test_openapi_client_mcp.
+
+    Args:
+        monkeypatch: Parameter .
+    """
     from openapi_client import mcp, sdk
 
     tools = mcp.get_tools()
     assert len(tools) == 5
 
     def mock_generate_to_openapi(*args, **kwargs):
-        """Test mock_generate_to_openapi."""
+        """Test mock_generate_to_openapi.
+
+        Args:
+            *args: Parameter .
+            **kwargs: Parameter .
+        """
         return "to_openapi"
 
     def mock_generate_from_openapi(*args, **kwargs):
-        """Test mock_generate_from_openapi."""
+        """Test mock_generate_from_openapi.
+
+        Args:
+            *args: Parameter .
+            **kwargs: Parameter .
+        """
         return "from_openapi"
 
     def mock_generate_docs_json(*args, **kwargs):
-        """Test mock_generate_docs_json."""
+        """Test mock_generate_docs_json.
+
+        Args:
+            *args: Parameter .
+            **kwargs: Parameter .
+        """
         return "docs_json"
 
     monkeypatch.setattr(sdk, "generate_to_openapi", mock_generate_to_openapi)
@@ -857,8 +1062,13 @@ def test_openapi_client_mcp(monkeypatch):
         mcp.read_resource("schema://invalid")
 
 
-def test_cli_mcp_server(monkeypatch, capsys):
-    """Test test_cli_mcp_server."""
+def test_cli_mcp_server(monkeypatch, capsys) -> None:
+    """Test test_cli_mcp_server.
+
+    Args:
+        monkeypatch: Parameter .
+        capsys: Parameter .
+    """
     import sys
     from io import StringIO
 
@@ -963,6 +1173,26 @@ def test_cli_mcp_server(monkeypatch, capsys):
                 "id": 13,
             }
         ),
+        json.dumps({"jsonrpc": "2.0", "method": "prompts/list", "id": 15}),
+        json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "method": "prompts/get",
+                "params": {
+                    "name": "generate_tests",
+                    "arguments": {"component": "client"},
+                },
+                "id": 16,
+            }
+        ),
+        json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "method": "prompts/get",
+                "params": {"name": "unknown_prompt"},
+                "id": 17,
+            }
+        ),
         json.dumps({"jsonrpc": "2.0", "method": "close", "id": 14}),
         "",
     ]
@@ -971,7 +1201,12 @@ def test_cli_mcp_server(monkeypatch, capsys):
     monkeypatch.setattr(sys, "stdin", mock_stdin)
 
     def mock_generate_to_openapi(input_path, output_path):
-        """Test mock_generate_to_openapi."""
+        """Test mock_generate_to_openapi.
+
+        Args:
+            input_path: Parameter .
+            output_path: Parameter .
+        """
         if hasattr(mock_generate_to_openapi, "called"):
             raise RuntimeError("Mock generic error")
         mock_generate_to_openapi.called = True
@@ -979,15 +1214,29 @@ def test_cli_mcp_server(monkeypatch, capsys):
         raise ValueError("Mock error")
 
     def mock_generate_from_openapi(*args, **kwargs):
-        """Test mock_generate_from_openapi."""
+        """Test mock_generate_from_openapi.
+
+        Args:
+            *args: Parameter .
+            **kwargs: Parameter .
+        """
         print("MOCK GENERATE FROM OPENAPI")
 
     def mock_sync_dir(project_dir):
-        """Test mock_sync_dir."""
+        """Test mock_sync_dir.
+
+        Args:
+            project_dir: Parameter .
+        """
         print("MOCK SYNC DIR")
 
     def mock_generate_docs_json(*args, **kwargs):
-        """Test mock_generate_docs_json."""
+        """Test mock_generate_docs_json.
+
+        Args:
+            *args: Parameter .
+            **kwargs: Parameter .
+        """
         print("MOCK GENERATE DOCS")
 
     monkeypatch.setattr(
@@ -1014,8 +1263,12 @@ def test_cli_mcp_server(monkeypatch, capsys):
     assert "-32601" in out
 
 
-def test_cli_output_file(tmp_path):
-    """Test test_cli_output_file."""
+def test_cli_output_file(tmp_path) -> None:
+    """Test test_cli_output_file.
+
+    Args:
+        tmp_path: Parameter .
+    """
     spec = {
         "openapi": "3.0.0",
         "info": {"title": "Test API", "version": "1.0"},
@@ -1030,8 +1283,12 @@ def test_cli_output_file(tmp_path):
     assert (tmp_path / "out" / "src" / "client.py").exists()
 
 
-def test_cli_to_server_with_models(tmp_path):
-    """Test test_cli_to_server_with_models."""
+def test_cli_to_server_with_models(tmp_path) -> None:
+    """Test test_cli_to_server_with_models.
+
+    Args:
+        tmp_path: Parameter .
+    """
     spec = {
         "openapi": "3.0.0",
         "info": {"title": "Test API", "version": "1.0"},
@@ -1058,8 +1315,13 @@ def test_cli_to_server_with_models(tmp_path):
     assert (out_dir / "models" / "pet.py").exists()
 
 
-def test_cli_to_sdk_cli_cdd(tmp_path, monkeypatch):
-    """Test test_cli_to_sdk_cli_cdd."""
+def test_cli_to_sdk_cli_cdd(tmp_path, monkeypatch) -> None:
+    """Test test_cli_to_sdk_cli_cdd.
+
+    Args:
+        tmp_path: Parameter .
+        monkeypatch: Parameter .
+    """
 
     spec = {
         "openapi": "3.0.0",
@@ -1092,8 +1354,12 @@ def test_cli_to_sdk_cli_cdd(tmp_path, monkeypatch):
     assert "def set_cli_args_get_pets" in cli_code
 
 
-def test_cli_to_server_sqlalchemy_ast_types(tmp_path):
-    """Test test_cli_to_server_sqlalchemy_ast_types."""
+def test_cli_to_server_sqlalchemy_ast_types(tmp_path) -> None:
+    """Test test_cli_to_server_sqlalchemy_ast_types.
+
+    Args:
+        tmp_path: Parameter .
+    """
     spec = {
         "openapi": "3.0.0",
         "info": {"title": "Test API", "version": "1.0"},
@@ -1118,8 +1384,12 @@ def test_cli_to_server_sqlalchemy_ast_types(tmp_path):
     assert (out_dir / "models" / "pet.py").exists()
 
 
-def test_fastapi_emit(tmp_path):
-    """Test test_fastapi_emit."""
+def test_fastapi_emit(tmp_path) -> None:
+    """Test test_fastapi_emit.
+
+    Args:
+        tmp_path: Parameter .
+    """
     from openapi_client.fastapi.emit import emit_fastapi
     from openapi_client.models import Info, OpenAPI, Operation, PathItem
 
@@ -1141,7 +1411,7 @@ def test_fastapi_emit(tmp_path):
     assert "def post_test():" in code["routes/test.py"]
 
 
-def test_fastapi_parse():
+def test_fastapi_parse() -> None:
     """Test test_fastapi_parse."""
     import libcst as cst
 
@@ -1164,8 +1434,12 @@ def hello():
     assert spec.paths["/hello"].get.operationId == "hello"
 
 
-def test_sqlalchemy_cdd_emit_no_components(tmp_path):
-    """Test test_sqlalchemy_cdd_emit_no_components."""
+def test_sqlalchemy_cdd_emit_no_components(tmp_path) -> None:
+    """Test test_sqlalchemy_cdd_emit_no_components.
+
+    Args:
+        tmp_path: Parameter .
+    """
     from openapi_client.models import OpenAPI
     from openapi_client.sqlalchemy_cdd.emit import emit_sqlalchemy
 
@@ -1174,8 +1448,12 @@ def test_sqlalchemy_cdd_emit_no_components(tmp_path):
     assert res == {}
 
 
-def test_snapshot_roundtrip(tmp_path):
-    """Test that a snapshot is created during to_sdk and correctly parsed during from_sdk."""
+def test_snapshot_roundtrip(tmp_path) -> None:
+    """Test that a snapshot is created during to_sdk and correctly parsed during from_sdk.
+
+    Args:
+        tmp_path: Parameter .
+    """
     spec_json = {
         "openapi": "3.2.0",
         "info": {"title": "Test", "version": "1.0"},
@@ -1214,7 +1492,11 @@ def test_snapshot_roundtrip(tmp_path):
 
 
 def test_sync_dir_output_flag(tmp_path: Path) -> None:
-    """Test sync_dir with an explicit output_dir argument."""
+    """Test sync_dir with an explicit output_dir argument.
+
+    Args:
+        tmp_path: Parameter .
+    """
     project_dir = tmp_path / "project"
     project_dir.mkdir()
 
@@ -1233,7 +1515,12 @@ def test_sync_dir_output_flag(tmp_path: Path) -> None:
 
 
 def test_cli_main_sync_output(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test `cdd-python sync -i <dir> -o <out>` via main CLI entrypoint."""
+    """Test `cdd-python sync -i <dir> -o <out>` via main CLI entrypoint.
+
+    Args:
+        tmp_path: Parameter .
+        monkeypatch: Parameter .
+    """
     project_dir = tmp_path / "project"
     project_dir.mkdir()
 
@@ -1256,7 +1543,11 @@ def test_cli_main_sync_output(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
 
 
 def test_generate_to_openapi_dir(tmp_path: Path) -> None:
-    """Test test_generate_to_openapi_dir."""
+    """Test test_generate_to_openapi_dir.
+
+    Args:
+        tmp_path: Parameter .
+    """
     project_dir = tmp_path / "project"
     project_dir.mkdir()
 
@@ -1264,10 +1555,10 @@ def test_generate_to_openapi_dir(tmp_path: Path) -> None:
     client_py.write_text("class Client:\n    pass\n")
 
     mock_py = project_dir / "mock_server.py"
-    mock_py.write_text("def test_mock():\n    pass\n")
+    mock_py.write_text("def test_mock() -> None:\n    pass\n")
 
     test_py = project_dir / "test_client.py"
-    test_py.write_text("def test_client():\n    pass\n")
+    test_py.write_text("def test_client() -> None:\n    pass\n")
 
     cli_py = project_dir / "cli_main.py"
     cli_py.write_text("import argparse\n")
@@ -1281,7 +1572,11 @@ def test_generate_to_openapi_dir(tmp_path: Path) -> None:
 
 
 def test_generate_to_openapi_empty_output(tmp_path: Path) -> None:
-    """Test test_generate_to_openapi_empty_output."""
+    """Test test_generate_to_openapi_empty_output.
+
+    Args:
+        tmp_path: Parameter .
+    """
     # Test when output_path is not given (it defaults to "openapi.json")
     """Test test_generate_to_openapi_empty_output."""
     import os
@@ -1302,7 +1597,12 @@ def test_generate_to_openapi_empty_output(tmp_path: Path) -> None:
 def test_serve_json_rpc_break(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Test run_mcp_server termination conditions on empty lines followed by close."""
+    """Test run_mcp_server termination conditions on empty lines followed by close.
+
+    Args:
+        monkeypatch: Parameter .
+        capsys: Parameter .
+    """
     inputs = '\n\n{"jsonrpc": "2.0", "method": "close", "id": 1}\n'
     monkeypatch.setattr(sys, "stdin", StringIO(inputs))
 
@@ -1313,7 +1613,11 @@ def test_serve_json_rpc_break(
 
 
 def test_apply_env_vars_store_true(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test apply_env_vars_to_parser with store_true and store_false actions."""
+    """Test apply_env_vars_to_parser with store_true and store_false actions.
+
+    Args:
+        monkeypatch: Parameter .
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("--test-true", action="store_true")
     parser.add_argument("--test-false", action="store_false")
@@ -1332,7 +1636,11 @@ def test_apply_env_vars_store_true(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_run_mcp_server_close(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test run_mcp_server responds to close and exits cleanly."""
+    """Test run_mcp_server responds to close and exits cleanly.
+
+    Args:
+        monkeypatch: Parameter .
+    """
     inputs = '{"jsonrpc": "2.0", "method": "close", "id": 1}\n'
     out = StringIO()
     monkeypatch.setattr(sys, "stdin", StringIO(inputs))
@@ -1345,7 +1653,11 @@ def test_run_mcp_server_close(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_run_mcp_server_empty_line(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test run_mcp_server ignores empty lines."""
+    """Test run_mcp_server ignores empty lines.
+
+    Args:
+        monkeypatch: Parameter .
+    """
     inputs = "\n\n"
     out = StringIO()
     monkeypatch.setattr(sys, "stdin", StringIO(inputs))
@@ -1356,7 +1668,11 @@ def test_run_mcp_server_empty_line(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_run_mcp_server_exception_req_id(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test run_mcp_server returns -32603 error when an exception occurs with req_id."""
+    """Test run_mcp_server returns -32603 error when an exception occurs with req_id.
+
+    Args:
+        monkeypatch: Parameter .
+    """
     inputs = '[{"id": 1}]\n{"jsonrpc": "2.0", "method": "close", "id": 2}\n'
     out = StringIO()
     monkeypatch.setattr(sys, "stdin", StringIO(inputs))
@@ -1378,7 +1694,11 @@ def test_run_mcp_server_exception_req_id(monkeypatch: pytest.MonkeyPatch) -> Non
 
 
 def test_run_mcp_server_exception_no_req_id(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test run_mcp_server suppresses response when exception occurs without req_id."""
+    """Test run_mcp_server suppresses response when exception occurs without req_id.
+
+    Args:
+        monkeypatch: Parameter .
+    """
     inputs = '{"jsonrpc": "2.0", "method": "tools/call", "params": null}\n{"jsonrpc": "2.0", "method": "close", "id": 2}\n'
     out = StringIO()
     monkeypatch.setattr(sys, "stdin", StringIO(inputs))
@@ -1397,7 +1717,11 @@ def test_run_mcp_server_exception_no_req_id(monkeypatch: pytest.MonkeyPatch) -> 
 
 
 def test_run_mcp_server_exception_early(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test run_mcp_server handles malformed JSON before req_id is assigned."""
+    """Test run_mcp_server handles malformed JSON before req_id is assigned.
+
+    Args:
+        monkeypatch: Parameter .
+    """
     inputs = '{\n{"jsonrpc": "2.0", "method": "close", "id": 2}\n'
     out = StringIO()
     monkeypatch.setattr(sys, "stdin", StringIO(inputs))
@@ -1410,7 +1734,11 @@ def test_run_mcp_server_exception_early(monkeypatch: pytest.MonkeyPatch) -> None
 
 
 def test_cli_docs_json_missing_branches(tmp_path: Path) -> None:
-    """Test generate_docs_json with Reference parameters and empty path items."""
+    """Test generate_docs_json with Reference parameters and empty path items.
+
+    Args:
+        tmp_path: Parameter .
+    """
     spec = {
         "openapi": "3.0.0",
         "info": {"title": "Test", "version": "1.0"},
@@ -1434,7 +1762,11 @@ def test_cli_docs_json_missing_branches(tmp_path: Path) -> None:
 
 
 def test_openapi_to_cdd_project_invalid_subcommand(tmp_path: Path) -> None:
-    """Test main CLI exits on unknown from_openapi subcommand."""
+    """Test main CLI exits on unknown from_openapi subcommand.
+
+    Args:
+        tmp_path: Parameter .
+    """
     spec = {
         "openapi": "3.0.0",
         "info": {"title": "Test", "version": "1.0"},
@@ -1453,7 +1785,11 @@ def test_openapi_to_cdd_project_invalid_subcommand(tmp_path: Path) -> None:
 
 
 def test_generate_to_openapi_snapshot_exists(tmp_path: Path) -> None:
-    """Test generate_to_openapi loads from openapi.snapshot.json when present."""
+    """Test generate_to_openapi loads from openapi.snapshot.json when present.
+
+    Args:
+        tmp_path: Parameter .
+    """
     snapshot = tmp_path / "openapi.snapshot.json"
     snapshot.write_text(
         json.dumps(
@@ -1472,7 +1808,11 @@ def test_generate_to_openapi_snapshot_exists(tmp_path: Path) -> None:
 
 
 def test_generate_to_openapi_no_client_py_but_models_py(tmp_path: Path) -> None:
-    """Test generate_to_openapi extracts models.py when client.py is absent."""
+    """Test generate_to_openapi extracts models.py when client.py is absent.
+
+    Args:
+        tmp_path: Parameter .
+    """
     models_py = tmp_path / "models.py"
     models_py.write_text("class MyModel:\n    id: int = 1\n", encoding="utf-8")
     out_file = tmp_path / "out.json"
@@ -1482,7 +1822,11 @@ def test_generate_to_openapi_no_client_py_but_models_py(tmp_path: Path) -> None:
 
 
 def test_sync_project_src_exists_cli_missing(tmp_path: Path) -> None:
-    """Test sync_dir when src/ directory exists without cli_main.py."""
+    """Test sync_dir when src/ directory exists without cli_main.py.
+
+    Args:
+        tmp_path: Parameter .
+    """
     (tmp_path / "src").mkdir()
     openapi_json = tmp_path / "openapi.json"
     openapi_json.write_text(
@@ -1603,7 +1947,11 @@ def route3():
 
 
 def test_openapi_parse_missing_branches(tmp_path: Path) -> None:
-    """Test parse_openapi_dict with internal and external JSON pointer refs."""
+    """Test parse_openapi_dict with internal and external JSON pointer refs.
+
+    Args:
+        tmp_path: Parameter .
+    """
     external_file = tmp_path / "ext.json"
     external_file.write_text(
         json.dumps({"components": {"schemas": {"A": {"type": "string"}}}}),
@@ -1639,7 +1987,11 @@ def test_sqlalchemy_cdd_emit_missing_branches() -> None:
 
 
 def test_cli_loop_skip(tmp_path: Path) -> None:
-    """Test generate_from_openapi with an unrecognized subcommand still scaffolds."""
+    """Test generate_from_openapi with an unrecognized subcommand still scaffolds.
+
+    Args:
+        tmp_path: Parameter .
+    """
     spec = {
         "openapi": "3.0.0",
         "info": {"title": "Test", "version": "1.0"},
@@ -1660,7 +2012,11 @@ def test_cli_loop_skip(tmp_path: Path) -> None:
 
 
 def test_openapi_parse_empty_part(tmp_path: Path) -> None:
-    """Test parse_openapi_dict with empty pointer segments and empty $ref."""
+    """Test parse_openapi_dict with empty pointer segments and empty $ref.
+
+    Args:
+        tmp_path: Parameter .
+    """
     external_file = tmp_path / "ext.json"
     external_file.write_text(
         json.dumps({"components": {"schemas": {"A": {"type": "string"}}}}),
@@ -1684,7 +2040,11 @@ def test_openapi_parse_empty_part(tmp_path: Path) -> None:
 
 
 def test_openapi_parse_parameters_list(tmp_path: Path) -> None:
-    """Test parse_openapi_dict when top-level parameters is a list instead of dict."""
+    """Test parse_openapi_dict when top-level parameters is a list instead of dict.
+
+    Args:
+        tmp_path: Parameter .
+    """
     spec = {
         "openapi": "3.0",
         "info": {"title": "t", "version": "1"},
@@ -1695,8 +2055,12 @@ def test_openapi_parse_parameters_list(tmp_path: Path) -> None:
         parse_openapi_dict(spec, base_path=tmp_path)
 
 
-def test_write_generated_local_str(tmp_path):
-    """Test sync_dir where emit_seeder returns a string."""
+def test_write_generated_local_str(tmp_path) -> None:
+    """Test sync_dir where emit_seeder returns a string.
+
+    Args:
+        tmp_path: Parameter .
+    """
     with (
         unittest.mock.patch(
             "openapi_client.cli.emit_seeder", return_value="string_code", create=True

@@ -149,7 +149,11 @@ def test_arazzo_models_validation() -> None:
 
 
 def test_arazzo_parse_and_reusables(tmp_path: Path) -> None:
-    """Test Arazzo parsing, reusable component resolution, sourceDescriptions, and operationPath."""
+    """Test Arazzo parsing, reusable component resolution, sourceDescriptions, and operationPath.
+
+    Args:
+        tmp_path: Parameter .
+    """
     assert decode_json_pointer_token("~1pet~1~0id") == "/pet/~id"
 
     spec = Arazzo(
@@ -562,6 +566,7 @@ def test_arazzo_expressions_and_selectors() -> None:
         "$inputs.petName",
         "{$inputs.petName}",
         "$steps.login.outputs.token",
+        "$steps.login.outputs.user.id",
         "$statusCode",
         "$response.body.status",
         "$url",
@@ -681,6 +686,8 @@ def test_workflows_emit_and_parse_comprehensive() -> None:
                     "required": ["pet_name"],
                 },
                 parameters=[ArazzoParameter(name="api_key", in_="header", value="k1")],
+                successActions=[SuccessAction(name="wf_end", type="end")],
+                failureActions=[FailureAction(name="wf_end_fail", type="end")],
                 steps=[
                     StepObject(
                         stepId="step_create",
@@ -882,13 +889,22 @@ def test_cli_sdk_arazzo_emit_and_parse() -> None:
         spec
     )
 
-    # Test AST extraction without __arazzo_cli_spec__ snapshot
-    cli_no_snap = chr(10).join(
+    # Test AST extraction without __arazzo_info__ / __source_descriptions__ metadata
+    cli_no_meta = chr(10).join(
         line
         for line in cli_code.splitlines()
-        if not line.startswith("__arazzo_cli_spec__")
+        if not line.startswith("__arazzo_info__")
+        and not line.startswith("__source_descriptions__")
     )
-    also_assign = "__arazzo_cli_spec__ = None" + chr(10) + cli_no_snap
+    also_assign = (
+        "plain_var = 1"
+        + chr(10)
+        + "other_var: int = 1"
+        + chr(10)
+        + "other.set_defaults(_steps=[])"
+        + chr(10)
+        + cli_no_meta
+    )
     extracted_cli = extract_arazzo_from_cli_code(also_assign)
     assert extracted_cli.info.version == "2.0.0"
     assert len(extracted_cli.workflows) == 2
@@ -931,8 +947,17 @@ def test_fastapi_and_tests_arazzo_emit_and_parse() -> None:
                     StepObject(stepId="add_cart", operationId="add_to_cart"),
                     StepObject(stepId="pay", operationId="pay_order"),
                 ],
-                outputs={"order_id": "$steps.pay.outputs.id"},
-            )
+                outputs={
+                    "order_id": "$steps.pay.outputs.id",
+                    "sel_out": SelectorObject(
+                        context="$response.body", selector="$.id"
+                    ),
+                },
+            ),
+            WorkflowObject(
+                workflowId="simple_wf",
+                steps=[StepObject(stepId="s1", operationId="op1")],
+            ),
         ],
     )
 
@@ -942,13 +967,14 @@ def test_fastapi_and_tests_arazzo_emit_and_parse() -> None:
         extract_arazzo_from_fastapi_code(fastapi_code)
     ) == emit_arazzo_dict(spec)
 
-    fastapi_no_snap = chr(10).join(
+    fastapi_no_meta = "def helper() -> None:\n    pass\n" + chr(10).join(
         line
         for line in fastapi_code.splitlines()
-        if not line.startswith("__arazzo_server_spec__")
+        if not line.startswith("__arazzo_info__")
+        and not line.startswith("__source_descriptions__")
     )
-    extracted_fa = extract_arazzo_from_fastapi_code(fastapi_no_snap)
-    assert len(extracted_fa.workflows) == 1
+    extracted_fa = extract_arazzo_from_fastapi_code(fastapi_no_meta)
+    assert len(extracted_fa.workflows) == 2
     assert extracted_fa.workflows[0].workflowId == "checkout"
     assert len(extracted_fa.workflows[0].steps) == 2
 
@@ -958,13 +984,14 @@ def test_fastapi_and_tests_arazzo_emit_and_parse() -> None:
         extract_arazzo_from_test_code(test_code)
     ) == emit_arazzo_dict(spec)
 
-    test_no_snap = chr(10).join(
+    test_no_meta = chr(10).join(
         line
         for line in test_code.splitlines()
-        if not line.startswith("__arazzo_test_spec__")
+        if not line.startswith("__arazzo_info__")
+        and not line.startswith("__source_descriptions__")
     )
-    extracted_test = extract_arazzo_from_test_code(test_no_snap)
-    assert len(extracted_test.workflows) == 1
+    extracted_test = extract_arazzo_from_test_code(test_no_meta)
+    assert len(extracted_test.workflows) == 2
     assert extracted_test.workflows[0].workflowId == "checkout"
 
     # Also test extracting multi-step client.<op> calls from handwritten pytest code
@@ -991,7 +1018,12 @@ def test_multi_step_order() -> None:
 def test_cli_sdk_mcp_integration(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Test CLI commands (`from_arazzo`, `to_arazzo`, `sync`, `to_docs_json`, `mcp`, `serve_json_rpc`)."""
+    """Test CLI commands (`from_arazzo`, `to_arazzo`, `sync`, `to_docs_json`, `mcp`, `serve_json_rpc`).
+
+    Args:
+        tmp_path: Parameter .
+        monkeypatch: Parameter .
+    """
     arazzo_spec = Arazzo(
         arazzo="1.1.0",
         info=ArazzoInfo(title="Integration Flow", version="1.0.0"),
@@ -1264,3 +1296,40 @@ def test_cli_sdk_mcp_integration(
 
     monkeypatch.setattr(http.server, "HTTPServer", MockArazzoHTTPServer)
     cli.serve_json_rpc(8099, "127.0.0.1")
+
+
+def test_quoted_conditions_and_selector_type_roundtrip() -> None:
+    """Test _evaluate_simple_condition with quoted operators and SelectorObject.type AST round-trip."""
+    bs = chr(92)
+    ctx = {"response": {"body": {"msg": "a || b && c > d"}}, "statusCode": 200}
+    crit = CriterionObject(
+        condition="$response.body.msg == 'a || b && c > d' && $statusCode == 200"
+    )
+    assert evaluate_criterion(crit, ctx) is True
+
+    # Escaped quote inside string literal
+    ctx_esc = {"response": {"body": {"msg": f"a{bs}'b || c"}}}
+    crit_esc = CriterionObject(condition=f"$response.body.msg == 'a{bs}'b || c'")
+    assert evaluate_criterion(crit_esc, ctx_esc) is True
+
+    # SelectorObject with string type
+    sel_str = SelectorObject(context="$response.body", selector="//id", type="xpath")
+    node_str = compile_expression_to_cst(sel_str)
+    extracted_str = extract_expression_from_cst(node_str)
+    assert isinstance(extracted_str, SelectorObject)
+    assert extracted_str.type == "xpath"
+
+    # SelectorObject with ExpressionTypeObject (with and without version)
+    sel_eto = SelectorObject(
+        context="$response.body",
+        selector="$.id",
+        type=ExpressionTypeObject(
+            type="jsonpath", version="draft-goessner-dispatch-jsonpath-00"
+        ),
+    )
+    node_eto = compile_expression_to_cst(sel_eto)
+    extracted_eto = extract_expression_from_cst(node_eto)
+    assert isinstance(extracted_eto, SelectorObject)
+    assert isinstance(extracted_eto.type, ExpressionTypeObject)
+    assert extracted_eto.type.type == "jsonpath"
+    assert extracted_eto.type.version == "draft-goessner-dispatch-jsonpath-00"

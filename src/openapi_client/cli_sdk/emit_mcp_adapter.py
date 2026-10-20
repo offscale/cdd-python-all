@@ -19,6 +19,8 @@ def emit_mcp_adapter(spec: OpenAPI) -> str:
     """
     tools = extract_mcp_tools_from_spec(spec)
     tools_json = json.dumps(tools, indent=4)
+    title = spec.info.title if spec.info else "API"
+    version = spec.info.version if spec.info else "1.0.0"
 
     code = f'''"""Native MCP adapter for programmatic SDK integration."""
 
@@ -29,7 +31,7 @@ class MCPAdapter:
 
     def __init__(self, client):
         self.client = client
-        self._tools = {tools_json}
+        self._tools = json.loads({tools_json!r})
 
     def get_tools(self):
         """Return the available SDK methods mapped to the MCP tool schema."""
@@ -55,7 +57,7 @@ class MCPAdapter:
     def read_resource(self, uri: str):
         """Read a specific resource locally using SDK methods."""
         if uri == "schema://current":
-            return {{"openapi": "3.0.0", "info": {{"title": "API", "version": "1.0.0"}}}}
+            return {{"openapi": {spec.openapi!r}, "info": {{"title": {title!r}, "version": {version!r}}}}}
         raise ValueError(f"Resource not found: {{uri}}")
 '''
     return code

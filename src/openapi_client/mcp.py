@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from openapi_client.exceptions import MCPProtocolError
+
 
 def get_tools() -> list[dict[str, Any]]:
     """Return the available SDK generator tools mapped to the MCP tool schema.
@@ -138,7 +140,7 @@ def execute_tool(name: str, arguments: dict[str, Any]) -> Any:
     elif name == "to_docs_json":
         return sdk.generate_docs_json(**arguments)
     else:
-        raise ValueError(f"Unknown tool: {name}")
+        raise MCPProtocolError(f"Unknown tool: {name}")
 
 
 def get_resources() -> list[dict[str, str]]:
@@ -166,11 +168,11 @@ def read_resource(uri: str) -> dict[str, Any]:
         The resource dictionary payload.
 
     Raises:
-        ValueError: If `uri` is not found.
+        MCPProtocolError: If `uri` is not found.
     """
     if uri == "schema://current":
         return {"openapi": "3.0.0", "info": {"title": "cdd-python", "version": "1.0.0"}}
-    raise ValueError(f"Resource not found: {uri}")
+    raise MCPProtocolError(f"Resource not found: {uri}")
 
 
 def get_prompts() -> list[dict[str, Any]]:
@@ -205,7 +207,7 @@ def get_prompt(name: str, arguments: dict[str, Any] | None = None) -> dict[str, 
         The rendered MCP prompt response dictionary.
 
     Raises:
-        ValueError: If `name` is not a recognized prompt.
+        MCPProtocolError: If `name` is not a recognized prompt.
     """
     if name == "generate_tests":
         comp = (arguments or {}).get("component", "unknown component")
@@ -221,4 +223,4 @@ def get_prompt(name: str, arguments: dict[str, Any] | None = None) -> dict[str, 
                 }
             ],
         }
-    raise ValueError(f"Unknown prompt: {name}")
+    raise MCPProtocolError(f"Unknown prompt: {name}")
