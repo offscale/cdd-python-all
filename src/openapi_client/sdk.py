@@ -2,19 +2,103 @@
 
 from __future__ import annotations
 
-from openapi_client.cli import generate_docs_json as cli_generate_docs_json
-from openapi_client.cli import generate_from_arazzo as cli_generate_from_arazzo
-from openapi_client.cli import generate_from_openapi as cli_generate_from_openapi
-from openapi_client.cli import generate_to_arazzo as cli_generate_to_arazzo
-from openapi_client.cli import generate_to_openapi as cli_generate_to_openapi
-from openapi_client.cli import run_mcp_server as cli_run_mcp_server
-from openapi_client.cli import serve_json_rpc as cli_serve_json_rpc
-from openapi_client.cli import sync_dir as cli_sync_dir
+from typing import Any
+
+
+def cli_generate_from_openapi(*args: Any, **kwargs: Any) -> None:
+    """Delegate to `cli.generate_from_openapi`.
+
+    Args:
+        *args: Positional arguments forwarded to `cli.generate_from_openapi`.
+        **kwargs: Keyword arguments forwarded to `cli.generate_from_openapi`.
+    """
+    from openapi_client import cli as _cli
+
+    _cli.generate_from_openapi(*args, **kwargs)
+
+
+def cli_generate_to_openapi(*args: Any, **kwargs: Any) -> None:
+    """Delegate to `cli.generate_to_openapi`.
+
+    Args:
+        *args: Positional arguments forwarded to `cli.generate_to_openapi`.
+        **kwargs: Keyword arguments forwarded to `cli.generate_to_openapi`.
+    """
+    from openapi_client import cli as _cli
+
+    _cli.generate_to_openapi(*args, **kwargs)
+
+
+def cli_generate_from_arazzo(*args: Any, **kwargs: Any) -> None:
+    """Delegate to `cli.generate_from_arazzo`.
+
+    Args:
+        *args: Positional arguments forwarded to `cli.generate_from_arazzo`.
+        **kwargs: Keyword arguments forwarded to `cli.generate_from_arazzo`.
+    """
+    from openapi_client import cli as _cli
+
+    _cli.generate_from_arazzo(*args, **kwargs)
+
+
+def cli_generate_to_arazzo(*args: Any, **kwargs: Any) -> None:
+    """Delegate to `cli.generate_to_arazzo`.
+
+    Args:
+        *args: Positional arguments forwarded to `cli.generate_to_arazzo`.
+        **kwargs: Keyword arguments forwarded to `cli.generate_to_arazzo`.
+    """
+    from openapi_client import cli as _cli
+
+    _cli.generate_to_arazzo(*args, **kwargs)
+
+
+def cli_generate_docs_json(*args: Any, **kwargs: Any) -> None:
+    """Delegate to `cli.generate_docs_json`.
+
+    Args:
+        *args: Positional arguments forwarded to `cli.generate_docs_json`.
+        **kwargs: Keyword arguments forwarded to `cli.generate_docs_json`.
+    """
+    from openapi_client import cli as _cli
+
+    _cli.generate_docs_json(*args, **kwargs)
+
+
+def cli_serve_json_rpc(*args: Any, **kwargs: Any) -> None:
+    """Delegate to `cli.serve_json_rpc`.
+
+    Args:
+        *args: Positional arguments forwarded to `cli.serve_json_rpc`.
+        **kwargs: Keyword arguments forwarded to `cli.serve_json_rpc`.
+    """
+    from openapi_client import cli as _cli
+
+    _cli.serve_json_rpc(*args, **kwargs)
+
+
+def cli_sync_dir(*args: Any, **kwargs: Any) -> None:
+    """Delegate to `cli.sync_dir`.
+
+    Args:
+        *args: Positional arguments forwarded to `cli.sync_dir`.
+        **kwargs: Keyword arguments forwarded to `cli.sync_dir`.
+    """
+    from openapi_client import cli as _cli
+
+    _cli.sync_dir(*args, **kwargs)
+
+
+def cli_run_mcp_server() -> None:
+    """Delegate to `cli.run_mcp_server`."""
+    from openapi_client import cli as _cli
+
+    _cli.run_mcp_server()
 
 
 def generate_from_openapi(
-    input_path: str,
-    output_dir: str,
+    input_path: str | None = None,
+    output_dir: str = ".",
     no_github_actions: bool = False,
     no_installable_package: bool = False,
     tests: bool = False,
@@ -41,7 +125,7 @@ def generate_from_openapi(
     )
 
 
-def generate_to_openapi(input_dir: str, output_path: str | None = None) -> None:
+def generate_to_openapi(input_dir: str = ".", output_path: str | None = None) -> None:
     """Generate an OpenAPI specification from source code.
 
     Args:
@@ -52,8 +136,8 @@ def generate_to_openapi(input_dir: str, output_path: str | None = None) -> None:
 
 
 def generate_from_arazzo(
-    input_path: str,
-    output_dir: str,
+    input_path: str | None = None,
+    output_dir: str = ".",
     no_github_actions: bool = False,
     no_installable_package: bool = False,
     tests: bool = False,
@@ -80,7 +164,7 @@ def generate_from_arazzo(
     )
 
 
-def generate_to_arazzo(input_dir: str, output_path: str | None = None) -> None:
+def generate_to_arazzo(input_dir: str = ".", output_path: str | None = None) -> None:
     """Generate an Arazzo 1.1.0 specification from Python workflow source code.
 
     Args:
@@ -91,7 +175,7 @@ def generate_to_arazzo(input_dir: str, output_path: str | None = None) -> None:
 
 
 def generate_docs_json(
-    input_path: str,
+    input_path: str = "",
     no_imports: bool = False,
     no_wrapping: bool = False,
     output_path: str | None = None,
@@ -118,7 +202,7 @@ def serve_json_rpc(port: int = 8080, listen: str = "127.0.0.1") -> None:
 
 
 def run_sync(
-    input_dir: str,
+    input_dir: str = ".",
     truth: str | None = None,
     output_dir: str | None = None,
 ) -> None:
@@ -129,7 +213,10 @@ def run_sync(
         truth: Optional source of truth (`'openapi'`, `'class'`, `'function'`, `'sqlalchemy'`).
         output_dir: Optional output directory.
     """
-    cli_sync_dir(input_dir, truth, output_dir)
+    if truth is None and output_dir is None:
+        cli_sync_dir(input_dir)
+    else:
+        cli_sync_dir(input_dir, truth, output_dir)
 
 
 def mcp() -> None:

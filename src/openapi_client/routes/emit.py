@@ -6,6 +6,7 @@ import libcst as cst
 
 from openapi_client.arazzo_models import Arazzo
 from openapi_client.functions.emit import emit_functions
+from openapi_client.functions.utils import build_cst_module
 from openapi_client.models import OpenAPI
 from openapi_client.workflows.emit import emit_workflows_code
 
@@ -88,7 +89,7 @@ class ClientGenerator:
 
         body.append(client_class)
 
-        return cst.Module(body=body)
+        return build_cst_module(body)
 
     def generate_code(self) -> str:
         """Generate Python source code directly from the OpenAPI specification.

@@ -6,6 +6,7 @@ import libcst as cst
 
 from openapi_client.docstrings.parse import parse_docstring
 from openapi_client.models import OpenAPI, Operation, PathItem, Response
+from openapi_client.openapi.keywords import HTTP_METHODS
 
 
 class FastAPIExtractor(cst.CSTVisitor):
@@ -34,7 +35,7 @@ class FastAPIExtractor(cst.CSTVisitor):
             ):
                 method = decorator.decorator.func.attr.value
                 if (
-                    method in ["get", "post", "put", "delete", "patch"]
+                    method in HTTP_METHODS
                     and decorator.decorator.args
                     and isinstance(decorator.decorator.args[0].value, cst.SimpleString)
                 ):

@@ -37,13 +37,16 @@ def test_normal_function() -> None:
     assert stream_op is not None
     assert stream_op.responses is not None
     resp_200 = stream_op.responses["200"]
-    assert getattr(resp_200, "content", None) is not None
-    assert "text/event-stream" in resp_200.content
+    resp_content = getattr(resp_200, "content", None)
+    assert resp_content is not None
+    assert "text/event-stream" in resp_content
     assert "/stream_but_no_event_stream" not in visitor.spec.paths
 
 
 def test_build_wasm() -> None:
     """Test build_wasm main with successful and fallback execution."""
+    import subprocess
+
     import scripts.build_wasm as bw
 
     with mock.patch("subprocess.run") as m_run, mock.patch("os.makedirs"):
@@ -51,9 +54,7 @@ def test_build_wasm() -> None:
         m_run.assert_called_once()
 
     with (
-        mock.patch(
-            "subprocess.run", side_effect=bw.subprocess.CalledProcessError(1, [])
-        ),
+        mock.patch("subprocess.run", side_effect=subprocess.CalledProcessError(1, [])),
         mock.patch("os.makedirs"),
         mock.patch("os.path.exists", return_value=True),
         mock.patch("os.remove") as m_rm,
@@ -68,7 +69,7 @@ def test_doc_coverage(tmp_path: Path) -> None:
     """Test calculate_doc_coverage on sample Python files, *args/**kwargs, and SyntaxError failure.
 
     Args:
-        tmp_path: Parameter .
+        tmp_path: Temporary directory path fixture.
     """
     import scripts.doc_coverage as dc
 
@@ -113,8 +114,8 @@ def test_run_petstore_test(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> N
     """Test run_petstore_test script argument validation and execution.
 
     Args:
-        monkeypatch: Parameter .
-        tmp_path: Parameter .
+        monkeypatch: Pytest monkeypatch fixture.
+        tmp_path: Temporary directory path fixture.
     """
     monkeypatch.setenv("RUN_SLOW_TESTS", "1")
     import scripts.run_petstore_test as rp
@@ -231,12 +232,12 @@ def test_update_badges() -> None:
 
 def test_build_wasm_more() -> None:
     """Test build_wasm fallback when wasm_out and pyproject.toml do not exist."""
+    import subprocess
+
     import scripts.build_wasm as bw
 
     with (
-        mock.patch(
-            "subprocess.run", side_effect=bw.subprocess.CalledProcessError(1, [])
-        ),
+        mock.patch("subprocess.run", side_effect=subprocess.CalledProcessError(1, [])),
         mock.patch("os.makedirs"),
         mock.patch("os.path.exists", side_effect=[False, False]),
         mock.patch("os.remove") as m_rm,
@@ -259,8 +260,8 @@ def test_run_petstore_test_no_tmp(
     """Test run_petstore_test when temporary directory does not exist at cleanup.
 
     Args:
-        monkeypatch: Parameter .
-        tmp_path: Parameter .
+        monkeypatch: Pytest monkeypatch fixture.
+        tmp_path: Temporary directory path fixture.
     """
     monkeypatch.setenv("RUN_SLOW_TESTS", "1")
     import scripts.run_petstore_test as rp
@@ -307,8 +308,8 @@ def test_run_petstore_test_all_branches(
     """Test all branches of scripts/run_petstore_test.py.
 
     Args:
-        monkeypatch: Parameter .
-        tmp_path: Parameter .
+        monkeypatch: Pytest monkeypatch fixture.
+        tmp_path: Temporary directory path fixture.
     """
     import subprocess
 
@@ -345,20 +346,24 @@ def test_run_petstore_test_all_branches(
         assert m_run.call_count == 2
 
     # 3. Docker fallback: primary fails, fallback succeeds, ready on 2nd poll, SDK test fails, docker rm runs
-    def side_effect_run(cmd, *args, **kwargs):
+    failed_state: dict[str, bool] = {}
+
+    def side_effect_run(
+        cmd: list[str], *args: object, **kwargs: object
+    ) -> mock.MagicMock:
         """Mock subprocess.run for docker fallback and CLI failure.
 
         Args:
-            cmd: Parameter .
-            *args: Parameter .
-            **kwargs: Parameter .
+            cmd: Command argument list.
+            *args: Extra positional arguments.
+            **kwargs: Extra keyword arguments.
         """
         if (
             cmd[:2] == ["docker", "run"]
             and "openapitools/openapi-petstore" in cmd
-            and not hasattr(side_effect_run, "failed_once")
+            and not failed_state.get("once")
         ):
-            side_effect_run.failed_once = True
+            failed_state["once"] = True
             raise subprocess.CalledProcessError(1, cmd)
         if "cli_main.py" in " ".join(cmd):
             raise subprocess.CalledProcessError(1, cmd, stderr="CLI error")
@@ -386,13 +391,15 @@ def test_run_petstore_test_all_branches(
         sys, "argv", ["run_petstore_test.py", "swagger_petstore.json", str(out_dir)]
     )
 
-    def side_effect_both_fail(cmd, *args, **kwargs):
+    def side_effect_both_fail(
+        cmd: list[str], *args: object, **kwargs: object
+    ) -> mock.MagicMock:
         """Mock subprocess.run where docker run raises OSError.
 
         Args:
-            cmd: Parameter .
-            *args: Parameter .
-            **kwargs: Parameter .
+            cmd: Command argument list.
+            *args: Extra positional arguments.
+            **kwargs: Extra keyword arguments.
         """
         if cmd[:2] == ["docker", "run"]:
             raise OSError("Docker not installed")
@@ -412,8 +419,8 @@ def test_run_generated_server_test_all_branches(
     """Test all branches of scripts/run_generated_server_test.py.
 
     Args:
-        monkeypatch: Parameter .
-        tmp_path: Parameter .
+        monkeypatch: Pytest monkeypatch fixture.
+        tmp_path: Temporary directory path fixture.
     """
     import subprocess
 
@@ -489,13 +496,13 @@ def test_run_generated_server_test_all_branches(
     # 6. Server ready, but SDK test command fails with CalledProcessError
     out_dir.mkdir(exist_ok=True)
 
-    def run_fail_sdk(cmd, *args, **kwargs):
+    def run_fail_sdk(cmd: list[str], *args: object, **kwargs: object) -> mock.MagicMock:
         """Mock subprocess.run where cli_main.py fails.
 
         Args:
-            cmd: Parameter .
-            *args: Parameter .
-            **kwargs: Parameter .
+            cmd: Command argument list.
+            *args: Extra positional arguments.
+            **kwargs: Extra keyword arguments.
         """
         if "cli_main.py" in " ".join(cmd):
             raise subprocess.CalledProcessError(1, cmd, stderr="SDK failed")

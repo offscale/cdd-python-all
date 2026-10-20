@@ -8,7 +8,11 @@ from typing import Any
 import libcst as cst
 
 from openapi_client.dao.emit import _doc_stmt
-from openapi_client.functions.utils import sanitize_class_name, sanitize_name
+from openapi_client.functions.utils import (
+    build_cst_module,
+    sanitize_class_name,
+    sanitize_name,
+)
 from openapi_client.models import OpenAPI
 
 
@@ -185,8 +189,8 @@ def _emit_pool_module() -> cst.Module:
             ]
         ),
     )
-    return cst.Module(
-        body=[
+    return build_cst_module(
+        [
             cst.parse_statement("from typing import Any, Dict, List"),
             cst.EmptyLine(),
             cls_def,
@@ -306,7 +310,7 @@ def emit_seeder(spec: OpenAPI) -> dict[str, str]:
         )
         factories_body.append(cst.EmptyLine())
 
-    files["mocks/factories.py"] = cst.Module(body=factories_body).code
+    files["mocks/factories.py"] = build_cst_module(factories_body).code
 
     seed_stmts: list[cst.BaseStatement] = [
         _doc_stmt(
@@ -338,8 +342,8 @@ def emit_seeder(spec: OpenAPI) -> dict[str, str]:
         )
         seed_stmts.append(loop_stmt)
 
-    seeder_mod = cst.Module(
-        body=[
+    seeder_mod = build_cst_module(
+        [
             cst.parse_statement("from sqlalchemy.orm import Session"),
             cst.parse_statement("from .pool import EntityPool"),
             cst.parse_statement("from .factories import *"),

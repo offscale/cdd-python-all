@@ -8,6 +8,7 @@ from pathlib import Path
 
 from openapi_client.arazzo.parse import parse_arazzo_json
 from openapi_client.functions.utils import sanitize_name
+from openapi_client.openapi.keywords import HTTP_METHODS
 from openapi_client.openapi.parse import parse_openapi_json
 
 
@@ -66,16 +67,7 @@ def generate_docs_json(
     if spec.paths:
         for path, path_item in spec.paths.items():
             path_map: dict[str, str] = {}
-            for method in [
-                "get",
-                "post",
-                "put",
-                "delete",
-                "patch",
-                "options",
-                "head",
-                "trace",
-            ]:
+            for method in HTTP_METHODS:
                 operation = getattr(path_item, method, None)
                 if operation:
                     raw_op_id = (
@@ -103,7 +95,7 @@ def generate_docs_json(
                     if operation.parameters:
                         for param in operation.parameters:
                             if hasattr(param, "name"):
-                                p_name = param.name.replace("-", "_")
+                                p_name = sanitize_name(param.name)
                                 lines.append(f"{indent}{p_name} = 'example'")
                                 args.append(f"{p_name}={p_name}")
 

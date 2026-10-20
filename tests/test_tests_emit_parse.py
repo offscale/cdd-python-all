@@ -128,25 +128,37 @@ def test_get_stub_body_array_of_objects() -> None:
         items=Schema(type="object", properties={"id": Schema(type="integer")}),
     )
     val = get_stub_body(schema)
+    assert isinstance(val, cst.List)
     assert len(val.elements) == 1
-    assert val.elements[0].value.elements[0].key.value == '"id"'
+    first_dict = val.elements[0].value
+    assert isinstance(first_dict, cst.Dict)
+    first_el = first_dict.elements[0]
+    assert isinstance(first_el, cst.DictElement)
+    assert getattr(first_el.key, "value", None) == '"id"'
 
 
 def test_emit_tests_exception_content() -> None:
     """Test test_emit_tests_exception_content."""
+    from typing import Any
+
     from openapi_client.models import Operation, RequestBody
     from openapi_client.tests.emit import emit_operation_test
 
     class BadDict:
         """Test BadDict."""
 
-        def __contains__(self, item):
-            """Test __contains__."""
+        def __contains__(self, item: object) -> bool:
+            """Test __contains__.
+
+            Args:
+                item: Key to check.
+            """
             raise RuntimeError("Mock error")
 
+    bad_content: Any = BadDict()
     op = Operation.model_construct(
         operationId="test_exception",
-        requestBody=RequestBody.model_construct(content=BadDict()),
+        requestBody=RequestBody.model_construct(content=bad_content),
     )
     func = emit_operation_test("post", "/test", op)
     assert func.name.value == "test_test_exception"
@@ -154,6 +166,8 @@ def test_emit_tests_exception_content() -> None:
 
 def test_emit_tests_body_param_exception() -> None:
     """Test test_emit_tests_body_param_exception."""
+    from typing import Any
+
     from openapi_client.models import Operation
     from openapi_client.tests.emit import emit_operation_test
 
@@ -164,12 +178,13 @@ def test_emit_tests_body_param_exception() -> None:
         in_ = "body"
 
         @property
-        def schema_(self):
+        def schema_(self) -> None:
             """Test schema_."""
             raise RuntimeError("Mock error")
 
+    bad_params: Any = [BadParameter()]
     op = Operation.model_construct(
-        operationId="test_body_param_exception", parameters=[BadParameter()]
+        operationId="test_body_param_exception", parameters=bad_params
     )
     with pytest.raises(RuntimeError, match="Mock error"):
         emit_operation_test("post", "/test", op)
@@ -205,6 +220,8 @@ def test_emit_tests_request_body_reference() -> None:
 
 def test_emit_tests_other_param_exception() -> None:
     """Test test_emit_tests_other_param_exception."""
+    from typing import Any
+
     from openapi_client.models import Operation
     from openapi_client.tests.emit import emit_operation_test
 
@@ -215,12 +232,13 @@ def test_emit_tests_other_param_exception() -> None:
         in_ = "query"
 
         @property
-        def schema_(self):
+        def schema_(self) -> None:
             """Test schema_."""
             raise RuntimeError("Mock error")
 
+    bad_params: Any = [BadParameter3()]
     op = Operation.model_construct(
-        operationId="test_other_param_exception", parameters=[BadParameter3()]
+        operationId="test_other_param_exception", parameters=bad_params
     )
     with pytest.raises(RuntimeError, match="Mock error"):
         emit_operation_test("post", "/test", op)
@@ -344,9 +362,14 @@ def test_mock_streaming_extraction() -> None:
         "@app.get('/stream')\ndef my_stream():\n    return EventSourceResponse()\n"
     )
     module.visit(extractor)
+    assert spec.paths is not None
     op = spec.paths["/stream"].get
+    assert op is not None
     assert op.responses is not None
-    assert "text/event-stream" in op.responses["200"].content
+    resp_200 = op.responses["200"]
+    resp_content = getattr(resp_200, "content", None)
+    assert resp_content is not None
+    assert "text/event-stream" in resp_content
 
 
 def test_parse_sqlalchemy_cdd() -> None:
@@ -515,6 +538,8 @@ def test_emit_tests_more() -> None:
 
 def test_emit_tests_exception() -> None:
     """Test test_emit_tests_exception."""
+    from typing import Any
+
     from openapi_client.models import OpenAPI, Operation, PathItem, RequestBody
     from openapi_client.tests.emit import emit_tests
 
@@ -522,11 +547,16 @@ def test_emit_tests_exception() -> None:
     class Bad:
         """Test Bad."""
 
-        def __contains__(self, item):
-            """Test __contains__."""
+        def __contains__(self, item: object) -> bool:
+            """Test __contains__.
+
+            Args:
+                item: Key to check.
+            """
             raise RuntimeError("Mock error")
 
-    rb = RequestBody.model_construct(content=Bad())
+    bad_content: Any = Bad()
+    rb = RequestBody.model_construct(content=bad_content)
     op = Operation(operationId="err", requestBody=rb)
 
     spec = OpenAPI(

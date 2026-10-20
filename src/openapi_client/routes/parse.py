@@ -7,6 +7,7 @@ import libcst as cst
 from openapi_client.classes.parse import extract_classes_from_ast
 from openapi_client.functions.parse import extract_functions_from_ast
 from openapi_client.models import Components, Info, OpenAPI
+from openapi_client.sqlalchemy_cdd.parse import parse_sqlalchemy_cdd
 
 
 def extract_from_code(code: str) -> OpenAPI:
@@ -28,6 +29,7 @@ def extract_from_code(code: str) -> OpenAPI:
     module = cst.parse_module(code)
 
     extract_classes_from_ast(module, spec)
+    parse_sqlalchemy_cdd(module, spec)
     extract_functions_from_ast(module, spec)
 
     return spec

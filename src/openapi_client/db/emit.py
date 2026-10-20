@@ -5,6 +5,7 @@ from __future__ import annotations
 import libcst as cst
 
 from openapi_client.dao.emit import _doc_stmt
+from openapi_client.functions.utils import build_cst_module
 from openapi_client.models import OpenAPI
 
 
@@ -186,6 +187,12 @@ def emit_db(spec: OpenAPI) -> str:
                     ),
                     body=cst.IndentedBlock(body=[cst.parse_statement("return")]),
                 ),
+                cst.If(
+                    test=cst.parse_expression("engine is not None"),
+                    body=cst.IndentedBlock(
+                        body=[cst.parse_statement("engine.dispose()")]
+                    ),
+                ),
                 cst.parse_statement("engine = get_engine(config)"),
                 cst.parse_statement(
                     "SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)"
@@ -226,8 +233,8 @@ def emit_db(spec: OpenAPI) -> str:
         ),
     )
 
-    mod = cst.Module(
-        body=[
+    mod = build_cst_module(
+        [
             _doc_stmt("Database connection and ephemeral configuration."),
             cst.EmptyLine(),
             cst.parse_statement("import os"),

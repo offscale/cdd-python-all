@@ -5,6 +5,7 @@ from __future__ import annotations
 import libcst as cst
 
 from openapi_client.models import MediaType, OpenAPI, Operation, PathItem, Response
+from openapi_client.openapi.keywords import HTTP_METHODS
 
 
 class SSEChecker(cst.CSTVisitor):
@@ -51,7 +52,7 @@ class ASTTestExtractor(cst.CSTVisitor):
                     self.spec.paths = {}
                 matched_op: Operation | None = None
                 for path_item in self.spec.paths.values():
-                    for method in ("get", "post", "put", "delete", "patch"):
+                    for method in HTTP_METHODS:
                         op = getattr(path_item, method, None)
                         if op and op.operationId == op_id:
                             matched_op = op

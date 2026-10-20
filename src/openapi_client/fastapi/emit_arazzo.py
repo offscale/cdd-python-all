@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import libcst as cst
+
 from openapi_client.arazzo_models import Arazzo
 from openapi_client.functions.utils import sanitize_name
 from openapi_client.workflows.emit import _get_json_schema_dict
@@ -75,4 +77,4 @@ def emit_fastapi_arazzo_routes(spec: Arazzo) -> str:
             ]
         )
 
-    return chr(10).join(lines)
+    return cst.parse_module(chr(10).join(lines)).code

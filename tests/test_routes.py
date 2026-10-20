@@ -10,10 +10,11 @@ import unittest.mock
 from pathlib import Path
 
 import libcst as cst
+import pytest
 
 from openapi_client.mocks.emit import emit_mock_server
 from openapi_client.mocks.parse import extract_mocks_from_ast
-from openapi_client.models import OpenAPI
+from openapi_client.models import OpenAPI, Schema
 from openapi_client.routes.emit import ClientGenerator
 from openapi_client.routes.parse import extract_from_code
 from openapi_client.tests.emit import emit_tests
@@ -37,9 +38,12 @@ def get_pets():
     mock_module = cst.parse_module(mock_code)
     spec = OpenAPI(openapi="3.2.0", info={"title": "Test", "version": "1.0"})
     extract_mocks_from_ast(mock_module, spec)
-    assert spec.paths["/pets"].get.operationId == "get_pets"
-    assert spec.paths["/pets"].get.summary == "Summary"
-    assert spec.paths["/pets"].get.description == "Description"
+    assert spec.paths is not None
+    op_pets = spec.paths["/pets"].get
+    assert op_pets is not None
+    assert op_pets.operationId == "get_pets"
+    assert op_pets.summary == "Summary"
+    assert op_pets.description == "Description"
 
     test_code = '''
 def test_get_pets() -> None:
@@ -68,6 +72,8 @@ def test_parse_openapi() -> None:
     spec = OpenAPI(**spec_dict)
     assert spec.openapi == "3.2.0"
     assert spec.info.title == "Example API"
+    assert spec.paths is not None
+    assert spec.paths["/pets"].get is not None
     assert spec.paths["/pets"].get.operationId == "get_pets"
 
 
@@ -119,6 +125,8 @@ def test_generate_code() -> None:
 
     from openapi_client.classes.emit import emit_models_module
 
+    assert spec.components is not None
+    assert spec.components.schemas is not None
     models_code = emit_models_module(spec.components.schemas)
     assert "class Pet(BaseModel):" in models_code
     assert "class Empty(BaseModel):" in models_code
@@ -150,6 +158,8 @@ class Client:
 '''
     spec = extract_from_code(code)
     assert spec.openapi == "3.2.0"
+    assert spec.paths is not None
+    assert spec.paths["/pets"].post is not None
     assert spec.paths["/pets"].post.operationId == "post_pets"
 
     # Direct test of ClassExtractor with missing components
@@ -161,18 +171,23 @@ class Client:
     visitor = ClassExtractor(empty_spec)
     cst.parse_module("class Empty: pass").visit(visitor)
     assert empty_spec.components is not None
+    assert spec.paths["/pets"].get is not None
     assert spec.paths["/pets"].get.operationId == "get_pets"
     assert spec.paths["/pets"].get.summary == "Get all pets"
     assert spec.paths["/pets"].get.description == "Returns all pets."
 
+    assert spec.components is not None
+    assert spec.components.schemas is not None
     assert "Pet" in spec.components.schemas
     pet_schema = spec.components.schemas["Pet"]
+    assert isinstance(pet_schema, Schema)
     assert pet_schema.summary == "A pet"
     assert pet_schema.description == "This represents a pet in the system."
-    assert pet_schema.properties["id"].type == "integer"
-    assert pet_schema.properties["name"].type == "string"
-    assert pet_schema.properties["price"].type == "number"
-    assert pet_schema.properties["is_friendly"].type == "boolean"
+    assert pet_schema.properties is not None
+    assert getattr(pet_schema.properties["id"], "type", None) == "integer"
+    assert getattr(pet_schema.properties["name"], "type", None) == "string"
+    assert getattr(pet_schema.properties["price"], "type", None) == "number"
+    assert getattr(pet_schema.properties["is_friendly"], "type", None) == "boolean"
 
 
 def test_emit_tests_and_mocks() -> None:
@@ -255,11 +270,11 @@ def test_emit_tests_and_mocks() -> None:
     assert "response=client.get_pets()" in comp_code.replace(" ", "")
 
 
-def test_mock_server(monkeypatch) -> None:
+def test_mock_server(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test executing test/mock_server.py with a mocked FastAPI module.
 
     Args:
-        monkeypatch: Parameter .
+        monkeypatch: Pytest monkeypatch fixture.
     """
     monkeypatch.setitem(sys.modules, "fastapi", unittest.mock.MagicMock())
     mock_server_path = os.path.abspath(
@@ -269,12 +284,12 @@ def test_mock_server(monkeypatch) -> None:
     assert "app" in res
 
 
-def test_test_client(tmp_path: Path, monkeypatch) -> None:
+def test_test_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Test test_client module execution in an isolated temporary workspace.
 
     Args:
-        tmp_path: Parameter .
-        monkeypatch: Parameter .
+        tmp_path: Temporary directory path fixture.
+        monkeypatch: Pytest monkeypatch fixture.
     """
     src_dir = tmp_path / "src"
     src_dir.mkdir(parents=True, exist_ok=True)
@@ -287,7 +302,7 @@ def test_test_client(tmp_path: Path, monkeypatch) -> None:
     import test.test_client as tc
 
     importlib.reload(tc)
-    assert tc.test_client() is None
+    tc.test_client()
 
 
 def test_execute_generated_client_http_requests() -> None:
@@ -388,3 +403,35 @@ def test_execute_generated_client_http_requests() -> None:
         headers=expected_headers,
         json={"status": "sold"},
     )
+
+    with client as ctx_client:
+        assert ctx_client is client
+    mock_http.clear.assert_called_once()
+
+    # Test additionalOperations round-trip
+    from openapi_client.models import Operation, PathItem
+    from openapi_client.routes.parse import extract_from_code
+
+    custom_spec = parse_openapi_dict(
+        {
+            "openapi": "3.2.0",
+            "info": {"title": "Custom Verb API", "version": "1.0.0"},
+            "paths": {},
+        }
+    )
+    assert custom_spec.paths is not None
+    custom_spec.paths["/items"] = PathItem(
+        additionalOperations={
+            "COPY": Operation(operationId="copy_items", summary="Copy items"),
+            "LOCK": Operation(operationId="lock_items", summary="Lock items"),
+        }
+    )
+    custom_code = ClientGenerator(custom_spec).generate_code()
+    assert "def copy_items" in custom_code
+    assert "def lock_items" in custom_code
+    extracted_custom = extract_from_code(custom_code)
+    assert extracted_custom.paths is not None
+    assert "/items" in extracted_custom.paths
+    assert extracted_custom.paths["/items"].additionalOperations is not None
+    assert "COPY" in extracted_custom.paths["/items"].additionalOperations
+    assert "LOCK" in extracted_custom.paths["/items"].additionalOperations

@@ -8,7 +8,6 @@ import sys
 from io import StringIO
 from typing import Any
 
-from openapi_client import cli as _cli
 from openapi_client import mcp as mcp_module
 
 
@@ -36,6 +35,8 @@ def run_mcp_server() -> None:
         sys.stdout.write(json.dumps(resp) + nl)
         sys.stdout.flush()
 
+    known_tools = {t["name"] for t in mcp_module.get_tools()}
+
     for line in sys.stdin:
         line = line.strip()
         if not line:
@@ -54,7 +55,7 @@ def run_mcp_server() -> None:
                         "capabilities": {"tools": {}, "resources": {}, "prompts": {}},
                         "serverInfo": {
                             "name": "cdd-generator",
-                            "version": _cli.get_version(),
+                            "version": mcp_module._pkg_version(),
                         },
                     },
                 )
@@ -127,50 +128,17 @@ def run_mcp_server() -> None:
                 tool_name = params.get("name")
                 args = params.get("arguments", {})
 
-                buffer = StringIO()
+                if tool_name not in known_tools:
+                    send_response(
+                        req_id,
+                        error={"code": -32601, "message": "Tool not found"},
+                    )
+                    continue
 
+                buffer = StringIO()
                 try:
                     with contextlib.redirect_stdout(buffer):
-                        if tool_name == "to_openapi":
-                            _cli.generate_to_openapi(
-                                args.get("input_dir") or args.get("input_path"),
-                                args.get("output_path"),
-                            )
-                        elif tool_name == "from_openapi":
-                            _cli.generate_from_openapi(
-                                args.get("subcommand", "to_sdk"),
-                                args.get("input_path"),
-                                None,
-                                args.get("output_dir", "."),
-                            )
-                        elif tool_name == "to_arazzo":
-                            _cli.generate_to_arazzo(
-                                args.get("input_dir") or args.get("input_path"),
-                                args.get("output_path", "arazzo.json"),
-                            )
-                        elif tool_name == "from_arazzo":
-                            _cli.generate_from_arazzo(
-                                args.get("subcommand", "to_sdk"),
-                                args.get("input_path"),
-                                None,
-                                args.get("output_dir", "."),
-                            )
-                        elif tool_name == "sync_dir":
-                            _cli.sync_dir(args.get("project_dir"))
-                        elif tool_name == "to_docs_json":
-                            _cli.generate_docs_json(
-                                args.get("input_path"),
-                                bool(args.get("no_imports", False)),
-                                bool(args.get("no_wrapping", False)),
-                                args.get("output_path") or args.get("output_file"),
-                            )
-                        else:
-                            send_response(
-                                req_id,
-                                error={"code": -32601, "message": "Tool not found"},
-                            )
-                            continue
-
+                        mcp_module.execute_tool(str(tool_name), args)
                     send_response(
                         req_id,
                         result={

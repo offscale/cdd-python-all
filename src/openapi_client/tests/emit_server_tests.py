@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import libcst as cst
+
+from openapi_client.functions.utils import sanitize_class_name
 from openapi_client.models import OpenAPI
 
 
@@ -21,6 +24,7 @@ def emit_server_tests(spec: OpenAPI) -> dict[str, str]:
 
     schemas = spec.components.schemas
     first_model = next(iter(schemas.keys()))
+    first_model_cls = sanitize_class_name(first_model)
 
     conftest_lines = [
         "import os",
@@ -88,7 +92,7 @@ def emit_server_tests(spec: OpenAPI) -> dict[str, str]:
         "def test_dao_factory_stub():",
         '    """Test DAO factory returns Stubs when no DB."""',
         f"    dao = get_dao({first_model!r})",
-        f"    assert type(dao).__name__ == 'Stub{first_model}DAO'",
+        f"    assert type(dao).__name__ == 'Stub{first_model_cls}DAO'",
         "",
         "def test_dao_factory_concrete():",
         '    """Test DAO factory returns Concrete DAOs when DB is available."""',
@@ -96,7 +100,7 @@ def emit_server_tests(spec: OpenAPI) -> dict[str, str]:
         "    gen = get_db_session()",
         "    db = next(gen)",
         f"    dao = get_dao({first_model!r}, session=db, ephemeral=True)",
-        f"    assert type(dao).__name__ == 'Concrete{first_model}DAO'",
+        f"    assert type(dao).__name__ == 'Concrete{first_model_cls}DAO'",
         "    db.close()",
         "",
         "def test_seeder_referential_integrity():",
@@ -224,4 +228,4 @@ def emit_server_tests(spec: OpenAPI) -> dict[str, str]:
     ]
     files["test_advanced.py"] = "\n".join(advanced_lines)
 
-    return files
+    return {k: cst.parse_module(v).code for k, v in files.items()}

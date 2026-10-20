@@ -2,12 +2,49 @@
 
 from __future__ import annotations
 
-from typing import Any
+from importlib.metadata import PackageNotFoundError, version
+from typing import Any, TypedDict
 
 from openapi_client.exceptions import MCPProtocolError
 
 
-def get_tools() -> list[dict[str, Any]]:
+class MCPToolDefinition(TypedDict):
+    """Typed dictionary representing an MCP tool definition."""
+
+    name: str
+    description: str
+    inputSchema: dict[str, Any]
+
+
+class MCPResourceDefinition(TypedDict):
+    """Typed dictionary representing an MCP resource descriptor."""
+
+    uri: str
+    name: str
+    mimeType: str
+
+
+class MCPPromptDefinition(TypedDict):
+    """Typed dictionary representing an MCP prompt descriptor."""
+
+    name: str
+    description: str
+    arguments: list[dict[str, Any]]
+
+
+def _pkg_version() -> str:
+    """Resolve the installed package version string.
+
+    Returns:
+        The installed version or fallback `'0.0.4'`.
+    """
+    try:
+        return version("openapi-python-client")
+    except PackageNotFoundError:  # pragma: no cover
+        return "0.0.4"
+
+
+def get_tools() -> list[MCPToolDefinition]:
     """Return the available SDK generator tools mapped to the MCP tool schema.
 
     Returns:
@@ -111,6 +148,28 @@ def get_tools() -> list[dict[str, Any]]:
                 "required": ["input_path", "output_dir"],
             },
         },
+        {
+            "name": "sync_dir",
+            "description": "Synchronize an OpenAPI/Arazzo specification with Python source code in a directory.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "input_dir": {
+                        "type": "string",
+                        "description": "The project directory to synchronize",
+                    },
+                    "truth": {
+                        "type": "string",
+                        "description": "Optional single source of truth",
+                    },
+                    "output_dir": {
+                        "type": "string",
+                        "description": "Optional output directory",
+                    },
+                },
+                "required": ["input_dir"],
+            },
+        },
     ]
 
 
@@ -125,25 +184,36 @@ def execute_tool(name: str, arguments: dict[str, Any]) -> Any:
         The result returned by the underlying SDK function.
 
     Raises:
-        ValueError: If `name` is not a recognized tool.
+        MCPProtocolError: If `name` is not a recognized tool.
     """
     from openapi_client import sdk
 
+    norm_args = dict(arguments)
     if name == "to_openapi":
-        return sdk.generate_to_openapi(**arguments)
+        if "input_path" in norm_args and "input_dir" not in norm_args:
+            norm_args["input_dir"] = norm_args.pop("input_path")
+        return sdk.generate_to_openapi(**norm_args)
     elif name == "from_openapi":
-        return sdk.generate_from_openapi(**arguments)
+        return sdk.generate_from_openapi(**norm_args)
     elif name == "to_arazzo":
-        return sdk.generate_to_arazzo(**arguments)
+        if "input_path" in norm_args and "input_dir" not in norm_args:
+            norm_args["input_dir"] = norm_args.pop("input_path")
+        return sdk.generate_to_arazzo(**norm_args)
     elif name == "from_arazzo":
-        return sdk.generate_from_arazzo(**arguments)
+        return sdk.generate_from_arazzo(**norm_args)
     elif name == "to_docs_json":
-        return sdk.generate_docs_json(**arguments)
+        if "output_file" in norm_args and "output_path" not in norm_args:
+            norm_args["output_path"] = norm_args.pop("output_file")
+        return sdk.generate_docs_json(**norm_args)
+    elif name == "sync_dir":
+        if "project_dir" in norm_args and "input_dir" not in norm_args:
+            norm_args["input_dir"] = norm_args.pop("project_dir")
+        return sdk.run_sync(**norm_args)
     else:
         raise MCPProtocolError(f"Unknown tool: {name}")
 
 
-def get_resources() -> list[dict[str, str]]:
+def get_resources() -> list[MCPResourceDefinition]:
     """Return the available SDK internal resources mapped to the MCP schema.
 
     Returns:
@@ -171,11 +241,14 @@ def read_resource(uri: str) -> dict[str, Any]:
         MCPProtocolError: If `uri` is not found.
     """
     if uri == "schema://current":
-        return {"openapi": "3.0.0", "info": {"title": "cdd-python", "version": "1.0.0"}}
+        return {
+            "openapi": "3.2.0",
+            "info": {"title": "cdd-python", "version": _pkg_version()},
+        }
     raise MCPProtocolError(f"Resource not found: {uri}")
 
 
-def get_prompts() -> list[dict[str, Any]]:
+def get_prompts() -> list[MCPPromptDefinition]:
     """Return the available SDK prompts mapped to the MCP schema.
 
     Returns:

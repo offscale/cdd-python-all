@@ -6,6 +6,7 @@ import sys
 import tempfile
 from io import StringIO
 from pathlib import Path
+from typing import Any
 from unittest import mock
 
 import libcst as cst
@@ -84,6 +85,7 @@ def something():
 """
     module = cst.parse_module(code)
     spec = OpenAPI(openapi="3.2.0", info={"title": "Test", "version": "1.0"}, paths={})
+    assert spec.paths is not None
     spec.paths["/existing"] = PathItem()
     code2 = """@app.get("/existing")
 def existing():
@@ -92,6 +94,7 @@ def existing():
 """
     extract_fastapi_from_ast(module, spec)
 
+    assert spec.paths is not None
     spec.paths["/existing"].get = Operation(operationId="mock")
     extract_fastapi_from_ast(cst.parse_module(code2), spec)
     assert spec.paths["/existing"].get is not None
@@ -121,7 +124,7 @@ def test_functions_emit_edge_cases() -> None:
 def test_functions_parse_edge_cases() -> None:
     """Test extract_functions_from_ast with complex annotations and body expressions."""
     ann_any = cst.Annotation(annotation=cst.Name("Any"))
-    assert _extract_schema_from_annotation(ann_any).type == "string"
+    assert getattr(_extract_schema_from_annotation(ann_any), "type", None) == "string"
 
     code = """
 from typing import List, Dict, Tuple
@@ -149,6 +152,7 @@ def get_something(
     module = cst.parse_module(code)
     spec = OpenAPI(openapi="3.2.0", info={"title": "Test", "version": "1.0"}, paths={})
     extract_functions_from_ast(module, spec)
+    assert spec.paths is not None
     assert "/items/{p1}/details" in spec.paths
     op = spec.paths["/items/{p1}/details"].get
     assert op is not None
@@ -185,7 +189,7 @@ def test_cli_edge_cases(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test CLI edge cases including truth options and write_generated branches.
 
     Args:
-        monkeypatch: Parameter .
+        monkeypatch: Pytest monkeypatch fixture.
     """
     with (
         mock.patch("sys.argv", ["cli.py", "serve_json_rpc", "--port", "1234"]),
@@ -285,7 +289,7 @@ def test_openapi_parse_edge_cases(tmp_path: Path) -> None:
     """Test resolve_external_refs cycle detection and non-file refs.
 
     Args:
-        tmp_path: Parameter .
+        tmp_path: Temporary directory path fixture.
     """
     f1 = tmp_path / "cycle.json"
     f1.write_text('{"$ref": "cycle.json"}', encoding="utf-8")
@@ -319,6 +323,8 @@ def test_sqlalchemy_and_cli_cdd_parse_edge_cases() -> None:
         'subparsers.add_parser("get_pets", help="Get all pets")\n'
     )
     parse_cli_sdk_cdd(mod_cli, spec)
+    assert spec.paths is not None
+    assert spec.paths["/pets"].get is not None
     assert spec.paths["/pets"].get.summary == "Get all pets"
 
     sa_files = emit_sqlalchemy(spec)
@@ -329,7 +335,7 @@ def test_mocks_and_tests_emit_parse_edge_cases(tmp_path: Path) -> None:
     """Test remaining branches in classes, tests, fastapi, and seeder modules.
 
     Args:
-        tmp_path: Parameter .
+        tmp_path: Temporary directory path fixture.
     """
     assert (
         _schema_to_type_annotation(Reference(**{"$ref": "#/components/schemas/123bad"}))
@@ -338,18 +344,43 @@ def test_mocks_and_tests_emit_parse_edge_cases(tmp_path: Path) -> None:
     assert _schema_to_type_annotation(Schema(type="object")) == "dict[str, Any]"
 
     assert (
-        get_dummy_value_for_schema(Schema(type="boolean", example=True)).value == "True"
+        getattr(
+            get_dummy_value_for_schema(Schema(type="boolean", example=True)),
+            "value",
+            None,
+        )
+        == "True"
     )
-    assert get_dummy_value_for_schema(Schema(type="integer", default=42)).value == "42"
     assert (
-        get_dummy_value_for_schema(Schema(type="number", example=3.14)).value == "3.14"
+        getattr(
+            get_dummy_value_for_schema(Schema(type="integer", default=42)),
+            "value",
+            None,
+        )
+        == "42"
     )
     assert (
-        get_dummy_value_for_schema(Schema(type="string", enum=["active"])).value
+        getattr(
+            get_dummy_value_for_schema(Schema(type="number", example=3.14)),
+            "value",
+            None,
+        )
+        == "3.14"
+    )
+    assert (
+        getattr(
+            get_dummy_value_for_schema(Schema(type="string", enum=["active"])),
+            "value",
+            None,
+        )
         == '"active"'
     )
     assert (
-        get_dummy_value_for_schema(Schema(type="string", format="uri")).value
+        getattr(
+            get_dummy_value_for_schema(Schema(type="string", format="uri")),
+            "value",
+            None,
+        )
         == '"http://example.com"'
     )
 
@@ -398,6 +429,8 @@ def stream_new_endpoint():
     res = "text/event-stream"
 """
     extract_tests_from_ast(cst.parse_module(test_code), spec_sse)
+    assert spec_sse.paths is not None
+    assert spec_sse.paths["/events"].get is not None
     assert spec_sse.paths["/events"].get.responses is not None
     assert "/stream_new_endpoint" in spec_sse.paths
 
@@ -492,8 +525,8 @@ def test_emit_fastapi_dao_routes_and_execution(
     """Test emit_fastapi with typed parameters, request bodies, response models, and live SQLite DAO execution.
 
     Args:
-        tmp_path: Parameter .
-        monkeypatch: Parameter .
+        tmp_path: Temporary directory path fixture.
+        monkeypatch: Pytest monkeypatch fixture.
     """
     import importlib
     import types
@@ -514,67 +547,67 @@ def test_emit_fastapi_dao_routes_and_execution(
             """Initialize router with tags.
 
             Args:
-                tags: Parameter .
+                tags: Optional router tag list.
             """
             self.tags = tags or []
             self.routes: dict[tuple[str, str], object] = {}
 
-        def _register(self, method: str, path: str):
+        def _register(self, method: str, path: str) -> Any:
             """Return decorator registering `(method, path)`.
 
             Args:
-                method: Parameter .
-                path: Parameter .
+                method: HTTP verb.
+                path: Route path template.
             """
 
             def _dec(fn: object) -> object:
                 """Store route function.
 
                 Args:
-                    fn: Parameter .
+                    fn: Route handler function.
                 """
                 self.routes[(method, path)] = fn
                 return fn
 
             return _dec
 
-        def get(self, path: str):
+        def get(self, path: str) -> Any:
             """Register GET handler.
 
             Args:
-                path: Parameter .
+                path: Route path template.
             """
             return self._register("GET", path)
 
-        def post(self, path: str):
+        def post(self, path: str) -> Any:
             """Register POST handler.
 
             Args:
-                path: Parameter .
+                path: Route path template.
             """
             return self._register("POST", path)
 
-        def put(self, path: str):
+        def put(self, path: str) -> Any:
             """Register PUT handler.
 
             Args:
-                path: Parameter .
+                path: Route path template.
             """
             return self._register("PUT", path)
 
-        def delete(self, path: str):
+        def delete(self, path: str) -> Any:
             """Register DELETE handler.
 
             Args:
-                path: Parameter .
+                path: Route path template.
             """
             return self._register("DELETE", path)
 
-        def patch(self, path: str):
+        def patch(self, path: str) -> Any:
             """Register PATCH handler.
 
             Args:
-                path: Parameter .
+                path: Route path template.
             """
             return self._register("PATCH", path)
 
@@ -587,9 +620,9 @@ def test_emit_fastapi_dao_routes_and_execution(
             """Initialize FastAPI app metadata.
 
             Args:
-                title: Parameter .
-                version: Parameter .
-                description: Parameter .
+                title: API title.
+                version: API version.
+                description: API description.
             """
             super().__init__()
             self.title = title
@@ -601,15 +634,15 @@ def test_emit_fastapi_dao_routes_and_execution(
             """Record middleware registration.
 
             Args:
-                *args: Parameter .
-                **kwargs: Parameter .
+                *args: Positional arguments.
+                **kwargs: Keyword arguments.
             """
 
-        def middleware(self, kind: str):
+        def middleware(self, kind: str) -> Any:
             """Return middleware decorator.
 
             Args:
-                kind: Parameter .
+                kind: Middleware type string.
             """
             _ = kind
             return lambda fn: fn
@@ -618,7 +651,7 @@ def test_emit_fastapi_dao_routes_and_execution(
             """Include a sub-router.
 
             Args:
-                router: Parameter .
+                router: Sub-router instance to include.
             """
             self.routers.append(router)
             self.routes.update(router.routes)

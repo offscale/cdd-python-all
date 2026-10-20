@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import keyword
 import re
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
+import libcst as cst
+
 if TYPE_CHECKING:  # pragma: no cover
-    from openapi_client.models import OpenAPI
+    from openapi_client.models import OpenAPI, SchemaOrReference
 
 
 def to_snake_case(name: str) -> str:
@@ -75,11 +78,40 @@ def get_default_server_url(
     Returns:
         The resolved base URL string.
     """
-    if spec is not None and getattr(spec, "servers", None) and len(spec.servers) > 0:
-        url = getattr(spec.servers[0], "url", None)
+    servers = getattr(spec, "servers", None) if spec is not None else None
+    if servers and len(servers) > 0:
+        url = getattr(servers[0], "url", None)
         if url:
             return str(url)
     return fallback
+
+
+def build_cst_module(
+    items: Sequence[cst.CSTNode],
+) -> cst.Module:
+    """Construct a strictly-typed `cst.Module` from statements and `cst.EmptyLine` separators.
+
+    Args:
+        items: Sequence of LibCST statements and optional `cst.EmptyLine` nodes.
+
+    Returns:
+        A `cst.Module` instance.
+    """
+    stmts: list[cst.SimpleStatementLine | cst.BaseCompoundStatement] = []
+    pending_empty: list[cst.EmptyLine] = []
+    for item in items:
+        if isinstance(item, cst.EmptyLine):
+            pending_empty.append(item)
+        else:
+            assert isinstance(
+                item, (cst.SimpleStatementLine, cst.BaseCompoundStatement)
+            )
+            if pending_empty:
+                existing = list(item.leading_lines)
+                item = item.with_changes(leading_lines=[*existing, *pending_empty])
+                pending_empty = []
+            stmts.append(item)
+    return cst.Module(body=stmts, footer=pending_empty)
 
 
 def map_openapi_type_to_python(openapi_type: str) -> str:
@@ -102,7 +134,9 @@ def map_openapi_type_to_python(openapi_type: str) -> str:
     return type_map.get(openapi_type, "str")
 
 
-def get_annotation_for_schema(s: Any) -> str:
+def get_annotation_for_schema(
+    s: SchemaOrReference | dict[str, Any] | None,
+) -> str:
     """Get the Python type annotation string for a given OpenAPI Schema or Reference object.
 
     Args:

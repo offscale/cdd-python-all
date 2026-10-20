@@ -5,8 +5,11 @@ from __future__ import annotations
 import json
 from typing import Any
 
+import libcst as cst
+
 from openapi_client.functions.utils import sanitize_name
 from openapi_client.models import OpenAPI
+from openapi_client.openapi.keywords import HTTP_METHODS
 
 
 def extract_mcp_tools_from_spec(spec: OpenAPI) -> list[dict[str, Any]]:
@@ -21,7 +24,7 @@ def extract_mcp_tools_from_spec(spec: OpenAPI) -> list[dict[str, Any]]:
     tools: list[dict[str, Any]] = []
     if spec.paths:
         for path, path_item in spec.paths.items():
-            for method in ["get", "post", "put", "delete", "patch"]:
+            for method in HTTP_METHODS:
                 operation = getattr(path_item, method, None)
                 if operation:
                     raw_op_id = (
@@ -86,7 +89,6 @@ def emit_mcp_server(spec: OpenAPI) -> str:
 
 import sys
 import json
-import traceback
 
 def start_mcp_server(client):
     """Run the MCP server reading from stdin and writing to stdout."""
@@ -194,4 +196,4 @@ def start_mcp_server(client):
             if "req_id" in locals() and req_id is not None:
                 send_response(req_id, error={{"code": -32603, "message": str(e)}})
 '''
-    return code
+    return cst.parse_module(code).code

@@ -170,14 +170,14 @@ class MyClass(BaseModel):
     my_schema = spec.components.schemas["MyClass"]
     assert isinstance(my_schema, Schema)
     assert my_schema.properties is not None
-    assert my_schema.properties["prop3"].type == "string"
-    assert my_schema.properties["prop4"].type == "integer"
-    assert my_schema.properties["prop6"].type == "array"
-    assert my_schema.properties["prop7"].type == "object"
+    assert getattr(my_schema.properties["prop3"], "type", None) == "string"
+    assert getattr(my_schema.properties["prop4"], "type", None) == "integer"
+    assert getattr(my_schema.properties["prop6"], "type", None) == "array"
+    assert getattr(my_schema.properties["prop7"], "type", None) == "object"
     assert isinstance(my_schema.properties["prop8"], Reference)
-    assert my_schema.properties["prop9"].type == "number"
-    assert my_schema.properties["prop10"].type == "boolean"
-    assert my_schema.properties["prop11"].default == "pos_default"
+    assert getattr(my_schema.properties["prop9"], "type", None) == "number"
+    assert getattr(my_schema.properties["prop10"], "type", None) == "boolean"
+    assert getattr(my_schema.properties["prop11"], "default", None) == "pos_default"
     assert "prop8" in (my_schema.required or [])
 
 

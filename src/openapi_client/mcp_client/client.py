@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from openapi_client.exceptions import MCPProtocolError
+
 from .models import (
     CallToolRequest,
     CallToolRequestParams,
@@ -252,7 +254,7 @@ class MCPClient:
         req = LoggingMessageNotification(
             method="notifications/message",
             params=LoggingMessageNotificationParams(
-                level=LoggingLevel(level), logger=logger, data=data
+                level=LoggingLevel.model_validate(level), logger=logger, data=data
             ),
         )
         return req.model_dump(exclude_none=True, by_alias=True)
@@ -532,7 +534,7 @@ class MCPClient:
         """
         req = SetLevelRequest(
             id=RequestId(self._next_id()),
-            params=SetLevelRequestParams(level=LoggingLevel(level)),
+            params=SetLevelRequestParams(level=LoggingLevel.model_validate(level)),
         )
         return req.model_dump(exclude_none=True, by_alias=True)
 
@@ -586,7 +588,7 @@ class MCPClient:
             error_data = data["error"]
             code = error_data.get("code")
             msg = error_data.get("message", "Unknown error")
-            raise RuntimeError(f"MCP JSON-RPC Error {code}: {msg}")
+            raise MCPProtocolError(f"MCP JSON-RPC Error {code}: {msg}")
 
         res: dict[str, Any] = data.get("result", {})
         return res

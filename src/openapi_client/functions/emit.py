@@ -10,6 +10,7 @@ import libcst as cst
 from openapi_client.docstrings.emit import emit_function_docstring
 from openapi_client.functions.utils import get_annotation_for_schema, sanitize_name
 from openapi_client.models import OpenAPI, Operation
+from openapi_client.openapi.keywords import HTTP_METHODS
 
 
 def _safe_param_name(raw_name: str) -> str:
@@ -448,13 +449,50 @@ def emit_functions(spec: OpenAPI) -> list[cst.FunctionDef]:
     methods.append(
         cst.FunctionDef(name=cst.Name("__init__"), params=init_params, body=init_body)
     )
+    methods.append(
+        cst.FunctionDef(
+            name=cst.Name("close"),
+            params=cst.Parameters(params=[cst.Param(name=cst.Name("self"))]),
+            returns=cst.Annotation(annotation=cst.Name("None")),
+            body=cst.IndentedBlock(body=[cst.parse_statement("self.http.clear()")]),
+        )
+    )
+    methods.append(
+        cst.FunctionDef(
+            name=cst.Name("__enter__"),
+            params=cst.Parameters(params=[cst.Param(name=cst.Name("self"))]),
+            returns=cst.Annotation(annotation=cst.Name("Client")),
+            body=cst.IndentedBlock(body=[cst.parse_statement("return self")]),
+        )
+    )
+    methods.append(
+        cst.FunctionDef(
+            name=cst.Name("__exit__"),
+            params=cst.Parameters(
+                params=[cst.Param(name=cst.Name("self"))],
+                star_arg=cst.Param(
+                    name=cst.Name("args"),
+                    annotation=cst.Annotation(annotation=cst.Name("Any")),
+                ),
+            ),
+            returns=cst.Annotation(annotation=cst.Name("None")),
+            body=cst.IndentedBlock(body=[cst.parse_statement("self.close()")]),
+        )
+    )
 
     if spec.paths:
         for path, path_item in spec.paths.items():
             if path.startswith("/"):
-                for method in ["get", "post", "put", "delete", "patch"]:
+                for method in HTTP_METHODS:
                     operation = getattr(path_item, method, None)
                     if operation:
                         methods.append(emit_function(method, path, operation))
+                if getattr(path_item, "additionalOperations", None):
+                    for custom_method, custom_op in (
+                        path_item.additionalOperations or {}
+                    ).items():
+                        methods.append(
+                            emit_function(custom_method.lower(), path, custom_op)
+                        )
 
     return methods

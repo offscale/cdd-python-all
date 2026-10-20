@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import libcst as cst
 
-from openapi_client.functions.utils import sanitize_name
+from openapi_client.functions.utils import build_cst_module, sanitize_name
 from openapi_client.models import OpenAPI
+from openapi_client.openapi.keywords import HTTP_METHODS
 
 
 def emit_mock_server(spec: OpenAPI) -> cst.Module:
@@ -44,7 +45,7 @@ def emit_mock_server(spec: OpenAPI) -> cst.Module:
     if spec.paths:
         for path, path_item in spec.paths.items():
             if path.startswith("/"):
-                for method in ["get", "post", "put", "delete", "patch"]:
+                for method in HTTP_METHODS:
                     operation = getattr(path_item, method, None)
                     if operation:
                         raw_route_name = (
@@ -71,4 +72,4 @@ def emit_mock_server(spec: OpenAPI) -> cst.Module:
                         body.append(func)
                         body.append(cst.EmptyLine())
 
-    return cst.Module(body=body)
+    return build_cst_module(body)

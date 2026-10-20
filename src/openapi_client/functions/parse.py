@@ -19,6 +19,7 @@ from openapi_client.models import (
     Response,
     Schema,
 )
+from openapi_client.openapi.keywords import HTTP_METHODS
 
 
 def _extract_schema_from_annotation(
@@ -76,7 +77,11 @@ def _extract_method_and_path_from_body(
                             part.value
                             if isinstance(part, cst.FormattedStringText)
                             else "{"
-                            + str(getattr(part.expression, "value", "param"))
+                            + str(
+                                getattr(
+                                    getattr(part, "expression", None), "value", "param"
+                                )
+                            )
                             + "}"
                             for part in right.parts
                         ]
@@ -210,7 +215,7 @@ class FunctionExtractor(cst.CSTVisitor):
             path: The route path string.
             has_explicit_path: Whether `path` was extracted from an explicit URL in the body.
         """
-        parameters: list[Parameter] = []
+        parameters: list[Parameter | Reference] = []
         path_vars = set(re.findall(r"\{([^}]+)\}", path))
         loc_map = _extract_param_locations_from_body(node)
 
@@ -288,7 +293,7 @@ class FunctionExtractor(cst.CSTVisitor):
             node: The LibCST FunctionDef node being visited.
         """
         name = node.name.value
-        if name.startswith("__"):
+        if name.startswith("__") or name == "close":
             return
 
         found_method, found_path = _extract_method_and_path_from_body(node)
@@ -296,7 +301,7 @@ class FunctionExtractor(cst.CSTVisitor):
         if (not method or not path) and "_" in name:
             parts = name.split("_", 1)
             candidate = parts[0].lower()
-            if candidate in ("get", "post", "put", "delete", "patch"):
+            if candidate in HTTP_METHODS:
                 method = method or candidate
                 path = path or ("/" + parts[1].replace("_", "/"))
 
@@ -319,7 +324,13 @@ class FunctionExtractor(cst.CSTVisitor):
             self._extract_returns(node, operation)
 
             if self.spec.paths is not None:
-                setattr(self.spec.paths[path], method, operation)
+                path_item = self.spec.paths[path]
+                if method in HTTP_METHODS:
+                    setattr(path_item, method, operation)
+                else:
+                    if path_item.additionalOperations is None:
+                        path_item.additionalOperations = {}
+                    path_item.additionalOperations[method.upper()] = operation
 
 
 def extract_functions_from_ast(module: cst.Module, spec: OpenAPI) -> None:

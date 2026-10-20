@@ -89,9 +89,36 @@ from openapi_client.workflows.parse import (
 
 
 def test_arazzo_keywords_constants() -> None:
-    """Verify Arazzo 1.1.0 keyword and runtime expression constants."""
-    assert "arazzo" in ARAZZO_1_1_0_FIELDS
+    """Verify every field and alias of all Arazzo 1.1.0 models is in ARAZZO_1_1_0_FIELDS."""
+    arazzo_models = (
+        ArazzoInfo,
+        SourceDescription,
+        ExpressionTypeObject,
+        SelectorObject,
+        CriterionObject,
+        ArazzoParameter,
+        ReusableObject,
+        SuccessAction,
+        FailureAction,
+        PayloadReplacement,
+        ArazzoRequestBody,
+        StepObject,
+        WorkflowObject,
+        ArazzoComponents,
+        Arazzo,
+    )
+    field_set = set(ARAZZO_1_1_0_FIELDS)
+    for model_cls in arazzo_models:
+        for field_name, field_info in model_cls.model_fields.items():
+            assert field_name in field_set
+            if field_info.alias:
+                assert field_info.alias in field_set
     assert "$statusCode" in ARAZZO_RUNTIME_EXPRESSIONS
+
+    from openapi_client.arazzo.parse import parse_arazzo_json
+
+    with pytest.raises(ValueError, match="Invalid Arazzo JSON"):
+        parse_arazzo_json("{invalid json")
 
 
 def test_arazzo_models_validation() -> None:
@@ -152,7 +179,7 @@ def test_arazzo_parse_and_reusables(tmp_path: Path) -> None:
     """Test Arazzo parsing, reusable component resolution, sourceDescriptions, and operationPath.
 
     Args:
-        tmp_path: Parameter .
+        tmp_path: Temporary directory path fixture.
     """
     assert decode_json_pointer_token("~1pet~1~0id") == "/pet/~id"
 
@@ -788,6 +815,7 @@ def test_workflows_emit_and_parse_comprehensive() -> None:
     assert wf_main.dependsOn == ["prereq_flow"]
     assert len(wf_main.steps) == 5
     assert wf_main.steps[0].onFailure is not None
+    assert isinstance(wf_main.steps[0].onFailure[0], FailureAction)
     assert wf_main.steps[0].onFailure[0].retryLimit == 2
     assert wf_main.steps[1].dependsOn == ["step_create"]
     assert wf_main.steps[2].workflowId == "prereq_flow"
@@ -1021,8 +1049,8 @@ def test_cli_sdk_mcp_integration(
     """Test CLI commands (`from_arazzo`, `to_arazzo`, `sync`, `to_docs_json`, `mcp`, `serve_json_rpc`).
 
     Args:
-        tmp_path: Parameter .
-        monkeypatch: Parameter .
+        tmp_path: Temporary directory path fixture.
+        monkeypatch: Pytest monkeypatch fixture.
     """
     arazzo_spec = Arazzo(
         arazzo="1.1.0",

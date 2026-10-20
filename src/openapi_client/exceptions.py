@@ -27,5 +27,10 @@ class RuntimeExpressionError(CDDError, ValueError):
     """Raised when evaluating or compiling an Arazzo 1.1.0 runtime expression fails."""
 
 
-class MCPProtocolError(CDDError, ValueError):
-    """Raised when an MCP tool, resource, or prompt request is invalid or unknown."""
+class MCPProtocolError(CDDError, ValueError, RuntimeError):
+    """Raised when an MCP tool, resource, or prompt request or response is invalid or unknown."""
+
+
+SchemaValidationError = SpecificationParseError
+CodeExtractionError = ASTExtractionError
+ArazzoExpressionError = RuntimeExpressionError

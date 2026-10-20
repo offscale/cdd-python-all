@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import libcst as cst
 
-from openapi_client.functions.utils import sanitize_class_name, sanitize_name
+from openapi_client.functions.utils import (
+    build_cst_module,
+    sanitize_class_name,
+    sanitize_name,
+)
 from openapi_client.models import OpenAPI
 
 
@@ -117,8 +121,8 @@ def _emit_abstract_dao_module(name: str, class_name: str) -> cst.Module:
         ],
         body=cst.IndentedBlock(body=methods),
     )
-    return cst.Module(
-        body=[
+    return build_cst_module(
+        [
             _doc_stmt(f"Abstract DAO for {name}."),
             cst.EmptyLine(),
             cst.parse_statement("import abc"),
@@ -207,8 +211,8 @@ def _emit_stub_dao_module(name: str, class_name: str, lower_name: str) -> cst.Mo
         bases=[cst.Arg(value=cst.Name(f"Abstract{class_name}DAO"))],
         body=cst.IndentedBlock(body=methods),
     )
-    return cst.Module(
-        body=[
+    return build_cst_module(
+        [
             _doc_stmt(f"Stub DAO for {name}."),
             cst.EmptyLine(),
             cst.parse_statement("from typing import Any, List, Optional"),
@@ -344,8 +348,8 @@ def _emit_concrete_dao_module(
         bases=[cst.Arg(value=cst.Name(f"Abstract{class_name}DAO"))],
         body=cst.IndentedBlock(body=methods),
     )
-    return cst.Module(
-        body=[
+    return build_cst_module(
+        [
             _doc_stmt(f"Concrete DAO for {name}."),
             cst.EmptyLine(),
             cst.parse_statement("from typing import Any, List, Optional"),
@@ -396,6 +400,7 @@ def _build_dao_dispatch_chain(
             body=cst.IndentedBlock(body=[ret_stmt]),
             orelse=current_orelse,
         )
+    assert isinstance(current_orelse, cst.If)
     return current_orelse
 
 
@@ -517,6 +522,6 @@ def emit_dao(spec: OpenAPI) -> dict[str, str]:
 
     init_body.append(cst.EmptyLine())
     init_body.append(get_dao_fn)
-    files["dao/__init__.py"] = cst.Module(body=init_body).code
+    files["dao/__init__.py"] = build_cst_module(init_body).code
 
     return files

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 from collections import OrderedDict
+from typing import Any
 
 from cdd.emit.sqlalchemy import sqlalchemy
 
@@ -33,11 +34,12 @@ def emit_sqlalchemy(spec: OpenAPI) -> dict[str, str]:
 
     for class_name, schema in spec.components.schemas.items():
         if hasattr(schema, "properties") and schema.properties:
-            ir = {
+            params: OrderedDict[str, dict[str, Any]] = OrderedDict()
+            ir: dict[str, Any] = {
                 "name": class_name,
                 "type": "static",
                 "doc": getattr(schema, "description", "") or "",
-                "params": OrderedDict(),
+                "params": params,
                 "returns": None,
             }
 
@@ -50,7 +52,7 @@ def emit_sqlalchemy(spec: OpenAPI) -> dict[str, str]:
                 if prop_name.lower() == "id":
                     doc = f"[PK] {doc}".strip()
 
-                ir["params"][prop_name] = {
+                params[prop_name] = {
                     "typ": map_openapi_type_to_python(str(p_type)),
                     "doc": doc,
                     "default": None,

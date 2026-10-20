@@ -19,7 +19,11 @@ from openapi_client.arazzo_models import (
     StepObject,
     WorkflowObject,
 )
-from openapi_client.functions.utils import get_annotation_for_schema, sanitize_name
+from openapi_client.functions.utils import (
+    build_cst_module,
+    get_annotation_for_schema,
+    sanitize_name,
+)
 from openapi_client.models import OpenAPI, Reference, Schema
 
 
@@ -138,7 +142,7 @@ def _emit_step_statements(
             "$sourceDescriptions."
         ):
             parts = step.operationId[len("$sourceDescriptions.") :].split(".", 1)
-            src_name = parts[0]
+            src_name: str | None = parts[0]
             op_name = (
                 sanitize_name(parts[1])
                 if len(parts) > 1
@@ -520,7 +524,7 @@ def emit_workflows_module(
     )
 
     full_body = list(header_mod.body) + [cst.EmptyLine(), workflows_class]
-    return cst.Module(body=full_body)
+    return build_cst_module(full_body)
 
 
 def emit_workflows_code(

@@ -14,8 +14,11 @@ from openapi_client.arazzo_models import (
     ReusableObject,
     SuccessAction,
 )
+from openapi_client.exceptions import SpecificationParseError
 from openapi_client.models import OpenAPI, Operation
 from openapi_client.openapi.parse import parse_openapi_dict
+
+SourceDocument = OpenAPI | Arazzo | dict[str, Any]
 
 
 def decode_json_pointer_token(token: str) -> str:
@@ -142,7 +145,7 @@ def resolve_source_descriptions(
     arazzo_spec: Arazzo,
     base_path: Path = Path("."),
     visited: frozenset[Path] = frozenset(),
-) -> dict[str, OpenAPI | Arazzo | dict[str, Any]]:
+) -> dict[str, SourceDocument]:
     """Resolve and load external documents listed in `arazzo_spec.sourceDescriptions`.
 
     Args:
@@ -154,7 +157,7 @@ def resolve_source_descriptions(
         A dictionary mapping each `sourceDescription.name` to its parsed `OpenAPI`,
         `Arazzo`, or raw `dict` representation.
     """
-    resolved: dict[str, OpenAPI | Arazzo | dict[str, Any]] = {}
+    resolved: dict[str, SourceDocument] = {}
     effective_base = base_path
     if arazzo_spec.self_ and not arazzo_spec.self_.startswith(("http://", "https://")):
         self_path = (base_path / arazzo_spec.self_).resolve()
@@ -192,7 +195,7 @@ def resolve_source_descriptions(
 
 def resolve_operation_path(
     operation_path: str,
-    sources: dict[str, OpenAPI | Arazzo | dict[str, Any]],
+    sources: dict[str, SourceDocument],
 ) -> tuple[str | None, str | None, str | None, Operation | None]:
     """Resolve an Arazzo `operationPath` expression to `(source_name, http_method, path, Operation)`.
 
@@ -275,6 +278,12 @@ def parse_arazzo_json(spec_text: str, base_path: Path = Path(".")) -> Arazzo:
 
     Returns:
         The validated `Arazzo` model instance.
+
+    Raises:
+        SpecificationParseError: If `spec_text` is not valid JSON.
     """
-    spec_dict: dict[str, Any] = json.loads(spec_text)
+    try:
+        spec_dict: dict[str, Any] = json.loads(spec_text)
+    except json.JSONDecodeError as err:
+        raise SpecificationParseError(f"Invalid Arazzo JSON: {err}") from err
     return parse_arazzo_dict(spec_dict, base_path)

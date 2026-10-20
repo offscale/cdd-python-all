@@ -6,13 +6,13 @@ from pathlib import Path
 
 import libcst as cst
 
-from openapi_client import cli as _cli
 from openapi_client.arazzo.emit import emit_arazzo_json
 from openapi_client.arazzo.parse import parse_arazzo_json
 from openapi_client.classes.emit import emit_models_module
 from openapi_client.classes.parse import extract_classes_from_ast
 from openapi_client.cli_sdk.emit import emit_cli_sdk
 from openapi_client.cli_sdk.parse import extract_cli_from_ast
+from openapi_client.dao.emit import emit_dao
 from openapi_client.db.emit import emit_db
 from openapi_client.functions.parse import extract_functions_from_ast
 from openapi_client.mocks.emit import emit_mock_server
@@ -22,6 +22,8 @@ from openapi_client.openapi.emit import emit_openapi_json
 from openapi_client.openapi.parse import parse_openapi_json
 from openapi_client.routes.emit import ClientGenerator
 from openapi_client.scaffolding import write_generated
+from openapi_client.seeder.emit import emit_seeder
+from openapi_client.sqlalchemy_cdd.parse import parse_sqlalchemy_cdd
 from openapi_client.tests.emit import emit_tests
 from openapi_client.tests.parse import extract_tests_from_ast
 from openapi_client.workflows.emit import emit_workflows_code
@@ -40,6 +42,8 @@ def sync_dir(
         truth: Optional single source of truth (`'openapi'`, `'class'`, `'function'`, `'sqlalchemy'`, `'arazzo'`, `'workflow'`).
         output_dir: Optional output directory; defaults to `project_dir`.
     """
+    from openapi_client import cli as _cli
+
     d = Path(project_dir)
     out_d = Path(output_dir) if output_dir else d
 
@@ -50,6 +54,10 @@ def sync_dir(
     models_py = d / "src" / "models.py"
     if not models_py.exists():
         models_py = d / "models.py"
+
+    models_dir = (
+        d / "src" / "models" if (d / "src" / "models").is_dir() else d / "models"
+    )
 
     mock_py = d / "test" / "mock_server.py"
     if not mock_py.exists():
@@ -81,9 +89,15 @@ def sync_dir(
             if truth in (None, "function"):
                 extract_functions_from_ast(mod, spec)
 
-        if models_py.exists() and truth in (None, "class"):
+        if models_py.is_file() and truth in (None, "class", "sqlalchemy"):
             mod = cst.parse_module(models_py.read_text(encoding="utf-8"))
-            extract_classes_from_ast(mod, spec)
+            parse_sqlalchemy_cdd(mod, spec)
+
+        if models_dir.is_dir() and truth in (None, "sqlalchemy"):
+            for sa_file in sorted(models_dir.glob("*.py")):
+                if sa_file.name != "__init__.py":
+                    mod = cst.parse_module(sa_file.read_text(encoding="utf-8"))
+                    parse_sqlalchemy_cdd(mod, spec)
 
         if mock_py.exists() and truth in (None, "function"):
             mod = cst.parse_module(mock_py.read_text(encoding="utf-8"))
@@ -116,7 +130,7 @@ def sync_dir(
     (out_client_py.parent / "__init__.py").touch(exist_ok=True)
     out_client_py.write_text(generator.generate_code(), encoding="utf-8")
 
-    if spec.components and getattr(spec.components, "schemas", None):
+    if spec.components and spec.components.schemas:
         out_models_py = out_d / models_py.relative_to(d)
         out_models_py.parent.mkdir(parents=True, exist_ok=True)
         (out_models_py.parent / "__init__.py").touch(exist_ok=True)
@@ -134,7 +148,8 @@ def sync_dir(
     (out_mock_py.parent / "__init__.py").touch(exist_ok=True)
     out_mock_py.write_text(emit_mock_server(spec).code, encoding="utf-8")
 
-    write_generated(_cli.emit_dao(spec), "dao.py", base_dir=out_d)
+    dao_fn = getattr(_cli, "emit_dao", emit_dao)
+    write_generated(dao_fn(spec), "dao.py", base_dir=out_d)
 
     db_py = d / "src" / "db.py"
     if not db_py.exists():
@@ -144,7 +159,8 @@ def sync_dir(
     out_db_py.parent.mkdir(parents=True, exist_ok=True)
     out_db_py.write_text(emit_db(spec), encoding="utf-8")
 
-    write_generated(_cli.emit_seeder(spec), "seeder.py", base_dir=out_d)
+    seeder_fn = getattr(_cli, "emit_seeder", emit_seeder)
+    write_generated(seeder_fn(spec), "seeder.py", base_dir=out_d)
 
     if cli_py.exists():
         out_cli_py = out_d / cli_py.relative_to(d)

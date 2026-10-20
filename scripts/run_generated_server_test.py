@@ -18,8 +18,8 @@ def find_free_port() -> int:
         An available port number.
     """
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(("", 0))
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s.bind(("", 0))
         port: int = s.getsockname()[1]
         return port
 

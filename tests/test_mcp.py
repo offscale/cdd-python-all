@@ -265,6 +265,8 @@ def test_classes_emit_ref() -> None:
             }
         },
     )
+    assert spec.components is not None
+    assert spec.components.schemas is not None
     defs = emit_classes(spec.components.schemas)
     assert len(defs) == 1
 
@@ -279,6 +281,8 @@ def test_classes_parse_empty_components() -> None:
     extractor = ClassExtractor(spec)
     module = cst.parse_module("class MyClass:\n    pass\n")
     module.visit(extractor)
+    assert spec.components is not None
+    assert spec.components.schemas is not None
     assert "MyClass" in spec.components.schemas
 
 
@@ -288,6 +292,7 @@ def test_functions_parse_empty_paths() -> None:
     extractor = FunctionExtractor(spec)
     module = cst.parse_module("def get_pets():\n    pass\n")
     module.visit(extractor)
+    assert spec.paths is not None
     assert "/pets" in spec.paths
 
 
@@ -297,11 +302,14 @@ def test_mocks_parse_empty_paths() -> None:
     extractor = MockServerExtractor(spec)
     module = cst.parse_module("@app.get('/pets')\ndef my_mock():\n    pass\n")
     module.visit(extractor)
+    assert spec.paths is not None
     assert "/pets" in spec.paths
 
 
 def test_functions_parse_full_features() -> None:
     """Test test_functions_parse_full_features."""
+    from openapi_client.models import MediaType, Parameter, RequestBody, Response
+
     spec = OpenAPI(openapi="3.2.0", info={"title": "test", "version": "1.0"})
     extractor = FunctionExtractor(spec)
     code = """
@@ -318,49 +326,59 @@ def post_user(user_id: str, limit: int = 10, is_active: bool = True, ratio: floa
     module = cst.parse_module(code)
     module.visit(extractor)
 
+    assert spec.paths is not None
     op = spec.paths["/user"].post
+    assert op is not None
     assert op.operationId == "post_user"
     assert op.summary == "Create User"
     assert op.description == "Creates a new user object."
     assert op.deprecated is True
+    assert op.tags is not None
     assert "Users" in op.tags
 
     # Check parameters
+    assert op.parameters is not None
     assert len(op.parameters) == 6
-    params = {p.name: p for p in op.parameters}
+    params = {p.name: p for p in op.parameters if isinstance(p, Parameter)}
     assert params["user_id"].in_ == "path"
     assert params["user_id"].required is True
-    assert params["user_id"].schema_.type == "string"
+    assert getattr(params["user_id"].schema_, "type", None) == "string"
 
     assert params["limit"].in_ == "query"
     assert params["limit"].required is False
-    assert params["limit"].schema_.type == "integer"
+    assert getattr(params["limit"].schema_, "type", None) == "integer"
 
-    assert params["is_active"].schema_.type == "boolean"
-    assert params["ratio"].schema_.type == "number"
-    assert params["tags"].schema_.type == "array"
-    assert params["tags"].schema_.items.type == "string"
+    assert getattr(params["is_active"].schema_, "type", None) == "boolean"
+    assert getattr(params["ratio"].schema_, "type", None) == "number"
+    tags_schema = params["tags"].schema_
+    assert isinstance(tags_schema, Schema)
+    assert tags_schema.type == "array"
+    assert getattr(tags_schema.items, "type", None) == "string"
 
-    assert params["extra"].schema_.type == "object"
+    assert getattr(params["extra"].schema_, "type", None) == "object"
 
     # Check request body
-    assert op.requestBody is not None
+    assert isinstance(op.requestBody, RequestBody)
     assert op.requestBody.required is False
-    assert (
-        op.requestBody.content["application/json"].schema_.ref
-        == "#/components/schemas/MyBody"
-    )
+    assert op.requestBody.content is not None
+    req_mt = op.requestBody.content["application/json"]
+    assert isinstance(req_mt, MediaType)
+    assert getattr(req_mt.schema_, "ref", None) == "#/components/schemas/MyBody"
 
     # Check response
     assert op.responses is not None
-    assert (
-        op.responses["200"].content["application/json"].schema_.ref
-        == "#/components/schemas/MyResponse"
-    )
+    resp_200 = op.responses["200"]
+    assert isinstance(resp_200, Response)
+    assert resp_200.content is not None
+    resp_mt = resp_200.content["application/json"]
+    assert isinstance(resp_mt, MediaType)
+    assert getattr(resp_mt.schema_, "ref", None) == "#/components/schemas/MyResponse"
 
 
 def test_functions_parse_fallback_annotation() -> None:
     """Test test_functions_parse_fallback_annotation."""
+    from openapi_client.models import Parameter
+
     spec = OpenAPI(openapi="3.2.0", info={"title": "test", "version": "1.0"})
     extractor = FunctionExtractor(spec)
     code = """
@@ -369,8 +387,13 @@ def post_user(arg: "ForwardRef"):
 """
     module = cst.parse_module(code)
     module.visit(extractor)
+    assert spec.paths is not None
     op = spec.paths["/user"].post
-    assert op.parameters[0].schema_.type == "string"
+    assert op is not None
+    assert op.parameters is not None
+    first_param = op.parameters[0]
+    assert isinstance(first_param, Parameter)
+    assert getattr(first_param.schema_, "type", None) == "string"
 
 
 def test_mcp_get_prompt() -> None:
@@ -474,28 +497,38 @@ def test_mcp_all_methods() -> None:
     """Test test_mcp_all_methods."""
     from openapi_client.mcp import execute_tool, get_resources, get_tools, read_resource
 
-    assert len(get_tools()) == 5
+    assert len(get_tools()) == 6
     assert len(get_resources()) == 1
-    assert read_resource("schema://current")["openapi"] == "3.0.0"
+    assert read_resource("schema://current")["openapi"] == "3.2.0"
 
     from openapi_client import sdk
 
-    # Just mock the sdk functions temporarily
     old_to = getattr(sdk, "generate_to_openapi", None)
     old_from = getattr(sdk, "generate_from_openapi", None)
     old_docs = getattr(sdk, "generate_docs_json", None)
+    old_sync = getattr(sdk, "run_sync", None)
 
-    sdk.generate_to_openapi = lambda **kwargs: "to"
-    sdk.generate_from_openapi = lambda **kwargs: "from"
-    sdk.generate_docs_json = lambda **kwargs: "docs"
+    sdk.generate_to_openapi = lambda **kwargs: "to"  # type: ignore[assignment]
+    sdk.generate_from_openapi = lambda **kwargs: "from"  # type: ignore[assignment]
+    sdk.generate_docs_json = lambda **kwargs: "docs"  # type: ignore[assignment]
+    sdk.run_sync = lambda **kwargs: "sync"  # type: ignore[assignment]
 
     try:
         assert execute_tool("to_openapi", {"input_dir": "test"}) == "to"
+        assert execute_tool("to_openapi", {"input_path": "test"}) == "to"
         assert (
             execute_tool("from_openapi", {"input_path": "test", "output_dir": "test"})
             == "from"
         )
         assert execute_tool("to_docs_json", {"input_path": "test"}) == "docs"
+        assert (
+            execute_tool(
+                "to_docs_json", {"input_path": "test", "output_file": "out.json"}
+            )
+            == "docs"
+        )
+        assert execute_tool("sync_dir", {"input_dir": "test"}) == "sync"
+        assert execute_tool("sync_dir", {"project_dir": "test"}) == "sync"
         with pytest.raises(ValueError):
             execute_tool("unknown", {})
     finally:
@@ -505,6 +538,8 @@ def test_mcp_all_methods() -> None:
             sdk.generate_from_openapi = old_from
         if old_docs:
             sdk.generate_docs_json = old_docs
+        if old_sync:
+            sdk.run_sync = old_sync
 
 
 def test_mcp_client_more_missing() -> None:
@@ -548,31 +583,32 @@ def test_to_docs_json() -> None:
 
 
 def test_serve_json_rpc() -> None:
-    """Test sdk.serve_json_rpc delegates to cli_serve_json_rpc."""
-    with patch("openapi_client.sdk.cli_serve_json_rpc") as mock_fn:
+    """Test sdk.serve_json_rpc delegates to cli_serve_json_rpc and cli.serve_json_rpc."""
+    with patch("openapi_client.cli.serve_json_rpc") as mock_cli_fn:
         sdk.serve_json_rpc()
-        mock_fn.assert_called_once()
+        mock_cli_fn.assert_called_once()
 
 
 def test_sync() -> None:
-    """Test sdk.run_sync delegates to cli_sync_dir."""
-    with patch("openapi_client.sdk.cli_sync_dir") as mock_fn:
+    """Test sdk.run_sync delegates to cli_sync_dir with default and explicit arguments."""
+    with patch("openapi_client.cli.sync_dir") as mock_cli_fn:
         sdk.run_sync("input_dir")
-        mock_fn.assert_called_once()
+        sdk.run_sync("input_dir", truth="openapi", output_dir="out_dir")
+        assert mock_cli_fn.call_count == 2
 
 
 def test_mcp() -> None:
-    """Test sdk.mcp delegates to cli_run_mcp_server."""
-    with patch("openapi_client.sdk.cli_run_mcp_server") as mock_fn:
+    """Test sdk.mcp delegates to cli_run_mcp_server and cli.run_mcp_server."""
+    with patch("openapi_client.cli.run_mcp_server") as mock_cli_fn:
         sdk.mcp()
-        mock_fn.assert_called_once()
+        mock_cli_fn.assert_called_once()
 
 
 def test_sdk_end_to_end_roundtrip(tmp_path: Path) -> None:
     """Test end-to-end SDK generation and OpenAPI extraction on a temporary project.
 
     Args:
-        tmp_path: Parameter .
+        tmp_path: Temporary directory path fixture.
     """
     spec_file = tmp_path / "openapi.json"
     spec_file.write_text(

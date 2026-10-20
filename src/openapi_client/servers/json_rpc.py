@@ -7,14 +7,14 @@ import json
 import traceback
 from typing import Any
 
-from openapi_client import cli as _cli
-
 
 class JSONRPCRequestHandler(http.server.BaseHTTPRequestHandler):
     """Handler for incoming HTTP JSON-RPC 2.0 requests."""
 
     def do_POST(self) -> None:
         """Handle POST requests for JSON-RPC."""
+        from openapi_client import cli as _cli
+
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length)
 

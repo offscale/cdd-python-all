@@ -2,10 +2,85 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import libcst as cst
 
-from openapi_client.functions.utils import sanitize_name
+from openapi_client.functions.utils import (
+    build_cst_module,
+    get_default_server_url,
+    map_openapi_type_to_python,
+    sanitize_name,
+)
 from openapi_client.models import OpenAPI
+from openapi_client.openapi.keywords import HTTP_METHODS
+
+
+def extract_cli_operations(
+    spec: OpenAPI,
+) -> list[tuple[str, str, list[dict[str, Any]], dict[str, Any] | None]]:
+    """Extract normalized CLI operation metadata from an OpenAPI specification.
+
+    Args:
+        spec: The OpenAPI specification model.
+
+    Returns:
+        List of `(op_id, description, parameters_meta, request_body_meta)` tuples.
+    """
+    operations: list[tuple[str, str, list[dict[str, Any]], dict[str, Any] | None]] = []
+    if not spec.paths:
+        return operations
+
+    for path, path_item in spec.paths.items():
+        for method in HTTP_METHODS:
+            operation = getattr(path_item, method, None)
+            if not operation:
+                continue
+            raw_op_id = (
+                operation.operationId or f"{method}_{path.replace('/', '_').strip('_')}"
+            )
+            op_id = sanitize_name(raw_op_id)
+            desc = operation.summary or f"{method.upper()} {path}"
+
+            params_meta: list[dict[str, Any]] = []
+            if operation.parameters:
+                for param in operation.parameters:
+                    p_name = getattr(param, "name", "param").replace("-", "_")
+                    p_desc = getattr(param, "description", "") or ""
+                    req = bool(getattr(param, "required", False))
+                    p_type_raw: Any = "string"
+                    if getattr(param, "schema_", None):
+                        p_type_raw = (
+                            getattr(param.schema_, "type", "string") or "string"
+                        )
+                        if isinstance(p_type_raw, list):
+                            non_null = [t for t in p_type_raw if t != "null"]
+                            p_type_raw = non_null[0] if non_null else p_type_raw[0]
+                    py_type = map_openapi_type_to_python(str(p_type_raw))
+                    params_meta.append(
+                        {
+                            "name": p_name,
+                            "description": p_desc,
+                            "required": req,
+                            "py_type": py_type,
+                        }
+                    )
+
+            body_meta: dict[str, Any] | None = None
+            req_body = getattr(operation, "requestBody", None)
+            if req_body is not None:
+                body_desc = (
+                    getattr(req_body, "description", None)
+                    or "Request body JSON payload"
+                )
+                body_req = bool(getattr(req_body, "required", False))
+                body_meta = {
+                    "description": body_desc,
+                    "required": body_req,
+                }
+
+            operations.append((op_id, desc, params_meta, body_meta))
+    return operations
 
 
 def emit_cli(spec: OpenAPI) -> cst.Module:
@@ -19,16 +94,12 @@ def emit_cli(spec: OpenAPI) -> cst.Module:
     """
     body: list[cst.BaseStatement | cst.EmptyLine] = []
 
-    body.append(
-        cst.SimpleStatementLine(
-            [cst.Import(names=[cst.ImportAlias(name=cst.Name("argparse"))])]
+    for mod_name in ("argparse", "json", "os", "sys"):
+        body.append(
+            cst.SimpleStatementLine(
+                [cst.Import(names=[cst.ImportAlias(name=cst.Name(mod_name))])]
+            )
         )
-    )
-    body.append(
-        cst.SimpleStatementLine(
-            [cst.Import(names=[cst.ImportAlias(name=cst.Name("sys"))])]
-        )
-    )
     body.append(
         cst.SimpleStatementLine(
             [
@@ -133,86 +204,107 @@ def emit_cli(spec: OpenAPI) -> cst.Module:
         )
     )
 
-    if spec.paths:
-        for path, path_item in spec.paths.items():
-            for method in ["get", "post", "put", "delete", "patch"]:
-                operation = getattr(path_item, method, None)
-                if operation:
-                    raw_op_id = (
-                        operation.operationId
-                        or f"{method}_{path.replace('/', '_').strip('_')}"
-                    )
-                    op_id = sanitize_name(raw_op_id)
-                    desc = operation.summary or f"{method.upper()} {path}"
-
-                    main_body.append(
-                        cst.SimpleStatementLine(
-                            [
-                                cst.Assign(
-                                    targets=[
-                                        cst.AssignTarget(
-                                            target=cst.Name(f"{op_id}_parser")
-                                        )
-                                    ],
-                                    value=cst.Call(
-                                        func=cst.Attribute(
-                                            value=cst.Name("subparsers"),
-                                            attr=cst.Name("add_parser"),
-                                        ),
-                                        args=[
-                                            cst.Arg(
-                                                value=cst.SimpleString(f'"{op_id}"')
-                                            ),
-                                            cst.Arg(
-                                                value=cst.SimpleString(f'"{desc}"'),
-                                                keyword=cst.Name("help"),
-                                            ),
-                                        ],
-                                    ),
-                                )
-                            ]
-                        )
-                    )
-
-                    if operation.parameters:
-                        for param in operation.parameters:
-                            p_name = getattr(param, "name", "param").replace("-", "_")
-                            p_desc = getattr(param, "description", "")
-                            req = getattr(param, "required", False)
-
-                            args_list = [
-                                cst.Arg(value=cst.SimpleString(f'"--{p_name}"')),
+    for op_id, desc, params_meta, body_meta in extract_cli_operations(spec):
+        main_body.append(
+            cst.SimpleStatementLine(
+                [
+                    cst.Assign(
+                        targets=[cst.AssignTarget(target=cst.Name(f"{op_id}_parser"))],
+                        value=cst.Call(
+                            func=cst.Attribute(
+                                value=cst.Name("subparsers"),
+                                attr=cst.Name("add_parser"),
+                            ),
+                            args=[
+                                cst.Arg(value=cst.SimpleString(repr(op_id))),
                                 cst.Arg(
-                                    value=cst.Name("str"), keyword=cst.Name("type")
-                                ),
-                                cst.Arg(
-                                    value=cst.SimpleString(f'"{p_desc}"'),
+                                    value=cst.SimpleString(repr(desc)),
                                     keyword=cst.Name("help"),
                                 ),
-                            ]
-                            if req:
-                                args_list.append(
-                                    cst.Arg(
-                                        value=cst.Name("True"),
-                                        keyword=cst.Name("required"),
-                                    )
-                                )
+                            ],
+                        ),
+                    )
+                ]
+            )
+        )
 
-                            main_body.append(
-                                cst.SimpleStatementLine(
-                                    [
-                                        cst.Expr(
-                                            value=cst.Call(
-                                                func=cst.Attribute(
-                                                    value=cst.Name(f"{op_id}_parser"),
-                                                    attr=cst.Name("add_argument"),
-                                                ),
-                                                args=args_list,
-                                            )
-                                        )
-                                    ]
-                                )
+        for p_info in params_meta:
+            p_name = p_info["name"]
+            p_desc = p_info["description"]
+            req = p_info["required"]
+            py_type = p_info["py_type"]
+            type_expr: cst.BaseExpression = (
+                cst.Attribute(value=cst.Name("json"), attr=cst.Name("loads"))
+                if py_type in ("list", "dict")
+                else cst.Name(py_type if py_type in ("int", "float", "str") else "str")
+            )
+
+            args_list = [
+                cst.Arg(value=cst.SimpleString(f'"--{p_name}"')),
+                cst.Arg(value=type_expr, keyword=cst.Name("type")),
+                cst.Arg(
+                    value=cst.SimpleString(repr(p_desc)),
+                    keyword=cst.Name("help"),
+                ),
+            ]
+            if req:
+                args_list.append(
+                    cst.Arg(
+                        value=cst.Name("True"),
+                        keyword=cst.Name("required"),
+                    )
+                )
+
+            main_body.append(
+                cst.SimpleStatementLine(
+                    [
+                        cst.Expr(
+                            value=cst.Call(
+                                func=cst.Attribute(
+                                    value=cst.Name(f"{op_id}_parser"),
+                                    attr=cst.Name("add_argument"),
+                                ),
+                                args=args_list,
                             )
+                        )
+                    ]
+                )
+            )
+
+        if body_meta is not None:
+            body_args_list = [
+                cst.Arg(value=cst.SimpleString('"--body"')),
+                cst.Arg(
+                    value=cst.Attribute(value=cst.Name("json"), attr=cst.Name("loads")),
+                    keyword=cst.Name("type"),
+                ),
+                cst.Arg(
+                    value=cst.SimpleString(repr(body_meta["description"])),
+                    keyword=cst.Name("help"),
+                ),
+            ]
+            if body_meta["required"]:
+                body_args_list.append(
+                    cst.Arg(
+                        value=cst.Name("True"),
+                        keyword=cst.Name("required"),
+                    )
+                )
+            main_body.append(
+                cst.SimpleStatementLine(
+                    [
+                        cst.Expr(
+                            value=cst.Call(
+                                func=cst.Attribute(
+                                    value=cst.Name(f"{op_id}_parser"),
+                                    attr=cst.Name("add_argument"),
+                                ),
+                                args=body_args_list,
+                            )
+                        )
+                    ]
+                )
+            )
 
     main_body.append(
         cst.SimpleStatementLine(
@@ -229,12 +321,37 @@ def emit_cli(spec: OpenAPI) -> cst.Module:
         )
     )
 
+    default_url = get_default_server_url(spec, fallback="http://localhost:8080/v2")
     main_body.append(
         cst.SimpleStatementLine(
             [
                 cst.Assign(
                     targets=[cst.AssignTarget(target=cst.Name("c"))],
-                    value=cst.Call(func=cst.Name("Client")),
+                    value=cst.Call(
+                        func=cst.Name("Client"),
+                        args=[
+                            cst.Arg(
+                                keyword=cst.Name("base_url"),
+                                value=cst.Call(
+                                    func=cst.Attribute(
+                                        value=cst.Attribute(
+                                            value=cst.Name("os"),
+                                            attr=cst.Name("environ"),
+                                        ),
+                                        attr=cst.Name("get"),
+                                    ),
+                                    args=[
+                                        cst.Arg(
+                                            value=cst.SimpleString('"API_BASE_URL"')
+                                        ),
+                                        cst.Arg(
+                                            value=cst.SimpleString(f'"{default_url}"')
+                                        ),
+                                    ],
+                                ),
+                            )
+                        ],
+                    ),
                 )
             ]
         )
@@ -487,7 +604,7 @@ def emit_cli(spec: OpenAPI) -> cst.Module:
         )
     )
 
-    return cst.Module(body=body)
+    return build_cst_module(body)
 
 
 def emit_cli_sdk(spec: OpenAPI) -> str:

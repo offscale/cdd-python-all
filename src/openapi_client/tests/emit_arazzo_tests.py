@@ -7,7 +7,7 @@ from typing import Any
 import libcst as cst
 
 from openapi_client.arazzo_models import Arazzo, WorkflowObject
-from openapi_client.functions.utils import sanitize_name
+from openapi_client.functions.utils import build_cst_module, sanitize_name
 from openapi_client.workflows.emit import _get_json_schema_dict
 
 
@@ -153,7 +153,7 @@ def emit_arazzo_tests(spec: Arazzo) -> cst.Module:
         body.append(cst.EmptyLine())
         body.append(_emit_workflow_test_fn(wf, spec))
 
-    return cst.Module(body=body)
+    return build_cst_module(body)
 
 
 def emit_arazzo_tests_code(spec: Arazzo) -> str:

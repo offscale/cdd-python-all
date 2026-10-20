@@ -51,7 +51,7 @@ def test_get_dummy_value_for_file() -> None:
     """Test test_get_dummy_value_for_file."""
     schema = Schema(type="file")
     val = get_dummy_value_for_schema(schema)
-    assert val.value == 'b"dummy_content"'
+    assert getattr(val, "value", None) == 'b"dummy_content"'
 
 
 def test_get_stub_body_ref() -> None:
@@ -158,23 +158,29 @@ def test_sanitize_name() -> None:
 
 def test_get_dummy_value_for_schema() -> None:
     """Test get_dummy_value_for_schema for various schema types."""
-    assert get_dummy_value_for_schema(None).value == "None"
-    assert get_dummy_value_for_schema(Schema(type="boolean")).value == "True"
+    assert getattr(get_dummy_value_for_schema(None), "value", None) == "None"
     assert (
-        get_dummy_value_for_schema(Schema(type="array", items=Schema(type="integer")))
-        .elements[0]
-        .value.value
-        == "1"
+        getattr(get_dummy_value_for_schema(Schema(type="boolean")), "value", None)
+        == "True"
     )
-    assert get_dummy_value_for_schema(Schema(type="object")).elements == []
-    assert get_dummy_value_for_schema(Schema(type="array")).elements == []
+    arr_val = get_dummy_value_for_schema(
+        Schema(type="array", items=Schema(type="integer"))
+    )
+    assert isinstance(arr_val, cst.List)
+    assert getattr(arr_val.elements[0].value, "value", None) == "1"
+    obj_val = get_dummy_value_for_schema(Schema(type="object"))
+    assert isinstance(obj_val, cst.Dict)
+    assert list(obj_val.elements) == []
+    empty_arr_val = get_dummy_value_for_schema(Schema(type="array"))
+    assert isinstance(empty_arr_val, cst.List)
+    assert list(empty_arr_val.elements) == []
 
 
 def test_openapi_parse_external_refs(tmp_path: Path) -> None:
     """Test parsing external $ref files using base_path.
 
     Args:
-        tmp_path: Parameter .
+        tmp_path: Temporary directory path fixture.
     """
     p1 = tmp_path / "temp_spec1.json"
     p2 = tmp_path / "temp_spec2.json"
@@ -189,14 +195,14 @@ def test_openapi_parse_external_refs(tmp_path: Path) -> None:
     parsed = parse_openapi_json(p1.read_text(encoding="utf-8"), base_path=tmp_path)
     assert parsed.components is not None
     assert parsed.components.schemas is not None
-    assert parsed.components.schemas["MySchema"].type == "string"
+    assert getattr(parsed.components.schemas["MySchema"], "type", None) == "string"
 
 
 def test_openapi_parse_external_refs_with_pointer(tmp_path: Path) -> None:
     """Test parsing external $ref files with a JSON pointer fragment.
 
     Args:
-        tmp_path: Parameter .
+        tmp_path: Temporary directory path fixture.
     """
     p1 = tmp_path / "temp_spec3.json"
     p2 = tmp_path / "temp_spec4.json"
@@ -213,7 +219,7 @@ def test_openapi_parse_external_refs_with_pointer(tmp_path: Path) -> None:
     parsed = parse_openapi_json(p1.read_text(encoding="utf-8"), base_path=tmp_path)
     assert parsed.components is not None
     assert parsed.components.schemas is not None
-    assert parsed.components.schemas["MySchema"].type == "integer"
+    assert getattr(parsed.components.schemas["MySchema"], "type", None) == "integer"
 
 
 def test_openapi_parse_external_refs_exception() -> None:
@@ -245,7 +251,10 @@ def test_openapi_parse_external_refs_array() -> None:
     parsed = parse_openapi_json(json.dumps(spec))
     assert parsed.components is not None
     assert parsed.components.schemas is not None
-    assert parsed.components.schemas["MySchema"].items[0].ref == "non_existent.json"
+    my_schema = parsed.components.schemas["MySchema"]
+    assert isinstance(my_schema, Schema)
+    assert isinstance(my_schema.items, list)
+    assert my_schema.items[0].ref == "non_existent.json"
 
 
 def test_extract_functions_parameter_locations() -> None:

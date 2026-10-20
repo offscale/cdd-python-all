@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -191,11 +192,11 @@ def _install_sqlite_sqlalchemy_shim(monkeypatch: pytest.MonkeyPatch) -> None:
             """Initialize column descriptor.
 
             Args:
-                col_type: Parameter .
-                default: Parameter .
-                primary_key: Parameter .
-                server_default: Parameter .
-                nullable: Parameter .
+                col_type: Column Python/SQLite type.
+                default: Optional default value.
+                primary_key: Whether this column is a primary key.
+                server_default: Optional server default value.
+                nullable: Whether this column allows NULL values.
             """
             self.col_type = col_type
             self.default = default
@@ -210,7 +211,7 @@ def _install_sqlite_sqlalchemy_shim(monkeypatch: pytest.MonkeyPatch) -> None:
             """Initialize metadata with model class registry.
 
             Args:
-                registry: Parameter .
+                registry: Registered declarative model classes.
             """
             self.registry = registry
 
@@ -218,7 +219,7 @@ def _install_sqlite_sqlalchemy_shim(monkeypatch: pytest.MonkeyPatch) -> None:
             """Execute CREATE TABLE statements on the bound SQLite connection.
 
             Args:
-                bind: Parameter .
+                bind: Target SQLite Engine wrapper.
             """
             for cls in self.registry:
                 cols_sql: list[str] = []
@@ -227,7 +228,10 @@ def _install_sqlite_sqlalchemy_shim(monkeypatch: pytest.MonkeyPatch) -> None:
                         cols_sql.append(f'"{attr}" INTEGER PRIMARY KEY AUTOINCREMENT')
                     else:
                         cols_sql.append(f'"{attr}" TEXT')
-                stmt = f'CREATE TABLE IF NOT EXISTS "{cls.__tablename__}" ({", ".join(cols_sql)})'
+                tbl_name = getattr(cls, "__tablename__", "")
+                stmt = (
+                    f'CREATE TABLE IF NOT EXISTS "{tbl_name}" ({", ".join(cols_sql)})'
+                )
                 bind.conn.execute(stmt)
             bind.conn.commit()
 
@@ -260,7 +264,7 @@ def _install_sqlite_sqlalchemy_shim(monkeypatch: pytest.MonkeyPatch) -> None:
                 """Initialize model attributes from keyword arguments.
 
                 Args:
-                    **kwargs: Parameter .
+                    **kwargs: Column attribute values.
                 """
                 for k in getattr(self, "_columns", {}):
                     setattr(self, k, kwargs.get(k, None))
@@ -276,7 +280,7 @@ def _install_sqlite_sqlalchemy_shim(monkeypatch: pytest.MonkeyPatch) -> None:
             """Open an in-memory SQLite connection.
 
             Args:
-                url: Parameter .
+                url: Database connection URL.
             """
             _ = url
             self.conn = sqlite3.connect(":memory:")
@@ -289,7 +293,7 @@ def _install_sqlite_sqlalchemy_shim(monkeypatch: pytest.MonkeyPatch) -> None:
             """Initialize scalar result list.
 
             Args:
-                items: Parameter .
+                items: Hydrated model instances.
             """
             self._items = items
 
@@ -304,17 +308,17 @@ def _install_sqlite_sqlalchemy_shim(monkeypatch: pytest.MonkeyPatch) -> None:
             """Initialize session bound to `bind`.
 
             Args:
-                bind: Parameter .
+                bind: Target SQLite Engine wrapper.
             """
             self.bind = bind
-            self._pending_adds: list[object] = []
-            self._pending_deletes: list[object] = []
+            self._pending_adds: list[Any] = []
+            self._pending_deletes: list[Any] = []
 
         def add(self, obj: object) -> None:
             """Stage an ORM instance for insertion.
 
             Args:
-                obj: Parameter .
+                obj: Model instance to insert.
             """
             self._pending_adds.append(obj)
 
@@ -322,7 +326,7 @@ def _install_sqlite_sqlalchemy_shim(monkeypatch: pytest.MonkeyPatch) -> None:
             """Stage an ORM instance for deletion.
 
             Args:
-                obj: Parameter .
+                obj: Model instance to delete.
             """
             self._pending_deletes.append(obj)
 
@@ -330,10 +334,10 @@ def _install_sqlite_sqlalchemy_shim(monkeypatch: pytest.MonkeyPatch) -> None:
             """Flush staged inserts and deletes to the SQLite connection."""
             cur = self.bind.conn.cursor()
             for obj in self._pending_adds:
-                table = obj.__class__.__tablename__  # type: ignore[attr-defined]
+                table = obj.__class__.__tablename__
                 cols = [
                     k
-                    for k in obj.__class__._columns  # type: ignore[attr-defined]
+                    for k in obj.__class__._columns
                     if k != "id" or getattr(obj, "id", None) is not None
                 ]
                 placeholders = ", ".join("?" for _ in cols)
@@ -348,8 +352,10 @@ def _install_sqlite_sqlalchemy_shim(monkeypatch: pytest.MonkeyPatch) -> None:
             self._pending_adds.clear()
 
             for obj in self._pending_deletes:
-                table = obj.__class__.__tablename__  # type: ignore[attr-defined]
-                cur.execute(f'DELETE FROM "{table}" WHERE id = ?', (obj.id,))
+                table = obj.__class__.__tablename__
+                cur.execute(
+                    f'DELETE FROM "{table}" WHERE id = ?', (getattr(obj, "id", None),)
+                )
             self._pending_deletes.clear()
             self.bind.conn.commit()
 
@@ -357,7 +363,7 @@ def _install_sqlite_sqlalchemy_shim(monkeypatch: pytest.MonkeyPatch) -> None:
             """Refresh an ORM instance from SQLite.
 
             Args:
-                obj: Parameter .
+                obj: Model instance to refresh.
             """
             _ = obj
 
@@ -365,8 +371,8 @@ def _install_sqlite_sqlalchemy_shim(monkeypatch: pytest.MonkeyPatch) -> None:
             """Hydrate a model instance from a SQLite row.
 
             Args:
-                model_cls: Parameter .
-                row: Parameter .
+                model_cls: Target ORM class.
+                row: SQLite row mapping.
             """
             inst = model_cls()
             for k, val in dict(row).items():
@@ -380,7 +386,7 @@ def _install_sqlite_sqlalchemy_shim(monkeypatch: pytest.MonkeyPatch) -> None:
             """Execute a SELECT query for `model_cls` and return a `_ScalarResult`.
 
             Args:
-                model_cls: Parameter .
+                model_cls: Target ORM class.
             """
             table = model_cls.__tablename__  # type: ignore[attr-defined]
             rows = self.bind.conn.execute(f'SELECT * FROM "{table}"').fetchall()
@@ -390,8 +396,8 @@ def _install_sqlite_sqlalchemy_shim(monkeypatch: pytest.MonkeyPatch) -> None:
             """Fetch a single instance of `model_cls` by primary key.
 
             Args:
-                model_cls: Parameter .
-                ident: Parameter .
+                model_cls: Target ORM class.
+                ident: Primary key value.
             """
             table = model_cls.__tablename__  # type: ignore[attr-defined]
             row = self.bind.conn.execute(
@@ -431,7 +437,7 @@ def _install_sqlite_sqlalchemy_shim(monkeypatch: pytest.MonkeyPatch) -> None:
             """Initialize Faker stub.
 
             Args:
-                locale: Parameter .
+                locale: Locale code string.
             """
             self.locale = locale
 
@@ -465,8 +471,8 @@ def test_execute_generated_dao_db_seeder_end_to_end(
     """Execute generated SQLAlchemy models, DAOs, db.py, and seeder.py against SQLite in-memory.
 
     Args:
-        tmp_path: Parameter .
-        monkeypatch: Parameter .
+        tmp_path: Temporary directory path fixture.
+        monkeypatch: Pytest monkeypatch fixture.
     """
     _install_sqlite_sqlalchemy_shim(monkeypatch)
     spec = OpenAPI(
@@ -571,3 +577,111 @@ def test_execute_generated_dao_db_seeder_end_to_end(
         for loaded in list(sys.modules):
             if loaded == mod_name or loaded.startswith(f"{mod_name}."):
                 sys.modules.pop(loaded, None)
+
+
+def test_parse_sqlalchemy_cdd_and_sync_truth(tmp_path: Path) -> None:
+    """Test SQLAlchemyExtractor on declarative models and sync_dir with truth='sqlalchemy'.
+
+    Args:
+        tmp_path: Temporary directory path fixture.
+    """
+    import libcst as cst
+
+    from openapi_client.models import Info
+    from openapi_client.sqlalchemy_cdd.parse import (
+        SQLAlchemyExtractor,
+        parse_sqlalchemy_cdd,
+    )
+    from openapi_client.sync import sync_dir
+
+    sa_code = '''"""SQLAlchemy models."""
+from sqlalchemy import Column, Integer, String, Float, Boolean, JSON, Identity
+from . import Base
+
+class Client:
+    """Non-model client class skipped by extractor."""
+    pass
+
+class EmptyModel(Base):
+    """Model without columns."""
+    __tablename__ = "empty"
+
+class OneLineModel(Base): x = 1
+
+class User(Base):
+    """User entity.
+
+    Detailed user entity description.
+    """
+    __tablename__ = "user"
+    id = Column(Integer, Identity(start=1), primary_key=True, doc="[PK] Primary key")
+    username = Column(String(64), nullable=False, doc="User login", default="guest")
+    rating = Column(Float, default=4.5, nullable=True)
+    visits = Column(Integer, default=0)
+    is_admin = Column(Boolean, default=False, primary_key=False)
+    profile = Column("profile_col", JSON, comment="", index=True)
+    custom = Column(UnknownType(), default=obj)
+    obj.attr = Column(String)
+
+    def helper(self) -> None:
+        """Helper method inside model."""
+        pass
+'''
+    spec = OpenAPI(
+        openapi="3.2.0",
+        info=Info(title="SA Test", version="1.0.0"),
+        components=None,
+    )
+    mod = cst.parse_module(sa_code)
+    parse_sqlalchemy_cdd(mod, spec)
+    assert spec.components is not None
+    assert spec.components.schemas is not None
+    assert "User" in spec.components.schemas
+    user_schema = spec.components.schemas["User"]
+    assert isinstance(user_schema, Schema)
+    assert user_schema.summary == "User entity."
+    assert user_schema.description == "Detailed user entity description."
+    assert user_schema.required == ["id", "username"]
+    assert user_schema.properties is not None
+    assert getattr(user_schema.properties["id"], "type", None) == "integer"
+    assert getattr(user_schema.properties["id"], "description", None) == "Primary key"
+    assert getattr(user_schema.properties["username"], "type", None) == "string"
+    assert getattr(user_schema.properties["username"], "default", None) == "guest"
+    assert getattr(user_schema.properties["rating"], "type", None) == "number"
+    assert getattr(user_schema.properties["rating"], "default", None) == 4.5
+    assert getattr(user_schema.properties["visits"], "default", None) == 0
+    assert getattr(user_schema.properties["is_admin"], "type", None) == "boolean"
+    assert getattr(user_schema.properties["is_admin"], "default", None) is False
+    assert getattr(user_schema.properties["profile"], "type", None) == "object"
+
+    # Cover SQLAlchemyExtractor when spec.components becomes None before class visit completes
+    ext = SQLAlchemyExtractor(
+        OpenAPI(
+            openapi="3.2.0",
+            info=Info(title="SA", version="1.0.0"),
+            components=None,
+        )
+    )
+    cst.parse_module("class Item(Base):\n    id = Column(Integer)\n").visit(ext)
+    assert ext.spec.components is not None
+    assert "Item" in (ext.spec.components.schemas or {})
+
+    ext.spec.components = Components(schemas=None)
+    cst.parse_module("class Item2(Base):\n    id = Column(Integer)\n").visit(ext)
+    assert "Item2" in (ext.spec.components.schemas or {})
+
+    # Test sync_dir and generate_to_openapi with models/ directory and truth='sqlalchemy'
+    proj_dir = tmp_path / "sa_proj"
+    models_dir = proj_dir / "models"
+    models_dir.mkdir(parents=True)
+    (models_dir / "__init__.py").write_text("", encoding="utf-8")
+    (models_dir / "user.py").write_text(sa_code, encoding="utf-8")
+    sync_dir(str(proj_dir), truth="sqlalchemy")
+    assert (proj_dir / "openapi.json").exists()
+    assert "User" in (proj_dir / "openapi.json").read_text(encoding="utf-8")
+
+    from openapi_client.cli import generate_to_openapi
+
+    out_oas = tmp_path / "from_sa_dir.json"
+    generate_to_openapi(str(proj_dir), str(out_oas))
+    assert "User" in out_oas.read_text(encoding="utf-8")

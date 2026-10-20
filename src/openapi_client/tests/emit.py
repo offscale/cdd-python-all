@@ -7,11 +7,13 @@ from typing import Any
 import libcst as cst
 
 from openapi_client.functions.utils import (
+    build_cst_module,
     get_annotation_for_schema,
     get_default_server_url,
     sanitize_name,
 )
 from openapi_client.models import OpenAPI, Operation
+from openapi_client.openapi.keywords import HTTP_METHODS
 
 
 def get_dummy_value_for_schema(schema_obj: Any) -> cst.BaseExpression:
@@ -502,7 +504,7 @@ def emit_tests(spec: OpenAPI, composable: bool = False) -> cst.Module:
     if spec.paths:
         for path, path_item in spec.paths.items():
             if path.startswith("/"):
-                for method in ["get", "post", "put", "delete", "patch"]:
+                for method in HTTP_METHODS:
                     operation = getattr(path_item, method, None)
                     if operation:
                         body.append(
@@ -516,4 +518,4 @@ def emit_tests(spec: OpenAPI, composable: bool = False) -> cst.Module:
                         )
                         body.append(cst.EmptyLine())
 
-    return cst.Module(body=body)
+    return build_cst_module(body)

@@ -3,16 +3,17 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
-from typing import Any
 
 import libcst as cst
 
 from openapi_client.arazzo.emit import emit_arazzo_json
 from openapi_client.arazzo.parse import parse_arazzo_json, resolve_source_descriptions
+from openapi_client.arazzo_models import Arazzo
 from openapi_client.classes.emit import emit_models_module
 from openapi_client.classes.parse import extract_classes_from_ast
 from openapi_client.cli_sdk.emit_arazzo import emit_arazzo_cli_code
@@ -46,6 +47,7 @@ from openapi_client.seeder.emit import emit_seeder
 from openapi_client.servers.json_rpc import JSONRPCRequestHandler, serve_json_rpc
 from openapi_client.servers.mcp_stdio import run_mcp_server
 from openapi_client.sqlalchemy_cdd.emit import emit_sqlalchemy
+from openapi_client.sqlalchemy_cdd.parse import parse_sqlalchemy_cdd
 from openapi_client.sync import sync_dir
 from openapi_client.tests.emit import emit_tests
 from openapi_client.tests.emit_arazzo_tests import emit_arazzo_tests_code
@@ -54,6 +56,40 @@ from openapi_client.tests.parse import extract_tests_from_ast
 from openapi_client.tests.parse_arazzo_tests import extract_arazzo_from_test_code
 from openapi_client.workflows.emit import emit_workflows_code
 from openapi_client.workflows.parse import extract_arazzo_from_code
+
+__all__ = [
+    "JSONRPCRequestHandler",
+    "apply_env_vars_to_parser",
+    "emit_dao",
+    "emit_seeder",
+    "generate_docs_json",
+    "generate_from_arazzo",
+    "generate_from_openapi",
+    "generate_to_arazzo",
+    "generate_to_openapi",
+    "get_version",
+    "main",
+    "run_mcp_server",
+    "serve_json_rpc",
+    "sync_dir",
+]
+
+
+def _resolve_output_dir(output_dir: str) -> Path:
+    """Resolve an output directory or file path to its target directory.
+
+    Args:
+        output_dir: Destination directory or file path string.
+
+    Returns:
+        The resolved directory `Path`.
+    """
+    if not output_dir:
+        output_dir = "."
+    out_path = Path(output_dir)
+    if out_path.suffix.lower() in (".py", ".json", ".yaml", ".yml"):
+        return out_path.parent
+    return out_path
 
 
 def get_version() -> str:
@@ -86,6 +122,8 @@ def apply_env_vars_to_parser(
                     action.default = val.lower() in ("true", "1", "yes")
                 elif isinstance(action, argparse._StoreFalseAction):
                     action.default = val.lower() not in ("true", "1", "yes")
+                elif action.type in (int, float) and callable(action.type):
+                    action.default = action.type(val)
                 else:
                     action.default = val
         if isinstance(action, argparse._SubParsersAction):
@@ -117,14 +155,7 @@ def generate_from_openapi(
         mcp: If True, generate MCP server, SSE server, and adapter modules.
         arazzo_path: Optional path to a companion Arazzo 1.1.0 specification to bundle.
     """
-    if not output_dir:
-        output_dir = "."
-    out_path = Path(output_dir)
-    if out_path.suffix:
-        out_dir = out_path.parent
-    else:
-        out_dir = out_path
-
+    out_dir = _resolve_output_dir(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     if input_path:
@@ -149,8 +180,7 @@ def generate_from_openapi(
             (src_dir / "client.py").write_text(
                 generator.generate_code(), encoding="utf-8"
             )
-
-            if spec.components and getattr(spec.components, "schemas", None):
+            if spec.components and spec.components.schemas:
                 (src_dir / "models.py").write_text(
                     emit_models_module(spec.components.schemas), encoding="utf-8"
                 )
@@ -181,7 +211,7 @@ def generate_from_openapi(
                 generator.generate_code(), encoding="utf-8"
             )
 
-            if spec.components and getattr(spec.components, "schemas", None):
+            if spec.components and spec.components.schemas:
                 (src_dir / "models.py").write_text(
                     emit_models_module(spec.components.schemas), encoding="utf-8"
                 )
@@ -278,13 +308,10 @@ def generate_from_arazzo(
         no_installable_package: If True, skip `pyproject.toml` generation.
         tests: If True, generate end-to-end workflow pytest suites.
     """
-    if not output_dir:
-        output_dir = "."
-    out_path = Path(output_dir)
-    out_dir = out_path.parent if out_path.suffix else out_path
+    out_dir = _resolve_output_dir(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    specs: list[tuple[Path, Any]] = []
+    specs: list[tuple[Path, Arazzo]] = []
     if input_path:
         spec_path = Path(input_path)
         specs.append(
@@ -298,7 +325,8 @@ def generate_from_arazzo(
     elif input_dir:
         for p in Path(input_dir).glob("*.json"):
             raw_text = p.read_text(encoding="utf-8")
-            if '"arazzo"' in raw_text:
+            raw_obj = json.loads(raw_text)
+            if isinstance(raw_obj, dict) and "arazzo" in raw_obj:
                 specs.append((p.parent, parse_arazzo_json(raw_text, p.parent)))
     else:
         print("Either --input or --input-dir is required.")
@@ -423,7 +451,7 @@ def generate_to_arazzo(input_path: str, output_path: str) -> None:
     print(f"Successfully extracted Arazzo spec to {out_path}")
 
 
-def generate_to_openapi(input_path: str, output_path: str) -> None:
+def generate_to_openapi(input_path: str | Path, output_path: str | Path) -> None:
     """Extract an OpenAPI spec from a Python module or directory.
 
     Args:
@@ -458,6 +486,12 @@ def generate_to_openapi(input_path: str, output_path: str) -> None:
         if not models_py.exists():
             models_py = in_path / "models.py"
 
+        models_dir = (
+            in_path / "src" / "models"
+            if (in_path / "src" / "models").is_dir()
+            else in_path / "models"
+        )
+
         mock_py = in_path / "test" / "mock_server.py"
         if not mock_py.exists():
             mock_py = in_path / "mock_server.py"
@@ -475,9 +509,15 @@ def generate_to_openapi(input_path: str, output_path: str) -> None:
             extract_classes_from_ast(mod, spec)
             extract_functions_from_ast(mod, spec)
 
-        if models_py.exists():
+        if models_py.is_file():
             mod = cst.parse_module(models_py.read_text(encoding="utf-8"))
-            extract_classes_from_ast(mod, spec)
+            parse_sqlalchemy_cdd(mod, spec)
+
+        if models_dir.is_dir():
+            for sa_file in sorted(models_dir.glob("*.py")):
+                if sa_file.name != "__init__.py":
+                    mod = cst.parse_module(sa_file.read_text(encoding="utf-8"))
+                    parse_sqlalchemy_cdd(mod, spec)
 
         if mock_py.exists():
             mod = cst.parse_module(mock_py.read_text(encoding="utf-8"))
@@ -516,7 +556,6 @@ def generate_to_openapi(input_path: str, output_path: str) -> None:
 
 def main() -> None:
     """CLI entrypoint."""
-    _ = JSONRPCRequestHandler
     parser = argparse.ArgumentParser(
         description="Compiler Driven Development (CDD) compiler and transpiler."
     )

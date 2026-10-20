@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 
+import libcst as cst
+
 from openapi_client.cli_sdk.emit_mcp import extract_mcp_tools_from_spec
 from openapi_client.models import OpenAPI
 
@@ -26,15 +28,12 @@ def emit_mcp_sse_server(spec: OpenAPI) -> str:
     code = f'''"""Model Context Protocol (MCP) SSE server integration."""
 
 import json
-import traceback
-import asyncio
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import uuid
 
 class MCPSSEServer(BaseHTTPRequestHandler):
     """HTTP Server handling SSE connections for MCP."""
 
-    clients = {{}}
     tools = json.loads({tools_json!r})
 
     def do_OPTIONS(self):
@@ -193,4 +192,4 @@ def start_mcp_sse_server(client, port=8080):
     print(f"Starting MCP SSE server on port {{port}}...")
     httpd.serve_forever()
 '''
-    return code
+    return cst.parse_module(code).code

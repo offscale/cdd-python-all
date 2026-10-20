@@ -4,14 +4,13 @@ from __future__ import annotations
 
 import ast
 from collections import OrderedDict
+from typing import Any
 
+import libcst as cst
 from cdd.emit.argparse_function import argparse_function
 
-from openapi_client.functions.utils import (
-    get_default_server_url,
-    map_openapi_type_to_python,
-    sanitize_name,
-)
+from openapi_client.cli_sdk.emit import extract_cli_operations
+from openapi_client.functions.utils import get_default_server_url
 from openapi_client.models import OpenAPI
 
 
@@ -24,54 +23,46 @@ def emit_cli_sdk(spec: OpenAPI) -> str:
     Returns:
         The generated CLI application Python source code.
     """
-    body = ["import argparse", "import sys", "from client import Client", ""]
+    body = [
+        "import argparse",
+        "import json",
+        "import os",
+        "import sys",
+        "from client import Client",
+        "",
+    ]
 
     operations: list[tuple[str, str]] = []
 
-    if spec.paths:
-        for path, path_item in spec.paths.items():
-            for method in ["get", "post", "put", "delete", "patch"]:
-                operation = getattr(path_item, method, None)
-                if operation:
-                    raw_op_id = (
-                        operation.operationId
-                        or f"{method}_{path.replace('/', '_').strip('_')}"
-                    )
-                    op_id = sanitize_name(raw_op_id)
-                    desc = operation.summary or f"{method.upper()} {path}"
+    for op_id, desc, params_meta, body_meta in extract_cli_operations(spec):
+        params: OrderedDict[str, dict[str, Any]] = OrderedDict()
+        ir: dict[str, Any] = {
+            "name": op_id,
+            "type": "static",
+            "doc": desc,
+            "params": params,
+            "returns": None,
+        }
 
-                    ir = {
-                        "name": op_id,
-                        "type": "static",
-                        "doc": desc,
-                        "params": OrderedDict(),
-                        "returns": None,
-                    }
+        for p_info in params_meta:
+            params[p_info["name"]] = {
+                "typ": p_info["py_type"],
+                "doc": p_info["description"],
+                "default": None if p_info["required"] else "None",
+            }
 
-                    if operation.parameters:
-                        for param in operation.parameters:
-                            p_name = getattr(param, "name", "param").replace("-", "_")
-                            p_desc = getattr(param, "description", "")
-                            req = getattr(param, "required", False)
-                            p_type = "string"
-                            if getattr(param, "schema_", None):
-                                p_type = getattr(param.schema_, "type", "string")
-                                if isinstance(p_type, list):
-                                    p_type = p_type[0]
+        if body_meta is not None:
+            params["body"] = {
+                "typ": "dict",
+                "doc": body_meta["description"],
+                "default": None if body_meta["required"] else "None",
+            }
 
-                            ir["params"][p_name] = {
-                                "typ": map_openapi_type_to_python(str(p_type)),
-                                "doc": p_desc,
-                                "default": None if req else "None",
-                            }
-
-                    arg_ast = argparse_function(
-                        ir, function_name="set_cli_args_" + op_id
-                    )
-                    code = ast.unparse(arg_ast)
-                    body.append(code)
-                    body.append("")
-                    operations.append((op_id, desc))
+        arg_ast = argparse_function(ir, function_name="set_cli_args_" + op_id)
+        code = ast.unparse(arg_ast)
+        body.append(code)
+        body.append("")
+        operations.append((op_id, desc))
 
     body.append("def main():")
     body.append(
@@ -93,7 +84,6 @@ def emit_cli_sdk(spec: OpenAPI) -> str:
 
     body.append("")
     body.append("    args = parser.parse_args()")
-    body.append("    import os")
     default_url = get_default_server_url(spec, fallback="http://localhost:8080/v2")
     body.append(
         f'    c = Client(base_url=os.environ.get("API_BASE_URL", "{default_url}"))'
@@ -121,4 +111,4 @@ def emit_cli_sdk(spec: OpenAPI) -> str:
     body.append("    main()")
     body.append("")
 
-    return "\n".join(body)
+    return cst.parse_module("\n".join(body)).code

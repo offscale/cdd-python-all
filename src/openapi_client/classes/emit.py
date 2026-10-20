@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 import libcst as cst
 
 from openapi_client.docstrings.emit import emit_class_docstring
-from openapi_client.functions.utils import get_annotation_for_schema
+from openapi_client.functions.utils import build_cst_module, get_annotation_for_schema
 from openapi_client.models import Schema, SchemaOrReference
 
 
@@ -127,7 +129,7 @@ def emit_class(name: str, schema: Schema) -> cst.ClassDef:
     )
 
 
-def emit_classes(schemas: dict[str, SchemaOrReference]) -> list[cst.ClassDef]:
+def emit_classes(schemas: Mapping[str, SchemaOrReference]) -> list[cst.ClassDef]:
     """Emit a list of Pydantic BaseModel classes from a dictionary of OpenAPI Schema objects.
 
     Args:
@@ -144,7 +146,7 @@ def emit_classes(schemas: dict[str, SchemaOrReference]) -> list[cst.ClassDef]:
     return class_defs
 
 
-def emit_models_module(schemas: dict[str, SchemaOrReference]) -> str:
+def emit_models_module(schemas: Mapping[str, SchemaOrReference]) -> str:
     """Emit a complete Python module containing Pydantic models.
 
     Args:
@@ -199,5 +201,5 @@ def emit_models_module(schemas: dict[str, SchemaOrReference]) -> str:
         body.append(class_def)
         body.append(cst.EmptyLine())
 
-    module = cst.Module(body=body)
+    module = build_cst_module(body)
     return module.code

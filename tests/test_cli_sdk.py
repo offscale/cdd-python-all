@@ -173,8 +173,12 @@ get_test_parser.add_argument("--param1", type=str, help="test param updated", re
     mod = cst.parse_module(code)
     extract_cli_from_ast(mod, spec)
 
-    assert spec.paths["/test"].get.summary == "A test operation updated"
-    assert spec.paths["/test"].get.parameters[0].description == "test param updated"
+    assert spec.paths is not None
+    op_test = spec.paths["/test"].get
+    assert op_test is not None
+    assert op_test.summary == "A test operation updated"
+    assert op_test.parameters is not None
+    assert op_test.parameters[0].description == "test param updated"
 
 
 def test_emit_mcp_server_lists() -> None:
@@ -491,7 +495,11 @@ parser.add_argument("positional", help="desc")
         )
     }
     extract_cli_from_ast(module, spec)
-    assert spec.paths["/test1"].get.parameters[0].description is None
+    assert spec.paths is not None
+    op1 = spec.paths["/test1"].get
+    assert op1 is not None
+    assert op1.parameters is not None
+    assert op1.parameters[0].description is None
 
     code2 = """
 parser.add_parser("not_found")
@@ -501,8 +509,8 @@ parser.add_argument("--myarg", help="desc")
 """
     module2 = cst.parse_module(code2)
     extract_cli_from_ast(module2, spec)
-    assert spec.paths["/test1"].get.summary == "desc"
-    assert spec.paths["/test1"].get.parameters[0].description == "desc"
+    assert op1.summary == "desc"
+    assert op1.parameters[0].description == "desc"
 
     code3 = """
 parser.add_parser("test2")
@@ -513,7 +521,9 @@ parser.add_argument("--noparams", help="desc")
     )
     module3 = cst.parse_module(code3)
     extract_cli_from_ast(module3, spec)
-    assert spec.paths["/test2"].get.parameters == []
+    op2 = spec.paths["/test2"].get
+    assert op2 is not None
+    assert op2.parameters == []
 
 
 def test_cli_sdk_parse_branches_58_exit() -> None:
@@ -530,28 +540,40 @@ parser.add_argument("positional", help="desc")
         )
     }
     extract_cli_from_ast(module, spec)
-    assert spec.paths["/test1"].get.operationId == "test1"
+    assert spec.paths is not None
+    op1 = spec.paths["/test1"].get
+    assert op1 is not None
+    assert op1.operationId == "test1"
 
 
 def test_cli_sdk_cdd_emit_branches() -> None:
-    """Test emit_cli_sdk with empty parameters, None schema, and typed schema."""
-    spec = OpenAPI(openapi="3.1.0", info={"title": "Test", "version": "1.0.0"})
+    """Test emit_cli_sdk and emit_cli_sdk_cdd with requestBody, typed schemas, and standalone AST extraction."""
+    from openapi_client.models import MediaType, RequestBody
+
+    spec = OpenAPI(openapi="3.2.0", info={"title": "Test", "version": "1.0.0"})
 
     spec.paths = {
         "/test1": PathItem(
             get=Operation(operationId="test1", responses={}, parameters=[])
         ),
         "/test2": PathItem(
-            get=Operation(
-                operationId="test2",
+            post=Operation(
+                operationId="post_test2",
                 responses={},
                 parameters=[
                     Parameter(name="param1", **{"in": "query", "schema_": None})
                 ],
+                requestBody=RequestBody(
+                    description="Payload",
+                    required=True,
+                    content={
+                        "application/json": MediaType(schema=Schema(type="object"))
+                    },
+                ),
             )
         ),
         "/test3": PathItem(
-            get=Operation(
+            put=Operation(
                 operationId="test3",
                 responses={},
                 parameters=[
@@ -559,16 +581,69 @@ def test_cli_sdk_cdd_emit_branches() -> None:
                         name="param2",
                         **{
                             "in": "query",
-                            "schema_": Schema(type="integer", ref=None),
+                            "schema_": Schema(type="array", ref=None),
                         },
                     )
                 ],
+                requestBody=RequestBody(
+                    required=False,
+                    content={
+                        "application/json": MediaType(schema=Schema(type="object"))
+                    },
+                ),
             )
         ),
     }
 
+    code_libcst = emit_cli_sdk(spec)
+    assert '"--body"' in code_libcst
+    assert 'os.environ.get("API_BASE_URL"' in code_libcst
+
     code = emit_cli_sdk_cdd_fn(spec)
     assert "def set_cli_args_test1" in code
-    assert "def set_cli_args_test2" in code
+    assert "def set_cli_args_post_test2" in code
     assert "def set_cli_args_test3" in code
     extract_cli_from_ast(cst.parse_module(code), spec)
+
+    # Test standalone CLI extraction when spec.paths starts as None
+    standalone_code = """
+import argparse, json
+parser = argparse.ArgumentParser()
+subparsers = parser.add_subparsers(dest="command")
+mcp_p = subparsers.add_parser("mcp", help="MCP")
+p1 = subparsers.add_parser("get_pets", help="List pets")
+p1.add_argument("--limit", type=int, help="Max pets", required=True)
+p1.add_argument("--verbose", action="store_true", help="Verbose flag")
+p1.add_argument("--tags", action="append", help="Tag list")
+p2 = subparsers.add_parser("custom_op", help="Custom op")
+p2.add_argument("--body", type=json.loads, help="Body JSON", required=True)
+"""
+    standalone_spec = OpenAPI(
+        openapi="3.2.0", info={"title": "Standalone", "version": "1.0.0"}, paths=None
+    )
+    from openapi_client.cli_sdk.parse import CLIExtractor
+
+    extractor = CLIExtractor(standalone_spec)
+    cst.parse_module(standalone_code).visit(extractor)
+    assert standalone_spec.paths is not None
+    assert "/pets" in standalone_spec.paths
+    pets_op = standalone_spec.paths["/pets"].get
+    assert pets_op is not None
+    assert pets_op.operationId == "get_pets"
+    assert pets_op.summary == "List pets"
+    assert pets_op.parameters is not None
+    assert len(pets_op.parameters) == 3
+
+    assert "/custom_op" in standalone_spec.paths
+    custom_op = standalone_spec.paths["/custom_op"].get
+    assert custom_op is not None
+    assert custom_op.requestBody is not None
+
+    # Cover current_op.parameters = None branch in standalone mode
+    custom_op.parameters = None
+    extractor.current_op = custom_op
+    cst.parse_module('p2.add_argument("--extra", type=str, help="Extra")').visit(
+        extractor
+    )
+    assert custom_op.parameters is not None
+    assert len(custom_op.parameters) == 1

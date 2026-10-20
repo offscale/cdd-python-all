@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 
+import libcst as cst
+
 from openapi_client.cli_sdk.emit_mcp import extract_mcp_tools_from_spec
 from openapi_client.models import OpenAPI
 
@@ -60,4 +62,4 @@ class MCPAdapter:
             return {{"openapi": {spec.openapi!r}, "info": {{"title": {title!r}, "version": {version!r}}}}}
         raise ValueError(f"Resource not found: {{uri}}")
 '''
-    return code
+    return cst.parse_module(code).code

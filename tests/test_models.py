@@ -186,6 +186,8 @@ def test_models_instantiation() -> None:
 
     rmeta = RequestMeta(progressToken=ProgressToken(1))
     rparams = RequestParams(_meta=rmeta)
+    assert rparams.meta is not None
+    assert rparams.meta.progressToken is not None
     assert rparams.meta.progressToken.root == 1
 
     req_base = Request(method="m", params=rparams)
@@ -243,9 +245,12 @@ def test_models_instantiation() -> None:
 
     pag_params = PaginatedRequestParams(cursor=Cursor("c"))
     pag_req = PaginatedRequest(method="test", params=pag_params, id=RequestId(1))
+    assert pag_req.params is not None
+    assert pag_req.params.cursor is not None
     assert pag_req.params.cursor.root == "c"
 
     pag_res = PaginatedResult(nextCursor=Cursor("n"))
+    assert pag_res.nextCursor is not None
     assert pag_res.nextCursor.root == "n"
 
     emp_res = EmptyResult()
@@ -353,11 +358,11 @@ def test_models_instantiation() -> None:
 
 def test_error_code_enum() -> None:
     """Test ErrorCode integer enum values."""
-    assert ErrorCode.PARSE_ERROR == -32700
-    assert ErrorCode.INVALID_REQUEST == -32600
-    assert ErrorCode.METHOD_NOT_FOUND == -32601
-    assert ErrorCode.INVALID_PARAMS == -32602
-    assert ErrorCode.INTERNAL_ERROR == -32603
+    assert ErrorCode.PARSE_ERROR.value == -32700
+    assert ErrorCode.INVALID_REQUEST.value == -32600
+    assert ErrorCode.METHOD_NOT_FOUND.value == -32601
+    assert ErrorCode.INVALID_PARAMS.value == -32602
+    assert ErrorCode.INTERNAL_ERROR.value == -32603
 
 
 def test_models_validation_aliases_and_json_roundtrip() -> None:

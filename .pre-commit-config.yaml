@@ -20,6 +20,18 @@ repos:
     language: system
     pass_filenames: false
     always_run: true
+  - id: mypy
+    name: Mypy Strict Type Check
+    entry: uv run mypy
+    language: system
+    pass_filenames: false
+    always_run: true
+  - id: doc-coverage
+    name: Docstring & Argument Coverage (100%)
+    entry: uv run python scripts/doc_coverage.py
+    language: system
+    pass_filenames: false
+    always_run: true
   - id: test-and-coverage-badges
     name: Run Tests and Update Coverage Badges
     entry: uv run python scripts/update_badges.py

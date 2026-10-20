@@ -511,7 +511,7 @@ class WorkflowExtractor(cst.CSTVisitor):
                             rem_params = [
                                 p
                                 for p in (current_step.parameters or [])
-                                if p.name not in wf_param_names
+                                if getattr(p, "name", None) not in wf_param_names
                             ]
                             current_step.parameters = rem_params or None
                         if not has_meta_success and wf_success_actions:

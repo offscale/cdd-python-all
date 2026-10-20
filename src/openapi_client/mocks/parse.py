@@ -6,6 +6,7 @@ import libcst as cst
 
 from openapi_client.docstrings.parse import parse_docstring
 from openapi_client.models import MediaType, OpenAPI, Operation, PathItem, Response
+from openapi_client.openapi.keywords import HTTP_METHODS
 
 
 class ReturnExtractor(cst.CSTVisitor):
@@ -61,7 +62,7 @@ class MockServerExtractor(cst.CSTVisitor):
                     ):
                         method = call.func.attr.value
                         if (
-                            method in ["get", "post", "put", "delete", "patch"]
+                            method in HTTP_METHODS
                             and call.args
                             and isinstance(call.args[0].value, cst.SimpleString)
                         ):

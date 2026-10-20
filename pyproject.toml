@@ -39,10 +39,20 @@ packages = ["src/openapi_client"]
 testpaths = ["tests", "test"]
 
 [tool.mypy]
+packages = ["openapi_client", "scripts", "tests", "test"]
+plugins = ["pydantic.mypy"]
 strict = true
 disallow_any_generics = true
 warn_return_any = true
 warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = ["cdd.*", "fastapi", "fastapi.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["test.mock_server"]
+disallow_untyped_decorators = false
 
 [dependency-groups]
 dev = [

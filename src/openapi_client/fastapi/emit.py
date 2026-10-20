@@ -9,11 +9,13 @@ import libcst as cst
 from openapi_client.dao.emit import _doc_stmt
 from openapi_client.functions.emit import _safe_param_name
 from openapi_client.functions.utils import (
+    build_cst_module,
     get_annotation_for_schema,
     sanitize_class_name,
     sanitize_name,
 )
 from openapi_client.models import OpenAPI, Operation
+from openapi_client.openapi.keywords import HTTP_METHODS
 
 
 def _match_model_for_tag(tag: str, spec: OpenAPI) -> str | None:
@@ -192,7 +194,14 @@ def _build_route_function(
             inner_stmts.append(cst.parse_statement(f"obj = models.{class_name}()"))
             inner_stmts.append(
                 cst.For(
-                    target=cst.parse_expression("k, v"),
+                    target=cst.Tuple(
+                        elements=[
+                            cst.Element(cst.Name("k")),
+                            cst.Element(cst.Name("v")),
+                        ],
+                        lpar=[],
+                        rpar=[],
+                    ),
                     iter=cst.parse_expression("payload.items()"),
                     body=cst.IndentedBlock(
                         body=[cst.parse_statement("setattr(obj, k, v)")]
@@ -562,7 +571,7 @@ def _build_main_module(spec: OpenAPI, router_tags: list[str]) -> cst.Module:
         )
     )
 
-    return cst.Module(body=body)
+    return build_cst_module(body)
 
 
 def emit_fastapi(spec: OpenAPI) -> dict[str, str]:
@@ -609,7 +618,7 @@ def emit_fastapi(spec: OpenAPI) -> dict[str, str]:
                 router_modules[tag].insert(6, cst.parse_statement("import models"))
                 router_has_dao[tag] = True
 
-            for method in ["get", "post", "put", "delete", "patch"]:
+            for method in HTTP_METHODS:
                 operation = getattr(path_item, method, None)
                 if operation:
                     fn_node = _build_route_function(
@@ -619,7 +628,7 @@ def emit_fastapi(spec: OpenAPI) -> dict[str, str]:
                     router_modules[tag].append(cst.EmptyLine())
 
     for tag, stmts in router_modules.items():
-        files[f"routes/{tag}.py"] = cst.Module(body=stmts).code
+        files[f"routes/{tag}.py"] = build_cst_module(stmts).code
 
     files["routes/__init__.py"] = ""
     files["main.py"] = _build_main_module(spec, list(router_modules.keys())).code
