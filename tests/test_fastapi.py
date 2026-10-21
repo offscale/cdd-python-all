@@ -751,7 +751,12 @@ def test_emit_fastapi_dao_routes_and_execution(
                     operationId="replace_users",
                     requestBody=RequestBody(
                         content={
-                            "application/json": MediaType(schema=Schema(type="object"))
+                            "application/json": MediaType(
+                                schema=Schema(
+                                    type="array",
+                                    items=Reference(ref="#/components/schemas/User"),
+                                )
+                            )
                         }
                     ),
                     responses={"200": Response(description="No content", content={})},

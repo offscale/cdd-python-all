@@ -52,8 +52,9 @@ def emit_sqlalchemy(spec: OpenAPI) -> dict[str, str]:
                 if prop_name.lower() == "id":
                     doc = f"[PK] {doc}".strip()
 
+                mapped_type = map_openapi_type_to_python(str(p_type))
                 params[prop_name] = {
-                    "typ": map_openapi_type_to_python(str(p_type)),
+                    "typ": "dict" if mapped_type == "list" else mapped_type,
                     "doc": doc,
                     "default": None,
                 }

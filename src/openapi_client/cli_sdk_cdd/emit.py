@@ -26,6 +26,7 @@ def emit_cli_sdk(spec: OpenAPI) -> str:
     body = [
         "import argparse",
         "import json",
+        "from json import loads",
         "import os",
         "import sys",
         "from client import Client",

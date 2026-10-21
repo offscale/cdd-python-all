@@ -114,9 +114,12 @@ def emit_server_tests(spec: OpenAPI) -> dict[str, str]:
     files["test_unit.py"] = "\n".join(unit_lines)
 
     stub_lines = [
+        "import os",
+        "from unittest.mock import patch",
         "from fastapi.testclient import TestClient",
         "from main import app",
         "",
+        "@patch.dict(os.environ, {}, clear=True)",
         "def test_stub_endpoints():",
         '    """Test that endpoints return NotImplemented safely in stub mode."""',
         "    client = TestClient(app)",

@@ -40,6 +40,27 @@ def _match_model_for_tag(tag: str, spec: OpenAPI) -> str | None:
     return None
 
 
+def _to_fastapi_type(ann: str) -> str:
+    """Normalize a schema type annotation string into a Pydantic-safe FastAPI type.
+
+    Since generated server `models` are SQLAlchemy declarative ORM classes rather than
+    Pydantic `BaseModel` classes, component `$ref` model names are normalized to
+    `dict[str, Any]` (and `list[<Model>]` to `list[dict[str, Any]]`).
+
+    Args:
+        ann: Raw annotation string returned by `get_annotation_for_schema`.
+
+    Returns:
+        A valid Pydantic/FastAPI type annotation string.
+    """
+    if ann in ("Any", "str", "int", "float", "bool", "dict[str, Any]"):
+        return ann
+    if ann.startswith("list[") and ann.endswith("]"):
+        inner = _to_fastapi_type(ann[5:-1])
+        return f"list[{inner}]"
+    return "dict[str, Any]"
+
+
 def _extract_request_body_type(operation: Operation) -> str:
     """Resolve the type annotation string for an operation's requestBody.
 
@@ -54,10 +75,8 @@ def _extract_request_body_type(operation: Operation) -> str:
     if isinstance(content, dict) and content:
         media = content.get("application/json") or next(iter(content.values()))
         schema_obj = getattr(media, "schema_", getattr(media, "schema", None))
-        ann = get_annotation_for_schema(schema_obj)
-        if ann and ann != "Any":
-            if not ann.startswith(("dict", "list", "str", "int", "float", "bool")):
-                return f"models.{ann} | dict[str, Any] | None"
+        ann = _to_fastapi_type(get_annotation_for_schema(schema_obj))
+        if ann != "Any":
             return f"{ann} | None"
     return "dict[str, Any] | None"
 
@@ -81,13 +100,11 @@ def _extract_response_type(operation: Operation) -> str | None:
             media = content.get("application/json") or next(iter(content.values()))
             schema_obj = getattr(media, "schema_", getattr(media, "schema", None))
             if schema_obj is not None:
-                ann = get_annotation_for_schema(schema_obj)
-                if ann and ann != "Any":
-                    if not ann.startswith(
-                        ("dict", "list", "str", "int", "float", "bool")
-                    ):
-                        return f"models.{ann} | dict[str, Any] | None"
-                    return f"{ann} | dict[str, Any] | None"
+                ann = _to_fastapi_type(get_annotation_for_schema(schema_obj))
+                if ann != "Any":
+                    if ann == "dict[str, Any]":
+                        return "dict[str, Any] | list[Any] | None"
+                    return f"{ann} | dict[str, Any] | list[Any] | None"
     return None
 
 
@@ -123,7 +140,7 @@ def _build_route_function(
             if safe_p and safe_p not in seen_params:
                 seen_params.add(safe_p)
                 schema_obj = getattr(param, "schema_", getattr(param, "schema", None))
-                ann_str = get_annotation_for_schema(schema_obj)
+                ann_str = _to_fastapi_type(get_annotation_for_schema(schema_obj))
                 params.append(
                     cst.Param(
                         name=cst.Name(safe_p),

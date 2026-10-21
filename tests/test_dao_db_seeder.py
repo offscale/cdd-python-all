@@ -494,6 +494,7 @@ def test_execute_generated_dao_db_seeder_end_to_end(
                         "id": Schema(type="integer"),
                         "name": Schema(type="string"),
                         "email": Schema(type="string"),
+                        "roles": Schema(type="array", items=Schema(type="string")),
                     },
                 ),
             }
