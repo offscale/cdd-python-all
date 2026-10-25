@@ -124,6 +124,103 @@ def get_stub_body(schema_obj: Any, spec: OpenAPI | None = None) -> cst.BaseExpre
         return cst.Dict(elements=[])
 
 
+_PRIMITIVE_ANNOTATIONS = frozenset(
+    {"str", "int", "float", "bool", "Any", "list", "dict", "dict[str, Any]"}
+)
+
+
+def _extract_response_model(
+    operation: Operation, spec: OpenAPI | None = None
+) -> tuple[str | None, bool]:
+    """Extract the Pydantic response model name and whether it is a list from an operation.
+
+    Args:
+        operation: The OpenAPI Operation object.
+        spec: Optional full OpenAPI specification for `$ref` and schema lookup.
+
+    Returns:
+        A tuple of `(model_name, is_list)` where `model_name` is `None` if no Pydantic
+        response model applies.
+    """
+    responses = getattr(operation, "responses", None)
+    if not isinstance(responses, dict) or not responses:
+        return None, False
+
+    available_models: set[str] | None = None
+    if spec is not None and spec.components and spec.components.schemas:
+        available_models = {
+            name
+            for name, schema in spec.components.schemas.items()
+            if getattr(schema, "type", None) == "object"
+            or getattr(schema, "properties", None) is not None
+        }
+
+    ordered_keys = ["200", "201", "202", "default"] + [
+        str(k)
+        for k in responses
+        if str(k) not in ("200", "201", "202", "default") and str(k).startswith("2")
+    ]
+    for code in ordered_keys:
+        resp = responses.get(code)
+        if resp is None:
+            continue
+        ref_str = (
+            resp.get("$ref") if isinstance(resp, dict) else getattr(resp, "ref", None)
+        )
+        if (
+            isinstance(ref_str, str)
+            and "/" in ref_str
+            and spec is not None
+            and spec.components
+            and spec.components.responses
+        ):
+            ref_name = ref_str.split("/")[-1]
+            resp = spec.components.responses.get(ref_name, resp)
+
+        schema_obj: Any = None
+        content = (
+            resp.get("content")
+            if isinstance(resp, dict)
+            else getattr(resp, "content", None)
+        )
+        if isinstance(content, dict) and content:
+            media = (
+                content["application/json"]
+                if "application/json" in content
+                else next(iter(content.values()))
+            )
+            schema_obj = (
+                media.get("schema")
+                if isinstance(media, dict)
+                else getattr(media, "schema_", getattr(media, "schema", None))
+            )
+        if schema_obj is None:
+            schema_obj = (
+                resp.get("schema")
+                if isinstance(resp, dict)
+                else getattr(resp, "schema_", None)
+            )
+
+        if schema_obj is not None:
+            ann = get_annotation_for_schema(schema_obj)
+            if ann.startswith("list[") and ann.endswith("]"):
+                inner = ann[5:-1].strip()
+                if (
+                    inner.isidentifier()
+                    and inner not in _PRIMITIVE_ANNOTATIONS
+                    and (available_models is None or inner in available_models)
+                ):
+                    return inner, True
+            elif (
+                ann.isidentifier()
+                and ann not in _PRIMITIVE_ANNOTATIONS
+                and (available_models is None or ann in available_models)
+            ):
+                return ann, False
+
+    return None, False
+
+
 def emit_operation_test(
     method: str,
     path: str,
@@ -216,40 +313,50 @@ def emit_operation_test(
     )
 
     if composable:
-        responses = getattr(operation, "responses", None) or {}
-        has_only_200 = (
-            "200" in responses
-            and method.lower() == "get"
-            and "{" not in path
-            and not any(str(code).startswith("4") for code in responses)
-        )
-
-        status_expr = cst.Call(
-            func=cst.Name("getattr"),
-            args=[
-                cst.Arg(cst.Name("response")),
-                cst.Arg(cst.SimpleString('"status"')),
-                cst.Arg(cst.Integer("200")),
+        assertion_test = cst.Comparison(
+            left=cst.Attribute(value=cst.Name("response"), attr=cst.Name("status")),
+            comparisons=[
+                cst.ComparisonTarget(
+                    operator=cst.LessThan(), comparator=cst.Integer("400")
+                )
             ],
         )
-        if has_only_200:
-            assertion_test = cst.Comparison(
-                left=status_expr,
-                comparisons=[
-                    cst.ComparisonTarget(
-                        operator=cst.Equal(), comparator=cst.Integer("200")
-                    )
-                ],
-            )
+
+        model_name, is_list = _extract_response_model(operation, spec)
+        if model_name is not None and is_list:
+            validation_block = f"""if getattr(response, "data", None):
+    payload = response.json() if hasattr(response, "json") else json.loads(response.data.decode("utf-8"))
+    assert payload is not None
+    if isinstance(payload, list):
+        for item in payload:
+            if isinstance(item, dict):
+                assert "sabotage" not in item
+            {model_name}.model_validate(item)
+    else:
+        if isinstance(payload, dict):
+            assert "sabotage" not in payload
+        {model_name}.model_validate(payload)
+elif isinstance(response, dict):
+    assert "sabotage" not in response
+    {model_name}.model_validate(response)"""
+        elif model_name is not None:
+            validation_block = f"""if getattr(response, "data", None):
+    payload = response.json() if hasattr(response, "json") else json.loads(response.data.decode("utf-8"))
+    assert payload is not None
+    if isinstance(payload, dict):
+        assert "sabotage" not in payload
+    {model_name}.model_validate(payload)
+elif isinstance(response, dict):
+    assert "sabotage" not in response
+    {model_name}.model_validate(response)"""
         else:
-            assertion_test = cst.Comparison(
-                left=status_expr,
-                comparisons=[
-                    cst.ComparisonTarget(
-                        operator=cst.LessThan(), comparator=cst.Integer("500")
-                    )
-                ],
-            )
+            validation_block = """if getattr(response, "data", None):
+    payload = response.json() if hasattr(response, "json") else json.loads(response.data.decode("utf-8"))
+    assert payload is not None
+    if isinstance(payload, dict):
+        assert "sabotage" not in payload
+elif isinstance(response, dict):
+    assert "sabotage" not in response"""
 
         body: list[cst.BaseStatement] = [
             cst.SimpleStatementLine(
@@ -264,15 +371,7 @@ def emit_operation_test(
             cst.SimpleStatementLine(
                 [cst.Import(names=[cst.ImportAlias(name=cst.Name("json"))])]
             ),
-            cst.parse_statement(
-                """if getattr(response, "data", None):
-    payload = response.json() if hasattr(response, "json") else json.loads(response.data.decode("utf-8"))
-    assert payload is not None
-    if isinstance(payload, dict):
-        assert "sabotage" not in payload
-elif isinstance(response, dict):
-    assert "sabotage" not in response"""
-            ),
+            cst.parse_statement(validation_block),
         ]
 
         params = cst.Parameters(params=[cst.Param(name=cst.Name("client"))])
@@ -434,6 +533,17 @@ def emit_tests(spec: OpenAPI, composable: bool = False) -> cst.Module:
             ]
         )
     )
+    if spec.components and spec.components.schemas:
+        body.append(
+            cst.SimpleStatementLine(
+                [
+                    cst.ImportFrom(
+                        module=cst.Name("models"),
+                        names=cst.ImportStar(),
+                    )
+                ]
+            )
+        )
     body.append(cst.EmptyLine())
 
     if composable:

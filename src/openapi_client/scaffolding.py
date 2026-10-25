@@ -41,6 +41,7 @@ def scaffold_package(out_dir: Path, is_server: bool = False) -> None:
         '    "pydantic-core==2.41.5",',
         '    "urllib3",',
         '    "eval_type_backport",',
+        '    "pytest",',
     ]
 
     if is_server:
@@ -50,7 +51,6 @@ def scaffold_package(out_dir: Path, is_server: bool = False) -> None:
                 '    "uvicorn",',
                 '    "sqlalchemy",',
                 '    "faker",',
-                '    "pytest",',
                 '    "httpx",',
             ]
         )
@@ -82,7 +82,7 @@ dev = [
 packages = ["src"]
 
 [tool.pytest.ini_options]
-addopts = ""
+addopts = "-o addopts="
 testpaths = {testpaths_str}
 """,
             encoding="utf-8",

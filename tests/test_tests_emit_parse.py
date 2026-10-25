@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import libcst as cst
 import pytest
 
@@ -683,3 +685,299 @@ def test_sdk_test_suite_and_base_path_resolution() -> None:
         in api_mod_oas3.code
     )
     assert '"get_pets"' in api_mod_oas3.code
+
+
+def test_extract_response_model_and_validation_emission() -> None:
+    """Test _extract_response_model and Pydantic validation in emit_tests across OpenAPI 3.x and Swagger 2.0."""
+    from openapi_client.models import MediaType, Response
+    from openapi_client.tests.emit import _extract_response_model, emit_tests
+
+    spec = OpenAPI(
+        openapi="3.2.0",
+        info={"title": "Model Validation API", "version": "1.0.0"},
+        components=Components(
+            schemas={
+                "Pet": Schema(
+                    properties={
+                        "id": Schema(type="integer"),
+                        "name": Schema(type="string"),
+                    },
+                    required=["name"],
+                ),
+                "PrimitiveAlias": Schema(type="string"),
+            },
+            responses={
+                "PetResp": Response(
+                    description="Pet response via component ref",
+                    content={
+                        "application/xml": MediaType(
+                            schema_=Reference(ref="#/components/schemas/Pet")
+                        )
+                    },
+                )
+            },
+        ),
+        paths={
+            "/pets": PathItem(
+                get=Operation(
+                    operationId="listPets",
+                    responses={
+                        "200": Response(
+                            description="ok",
+                            content={
+                                "application/json": MediaType(
+                                    schema_=Schema(
+                                        type="array",
+                                        items=Reference(ref="#/components/schemas/Pet"),
+                                    )
+                                )
+                            },
+                        )
+                    },
+                ),
+                post=Operation(
+                    operationId="createPet",
+                    responses={
+                        "204": Response(description="empty"),
+                        "201": Response(
+                            description="created",
+                            schema=Reference(ref="#/components/schemas/Pet"),
+                        ),
+                    },
+                ),
+            ),
+            "/pets/{petId}": PathItem(
+                get=Operation(
+                    operationId="getPet",
+                    responses={
+                        "200": Reference(ref="#/components/responses/PetResp"),
+                    },
+                ),
+                delete=Operation(
+                    operationId="deletePet",
+                    responses={
+                        "200": Response(
+                            description="primitive",
+                            schema=Reference(ref="#/components/schemas/PrimitiveAlias"),
+                        ),
+                        "202": Response(
+                            description="array primitive",
+                            schema=Schema(
+                                type="array",
+                                items=Reference(
+                                    ref="#/components/schemas/PrimitiveAlias"
+                                ),
+                            ),
+                        ),
+                    },
+                ),
+            ),
+        },
+    )
+
+    assert spec.paths is not None
+    list_op = spec.paths["/pets"].get
+    create_op = spec.paths["/pets"].post
+    get_op = spec.paths["/pets/{petId}"].get
+    del_op = spec.paths["/pets/{petId}"].delete
+    assert (
+        list_op is not None
+        and create_op is not None
+        and get_op is not None
+        and del_op is not None
+    )
+
+    assert _extract_response_model(list_op, spec) == ("Pet", True)
+    assert _extract_response_model(create_op, spec) == ("Pet", False)
+    assert _extract_response_model(get_op, spec) == ("Pet", False)
+    assert _extract_response_model(del_op, spec) == (None, False)
+    assert _extract_response_model(list_op, None) == ("Pet", True)
+    assert _extract_response_model(create_op, None) == ("Pet", False)
+
+    mod = emit_tests(spec, composable=True)
+    code = mod.code
+    assert "from models import *" in code
+    assert "assert response.status < 400" in code
+    assert "Pet.model_validate(item)" in code
+    assert "Pet.model_validate(payload)" in code
+    assert "Pet.model_validate(response)" in code
+
+
+def test_generated_sdk_pytest_integration(tmp_path: Path) -> None:
+    """Verify that `uv run pytest -c pyproject.toml test/` succeeds inside a freshly generated SDK directory.
+
+    Args:
+        tmp_path: Pytest temporary directory fixture.
+    """
+    import json
+    import os
+    import subprocess
+    import threading
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+
+    from openapi_client.cli import generate_from_openapi
+
+    class _PetstoreHandler(BaseHTTPRequestHandler):
+        """Local HTTP handler returning valid Pet payloads for integration testing."""
+
+        def do_GET(self) -> None:
+            """Handle GET requests with a valid list of Pet JSON objects."""
+            body = json.dumps(
+                [
+                    {
+                        "id": 1,
+                        "name": "doggie",
+                        "photoUrls": ["http://example.com/photo.jpg"],
+                    }
+                ]
+            ).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_POST(self) -> None:
+            """Handle POST requests with a valid Pet JSON object."""
+            body = json.dumps(
+                {
+                    "id": 1,
+                    "name": "doggie",
+                    "photoUrls": ["http://example.com/photo.jpg"],
+                }
+            ).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, format: str, *args: object) -> None:
+            """Silence default HTTP server logging.
+
+            Args:
+                format: Log format string.
+                *args: Format arguments.
+            """
+
+    server = HTTPServer(("127.0.0.1", 0), _PetstoreHandler)
+    port = server.server_address[1]
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+
+    try:
+        spec_dict = {
+            "openapi": "3.0.4",
+            "info": {"title": "Petstore SDK Integration", "version": "1.0.0"},
+            "servers": [{"url": f"http://127.0.0.1:{port}/v2"}],
+            "paths": {
+                "/pet/findByStatus": {
+                    "get": {
+                        "operationId": "findPetsByStatus",
+                        "parameters": [
+                            {
+                                "name": "status",
+                                "in": "query",
+                                "required": True,
+                                "schema": {"type": "string", "default": "available"},
+                            }
+                        ],
+                        "responses": {
+                            "200": {
+                                "description": "successful operation",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/Pet"
+                                            },
+                                        }
+                                    }
+                                },
+                            }
+                        },
+                    }
+                },
+                "/pet": {
+                    "post": {
+                        "operationId": "addPet",
+                        "requestBody": {
+                            "required": True,
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/Pet"}
+                                }
+                            },
+                        },
+                        "responses": {
+                            "200": {
+                                "description": "successful operation",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {"$ref": "#/components/schemas/Pet"}
+                                    }
+                                },
+                            }
+                        },
+                    }
+                },
+            },
+            "components": {
+                "schemas": {
+                    "Pet": {
+                        "type": "object",
+                        "required": ["name", "photoUrls"],
+                        "properties": {
+                            "id": {"type": "integer"},
+                            "name": {"type": "string", "example": "doggie"},
+                            "photoUrls": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                            },
+                        },
+                    }
+                }
+            },
+        }
+
+        base_dir = Path(tmp_path)
+        spec_file = base_dir / "openapi.json"
+        spec_file.write_text(json.dumps(spec_dict), encoding="utf-8")
+        sdk_dir = base_dir / "cdd-python-client"
+
+        generate_from_openapi(
+            subcommand="to_sdk",
+            input_path=str(spec_file),
+            input_dir=None,
+            output_dir=str(sdk_dir),
+            no_github_actions=False,
+            no_installable_package=False,
+            tests=True,
+        )
+
+        pyproject_text = (sdk_dir / "pyproject.toml").read_text(encoding="utf-8")
+        assert 'addopts = "-o addopts="' in pyproject_text
+        assert 'testpaths = ["test"]' in pyproject_text
+
+        test_client_text = (sdk_dir / "test" / "test_client.py").read_text(
+            encoding="utf-8"
+        )
+        assert "assert response.status < 400" in test_client_text
+        assert "Pet.model_validate(" in test_client_text
+
+        env = os.environ.copy()
+        env.pop("VIRTUAL_ENV", None)
+        res = subprocess.run(
+            ["uv", "run", "pytest", "-c", "pyproject.toml", "test/"],
+            cwd=str(sdk_dir),
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert res.returncode == 0, f"STDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)

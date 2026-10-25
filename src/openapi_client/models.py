@@ -269,6 +269,7 @@ class Response(OpenAPIBase):
     headers: dict[str, Header | Reference] | None = None
     content: dict[str, MediaType | Reference] | None = None
     links: dict[str, Link | Reference] | None = None
+    schema_: SchemaOrReference | None = Field(None, alias="schema")
 
 
 class Responses(OpenAPIBase):

@@ -141,7 +141,10 @@ def emit_classes(schemas: Mapping[str, SchemaOrReference]) -> list[cst.ClassDef]
     class_defs: list[cst.ClassDef] = []
     if schemas:
         for name, schema in schemas.items():
-            if isinstance(schema, Schema) and getattr(schema, "type", None) == "object":
+            if isinstance(schema, Schema) and (
+                getattr(schema, "type", None) == "object"
+                or getattr(schema, "properties", None) is not None
+            ):
                 class_defs.append(emit_class(name, schema))
     return class_defs
 
