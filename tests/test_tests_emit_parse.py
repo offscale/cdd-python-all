@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import libcst as cst
 import pytest
-
 from openapi_client.functions.emit import emit_function
 from openapi_client.mocks.parse import MockServerExtractor
 from openapi_client.models import (
@@ -46,9 +45,7 @@ def test_emit_server_tests_with_models() -> None:
     assert "def test_seeder_referential_integrity():" in code["test_unit.py"]
     assert "test_stub.py" in code
     assert "client.get('/users')" in code["test_stub.py"]
-    assert (
-        "def test_ephemeral_clean_state(ephemeral_client):" in code["test_ephemeral.py"]
-    )
+    assert "def test_ephemeral_clean_state(ephemeral_client):" in code["test_ephemeral.py"]
     assert "def test_seeded_state(seeded_client):" in code["test_seeded.py"]
     assert "def test_cors_preflight():" in code["test_advanced.py"]
     assert "def test_strict_validation_mock():" in code["test_advanced.py"]
@@ -82,11 +79,7 @@ def test_emit_tests_xml_array() -> None:
     op = Operation(
         operationId="test_xml",
         requestBody=RequestBody(
-            content={
-                "application/xml": MediaType(
-                    schema_=Schema(type="array", items=Schema(type="string"))
-                )
-            }
+            content={"application/xml": MediaType(schema_=Schema(type="array", items=Schema(type="string")))}
         ),
     )
     func = emit_operation_test("post", "/test", op)
@@ -110,9 +103,7 @@ def test_emit_tests_other_content() -> None:
 
     op = Operation(
         operationId="test_other",
-        requestBody=RequestBody(
-            content={"text/plain": MediaType(schema_=Schema(type="string"))}
-        ),
+        requestBody=RequestBody(content={"text/plain": MediaType(schema_=Schema(type="string"))}),
     )
     func = emit_operation_test("post", "/test", op)
     assert func.name.value == "test_test_other"
@@ -183,9 +174,7 @@ def test_emit_tests_body_param_exception() -> None:
             raise RuntimeError("Mock error")
 
     bad_params: Any = [BadParameter()]
-    op = Operation.model_construct(
-        operationId="test_body_param_exception", parameters=bad_params
-    )
+    op = Operation.model_construct(operationId="test_body_param_exception", parameters=bad_params)
     with pytest.raises(RuntimeError, match="Mock error"):
         emit_operation_test("post", "/test", op)
 
@@ -197,9 +186,7 @@ def test_emit_tests_other_param() -> None:
 
     op = Operation(
         operationId="test_other_param",
-        parameters=[
-            Parameter(name="other_param", in_="query", schema_=Schema(type="string"))
-        ],
+        parameters=[Parameter(name="other_param", in_="query", schema_=Schema(type="string"))],
     )
     func = emit_operation_test("post", "/test", op)
     assert func.name.value == "test_test_other_param"
@@ -237,9 +224,7 @@ def test_emit_tests_other_param_exception() -> None:
             raise RuntimeError("Mock error")
 
     bad_params: Any = [BadParameter3()]
-    op = Operation.model_construct(
-        operationId="test_other_param_exception", parameters=bad_params
-    )
+    op = Operation.model_construct(operationId="test_other_param_exception", parameters=bad_params)
     with pytest.raises(RuntimeError, match="Mock error"):
         emit_operation_test("post", "/test", op)
 
@@ -281,18 +266,12 @@ def test_coverage_emit_branches_4() -> None:
                     operationId="get_good",
                     responses={"200": {"description": "ok"}},
                     parameters=[
-                        Parameter(
-                            name="status", in_="query", schema_={"type": "string"}
-                        ),
+                        Parameter(name="status", in_="query", schema_={"type": "string"}),
                         Reference(ref="#/components/parameters/mock"),
                     ],
                 )
             ),
-            "bad_path": PathItem(
-                get=Operation(
-                    operationId="get_bad", responses={"200": {"description": "ok"}}
-                )
-            ),
+            "bad_path": PathItem(get=Operation(operationId="get_bad", responses={"200": {"description": "ok"}})),
         },
     )
 
@@ -304,7 +283,6 @@ def test_coverage_emit_branches_4() -> None:
 def test_parse_tests_coverage() -> None:
     """Test test_parse_tests_coverage."""
     import libcst as cst
-
     from openapi_client.models import OpenAPI
     from openapi_client.tests.parse import extract_tests_from_ast
 
@@ -358,9 +336,7 @@ def test_mock_streaming_extraction() -> None:
     """Test test_mock_streaming_extraction."""
     spec = OpenAPI(openapi="3.2.0", info={"title": "test", "version": "1.0"})
     extractor = MockServerExtractor(spec)
-    module = cst.parse_module(
-        "@app.get('/stream')\ndef my_stream():\n    return EventSourceResponse()\n"
-    )
+    module = cst.parse_module("@app.get('/stream')\ndef my_stream():\n    return EventSourceResponse()\n")
     module.visit(extractor)
     assert spec.paths is not None
     op = spec.paths["/stream"].get
@@ -375,7 +351,6 @@ def test_mock_streaming_extraction() -> None:
 def test_parse_sqlalchemy_cdd() -> None:
     """Test test_parse_sqlalchemy_cdd."""
     import libcst as cst
-
     from openapi_client.models import OpenAPI
     from openapi_client.sqlalchemy_cdd.parse import parse_sqlalchemy_cdd
 
@@ -388,7 +363,6 @@ def test_parse_sqlalchemy_cdd() -> None:
 def test_parse_cli_sdk_cdd() -> None:
     """Test test_parse_cli_sdk_cdd."""
     import libcst as cst
-
     from openapi_client.cli_sdk_cdd.parse import parse_cli_sdk_cdd
     from openapi_client.models import OpenAPI
 
@@ -469,15 +443,9 @@ def test_get_dummy_value_for_schema() -> None:
     assert "1" in str(get_dummy_value_for_schema(Schema(type="integer")))
     assert "1.0" in str(get_dummy_value_for_schema(Schema(type="number")))
     assert "True" in str(get_dummy_value_for_schema(Schema(type="boolean")))
-    assert "test_string" in str(
-        get_dummy_value_for_schema(Schema(type="array", items=Schema(type="string")))
-    )
-    assert "1" in str(
-        get_dummy_value_for_schema(Schema(type="array", items=Schema(type="integer")))
-    )
-    assert "List(" in str(
-        get_dummy_value_for_schema(Schema(type="array", items=Schema(type="number")))
-    )
+    assert "test_string" in str(get_dummy_value_for_schema(Schema(type="array", items=Schema(type="string"))))
+    assert "1" in str(get_dummy_value_for_schema(Schema(type="array", items=Schema(type="integer"))))
+    assert "List(" in str(get_dummy_value_for_schema(Schema(type="array", items=Schema(type="number"))))
     assert "Dict(" in str(get_dummy_value_for_schema(Schema(type="object")))
     assert "None" in str(get_dummy_value_for_schema(Schema(type="unknown")))
 
@@ -498,29 +466,21 @@ def test_emit_tests_more() -> None:
     op1 = Operation(
         operationId="post_things_array",
         requestBody=RequestBody(
-            content={
-                "application/json": {
-                    "schema": Schema(type="array", items=Schema(type="string"))
-                }
-            }
+            content={"application/json": {"schema": Schema(type="array", items=Schema(type="string"))}}
         ),
     )
 
     # get findByStatus
     op2 = Operation(
         operationId="find_by_status",
-        requestBody=RequestBody(
-            content={"application/xml": {"schema": Schema(type="object")}}
-        ),
+        requestBody=RequestBody(content={"application/xml": {"schema": Schema(type="object")}}),
         parameters=[Parameter(name="petId", in_="path", schema=Schema(type="integer"))],
     )
 
     # requestBody with content no application/json or xml
     op3 = Operation(
         operationId="post_other",
-        requestBody=RequestBody(
-            content={"text/plain": {"schema": Schema(type="string")}}
-        ),
+        requestBody=RequestBody(content={"text/plain": {"schema": Schema(type="string")}}),
     )
 
     spec = OpenAPI(
@@ -567,3 +527,106 @@ def test_emit_tests_exception() -> None:
     mod = emit_tests(spec)
     assert "def test_err():" in mod.code
     assert "response = client.err(" in mod.code
+
+
+def test_sdk_test_suite_and_base_path_resolution() -> None:
+    """Test basePath/server URL prefix resolution, positional body args, and emit_api_tests."""
+    from openapi_client.functions.utils import (
+        get_default_server_url,
+        get_server_base_path,
+        get_test_base_url,
+    )
+    from openapi_client.models import Server
+    from openapi_client.tests.emit import emit_api_tests, emit_operation_test
+
+    spec_v2 = OpenAPI(
+        openapi="2.0",
+        info={"title": "Petstore V2", "version": "1.0"},
+        basePath="/v2",
+        paths={
+            "/pet": PathItem(
+                post=Operation(
+                    operationId="addPet",
+                    parameters=[
+                        Parameter(
+                            name="body",
+                            in_="body",
+                            required=True,
+                            schema=Schema(type="object"),
+                        ),
+                        Parameter(
+                            name="opt_q",
+                            in_="query",
+                            schema=Schema(type="string", default="avail"),
+                        ),
+                    ],
+                )
+            ),
+            "non_slash": PathItem(get=Operation(operationId="ignored")),
+        },
+    )
+    assert get_server_base_path(spec_v2) == "/v2"
+    assert get_default_server_url(spec_v2) == "http://localhost:8080/v2"
+    assert get_test_base_url(spec_v2) == "http://localhost:8080/v2"
+
+    spec_root = OpenAPI(
+        openapi="2.0",
+        info={"title": "Root API", "version": "1.0"},
+        basePath="/",
+    )
+    assert get_server_base_path(spec_root) == "/"
+    assert get_test_base_url(spec_root) == "http://localhost:8080"
+
+    spec_oas3 = OpenAPI(
+        openapi="3.0.4",
+        info={"title": "Petstore V3", "version": "1.0"},
+        servers=[Server(url="https://petstore3.swagger.io/api/v3")],
+        paths={"/pet": PathItem(get=Operation(operationId="getPets"))},
+    )
+    assert get_server_base_path(spec_oas3) == "/api/v3"
+    assert get_test_base_url(spec_oas3) == "http://localhost:8080/api/v3"
+
+    spec_rel_server = OpenAPI(
+        openapi="3.0.4",
+        info={"title": "Rel Server", "version": "1.0"},
+        servers=[Server(url="/api/v3/")],
+    )
+    assert get_default_server_url(spec_rel_server, fallback="relative_only") == "http://localhost:8080/api/v3"
+
+    spec_local_server = OpenAPI(
+        openapi="3.0.4",
+        info={"title": "Local Server", "version": "1.0"},
+        servers=[Server(url="http://localhost:9090/custom/")],
+    )
+    assert get_test_base_url(spec_local_server) == "http://localhost:9090/custom"
+
+    spec_root_server = OpenAPI(
+        openapi="3.0.4",
+        info={"title": "Root Server", "version": "1.0"},
+        servers=[Server(url="https://example.com/")],
+    )
+    assert get_server_base_path(spec_root_server, default_prefix="/v2") == "/v2"
+
+    spec_empty_server = OpenAPI(
+        openapi="3.0.4",
+        info={"title": "Empty Server", "version": "1.0"},
+        servers=[Server(url="")],
+    )
+    assert get_server_base_path(spec_empty_server, default_prefix="/v2") == "/v2"
+    assert get_test_base_url(spec_empty_server, default_prefix="/v2") == "http://localhost:8080/v2"
+
+    assert spec_v2.paths is not None
+    add_pet_op = spec_v2.paths["/pet"].post
+    assert add_pet_op is not None
+    fn_node = emit_operation_test("post", "/pet", add_pet_op, composable=True, spec=spec_v2)
+    fn_code = cst.Module(body=[fn_node]).code
+    assert 'client.add_pet({}, "avail")' in fn_code
+    assert "body=" not in fn_code
+
+    api_mod_v2 = emit_api_tests(spec_v2)
+    assert 'API_URL = os.getenv("API_URL", "http://localhost:8080/v2")' in api_mod_v2.code
+    assert '"add_pet"' in api_mod_v2.code
+
+    api_mod_oas3 = emit_api_tests(spec_oas3)
+    assert 'API_URL = os.getenv("API_URL", "http://localhost:8080/api/v3")' in api_mod_oas3.code
+    assert '"get_pets"' in api_mod_oas3.code

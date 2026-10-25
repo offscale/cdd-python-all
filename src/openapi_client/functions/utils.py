@@ -6,6 +6,7 @@ import keyword
 import re
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlsplit
 
 import libcst as cst
 
@@ -44,6 +45,20 @@ def sanitize_name(name: str) -> str:
     return result
 
 
+def safe_param_name(raw_name: str) -> str:
+    """Sanitize a parameter name while preserving valid camelCase identifiers.
+
+    Args:
+        raw_name: Raw parameter name from OpenAPI.
+
+    Returns:
+        A valid non-keyword Python identifier string.
+    """
+    if raw_name.isidentifier() and not keyword.iskeyword(raw_name):
+        return raw_name
+    return sanitize_name(raw_name)
+
+
 def sanitize_class_name(name: str) -> str:
     """Sanitize a schema name into a valid Python class identifier.
 
@@ -66,9 +81,33 @@ def sanitize_class_name(name: str) -> str:
     return result
 
 
-def get_default_server_url(
-    spec: OpenAPI | None, fallback: str = "http://localhost:8080/v2"
-) -> str:
+def get_server_base_path(spec: OpenAPI | None, default_prefix: str = "/v2") -> str:
+    """Extract the server `basePath` or first server URL path prefix from an OpenAPI spec.
+
+    Args:
+        spec: The OpenAPI specification model, if available.
+        default_prefix: Default path prefix if neither `basePath` nor `servers` specifies a path.
+
+    Returns:
+        Normalized path prefix starting with `'/'` (e.g., `'/v2'` or `'/api/v3'`).
+    """
+    if spec is not None:
+        base_path = getattr(spec, "basePath", None)
+        if isinstance(base_path, str) and base_path.strip():
+            norm = "/" + base_path.strip().lstrip("/")
+            return norm.rstrip("/") or "/"
+        servers = getattr(spec, "servers", None)
+        if servers and len(servers) > 0:
+            url = getattr(servers[0], "url", None)
+            if isinstance(url, str) and url.strip():
+                parsed_path = urlsplit(url.strip()).path
+                if parsed_path and parsed_path != "/":
+                    norm = "/" + parsed_path.lstrip("/")
+                    return norm.rstrip("/")
+    return default_prefix
+
+
+def get_default_server_url(spec: OpenAPI | None, fallback: str = "http://localhost:8080/v2") -> str:
     """Resolve the default base URL from an OpenAPI specification.
 
     Args:
@@ -78,12 +117,53 @@ def get_default_server_url(
     Returns:
         The resolved base URL string.
     """
+    parsed_fallback = urlsplit(fallback)
+    fallback_origin = (
+        f"{parsed_fallback.scheme}://{parsed_fallback.netloc}"
+        if parsed_fallback.scheme and parsed_fallback.netloc
+        else "http://localhost:8080"
+    )
     servers = getattr(spec, "servers", None) if spec is not None else None
     if servers and len(servers) > 0:
         url = getattr(servers[0], "url", None)
-        if url:
-            return str(url)
+        if isinstance(url, str) and url.strip():
+            raw_url = url.strip()
+            if raw_url.startswith("/"):
+                return f"{fallback_origin}{raw_url.rstrip('/')}"
+            return raw_url
+    base_path = getattr(spec, "basePath", None) if spec is not None else None
+    if isinstance(base_path, str) and base_path.strip():
+        norm_bp = "/" + base_path.strip().lstrip("/")
+        return f"{fallback_origin}{norm_bp.rstrip('/')}"
     return fallback
+
+
+def get_test_base_url(
+    spec: OpenAPI | None,
+    host: str = "http://localhost:8080",
+    default_prefix: str = "/v2",
+) -> str:
+    """Resolve the default local integration test `API_URL` including the mounted `basePath`.
+
+    Args:
+        spec: The OpenAPI specification model, if available.
+        host: Default local test server origin (scheme + host + port).
+        default_prefix: Default path prefix if the spec has no `basePath` or server path.
+
+    Returns:
+        The local integration test URL including the OpenAPI base path prefix.
+    """
+    servers = getattr(spec, "servers", None) if spec is not None else None
+    if servers and len(servers) > 0:
+        url = getattr(servers[0], "url", None)
+        if isinstance(url, str) and url.strip():
+            parsed = urlsplit(url.strip())
+            if parsed.hostname in ("localhost", "127.0.0.1"):
+                return url.strip().rstrip("/")
+    prefix = get_server_base_path(spec, default_prefix=default_prefix)
+    if prefix == "/":
+        return host.rstrip("/")
+    return f"{host.rstrip('/')}{prefix}"
 
 
 def build_cst_module(
@@ -103,9 +183,7 @@ def build_cst_module(
         if isinstance(item, cst.EmptyLine):
             pending_empty.append(item)
         else:
-            assert isinstance(
-                item, (cst.SimpleStatementLine, cst.BaseCompoundStatement)
-            )
+            assert isinstance(item, (cst.SimpleStatementLine, cst.BaseCompoundStatement))
             if pending_empty:
                 existing = list(item.leading_lines)
                 item = item.with_changes(leading_lines=[*existing, *pending_empty])

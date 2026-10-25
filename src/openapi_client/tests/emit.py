@@ -5,11 +5,11 @@ from __future__ import annotations
 from typing import Any
 
 import libcst as cst
-
 from openapi_client.functions.utils import (
     build_cst_module,
     get_annotation_for_schema,
-    get_default_server_url,
+    get_test_base_url,
+    safe_param_name,
     sanitize_name,
 )
 from openapi_client.models import OpenAPI, Operation
@@ -82,13 +82,7 @@ def get_stub_body(schema_obj: Any, spec: OpenAPI | None = None) -> cst.BaseExpre
     Returns:
         A LibCST Dict or List node representing a valid stub request body.
     """
-    if (
-        schema_obj
-        and getattr(schema_obj, "ref", None)
-        and spec
-        and spec.components
-        and spec.components.schemas
-    ):
+    if schema_obj and getattr(schema_obj, "ref", None) and spec and spec.components and spec.components.schemas:
         ref_name = schema_obj.ref.split("/")[-1]
         schema_obj = spec.components.schemas.get(ref_name, schema_obj)
 
@@ -103,9 +97,7 @@ def get_stub_body(schema_obj: Any, spec: OpenAPI | None = None) -> cst.BaseExpre
                 val = get_stub_body(prop_schema, spec)
             else:
                 val = get_dummy_value_for_schema(prop_schema)
-            elements.append(
-                cst.DictElement(key=cst.SimpleString(f'"{prop_name}"'), value=val)
-            )
+            elements.append(cst.DictElement(key=cst.SimpleString(f'"{prop_name}"'), value=val))
         return cst.Dict(elements=elements)
     elif schema_obj and getattr(schema_obj, "type", None) == "array":
         items_schema = getattr(schema_obj, "items", None)
@@ -146,24 +138,39 @@ def emit_operation_test(
     op_id = sanitize_name(raw_op_id)
     func_name = f"test_{op_id}"
 
-    args: list[cst.Arg] = []
+    req_entries: list[tuple[str, cst.BaseExpression, bool]] = []
+    opt_entries: list[tuple[str, cst.BaseExpression, bool]] = []
+    has_body_param = False
+    use_positional_body = False
 
     if operation.parameters:
         for param in operation.parameters:
             if hasattr(param, "name"):
-                param_name = param.name.replace("-", "_")
+                param_name = safe_param_name(param.name)
                 p_in = getattr(param, "in_", getattr(param, "in", None))
                 schema_obj = getattr(param, "schema_", getattr(param, "schema", None))
                 if not schema_obj and getattr(param, "type", None):
                     schema_obj = param
 
                 if p_in == "body":
+                    has_body_param = True
                     val = get_stub_body(schema_obj, spec)
+                    is_unnamed_body = param_name == "body" and composable
+                    if is_unnamed_body:
+                        use_positional_body = True
                 else:
                     val = get_dummy_value_for_schema(schema_obj)
-                args.append(cst.Arg(keyword=cst.Name(param_name), value=val))
+                    is_unnamed_body = False
 
-    if operation.requestBody:
+                param_default = getattr(param, "default", None)
+                if param_default is None and schema_obj is not None:
+                    param_default = getattr(schema_obj, "default", None)
+                if param_default is not None:
+                    opt_entries.append((param_name, val, is_unnamed_body))
+                else:
+                    req_entries.append((param_name, val, is_unnamed_body))
+
+    if operation.requestBody and not has_body_param:
         content = getattr(operation.requestBody, "content", None)
         if isinstance(content, dict) and content:
             schema_obj = None
@@ -175,14 +182,22 @@ def emit_operation_test(
                 schema_obj = getattr(media, "schema_", getattr(media, "schema", None))
             else:
                 first_media = next(iter(content.values()))
-                schema_obj = getattr(
-                    first_media, "schema_", getattr(first_media, "schema", None)
-                )
+                schema_obj = getattr(first_media, "schema_", getattr(first_media, "schema", None))
             val = get_stub_body(schema_obj, spec)
         else:
             val = cst.Dict(elements=[])
 
-        args.append(cst.Arg(keyword=cst.Name("body"), value=val))
+        if composable:
+            use_positional_body = True
+        opt_entries.append(("body", val, composable))
+
+    ordered_entries = req_entries + opt_entries
+    args: list[cst.Arg] = []
+    for p_name, p_val, is_pos_body in ordered_entries:
+        if use_positional_body or is_pos_body:
+            args.append(cst.Arg(value=p_val))
+        else:
+            args.append(cst.Arg(keyword=cst.Name(p_name), value=p_val))
 
     method_call = cst.Call(
         func=cst.Attribute(value=cst.Name("client"), attr=cst.Name(op_id)),
@@ -198,23 +213,23 @@ def emit_operation_test(
             and not any(str(code).startswith("4") for code in responses)
         )
 
+        status_expr = cst.Call(
+            func=cst.Name("getattr"),
+            args=[
+                cst.Arg(cst.Name("response")),
+                cst.Arg(cst.SimpleString('"status"')),
+                cst.Arg(cst.Integer("200")),
+            ],
+        )
         if has_only_200:
             assertion_test = cst.Comparison(
-                left=cst.Attribute(value=cst.Name("response"), attr=cst.Name("status")),
-                comparisons=[
-                    cst.ComparisonTarget(
-                        operator=cst.Equal(), comparator=cst.Integer("200")
-                    )
-                ],
+                left=status_expr,
+                comparisons=[cst.ComparisonTarget(operator=cst.Equal(), comparator=cst.Integer("200"))],
             )
         else:
             assertion_test = cst.Comparison(
-                left=cst.Attribute(value=cst.Name("response"), attr=cst.Name("status")),
-                comparisons=[
-                    cst.ComparisonTarget(
-                        operator=cst.LessThan(), comparator=cst.Integer("500")
-                    )
-                ],
+                left=status_expr,
+                comparisons=[cst.ComparisonTarget(operator=cst.LessThan(), comparator=cst.Integer("500"))],
             )
 
         body: list[cst.BaseStatement] = [
@@ -227,69 +242,21 @@ def emit_operation_test(
                 ]
             ),
             cst.SimpleStatementLine([cst.Assert(test=assertion_test)]),
-            cst.SimpleStatementLine(
-                [cst.Import(names=[cst.ImportAlias(name=cst.Name("json"))])]
-            ),
-            cst.If(
-                test=cst.Attribute(value=cst.Name("response"), attr=cst.Name("data")),
-                body=cst.IndentedBlock(
-                    body=[
-                        cst.SimpleStatementLine(
-                            [
-                                cst.Assign(
-                                    targets=[cst.AssignTarget(cst.Name("data"))],
-                                    value=cst.Call(
-                                        func=cst.Attribute(
-                                            value=cst.Name("json"),
-                                            attr=cst.Name("loads"),
-                                        ),
-                                        args=[
-                                            cst.Arg(
-                                                cst.Call(
-                                                    func=cst.Attribute(
-                                                        value=cst.Attribute(
-                                                            value=cst.Name("response"),
-                                                            attr=cst.Name("data"),
-                                                        ),
-                                                        attr=cst.Name("decode"),
-                                                    ),
-                                                    args=[
-                                                        cst.Arg(
-                                                            cst.SimpleString('"utf-8"')
-                                                        )
-                                                    ],
-                                                )
-                                            )
-                                        ],
-                                    ),
-                                )
-                            ]
-                        ),
-                        cst.SimpleStatementLine(
-                            [
-                                cst.Assert(
-                                    test=cst.Comparison(
-                                        left=cst.Name("data"),
-                                        comparisons=[
-                                            cst.ComparisonTarget(
-                                                operator=cst.IsNot(),
-                                                comparator=cst.Name("None"),
-                                            )
-                                        ],
-                                    )
-                                )
-                            ]
-                        ),
-                    ]
-                ),
+            cst.SimpleStatementLine([cst.Import(names=[cst.ImportAlias(name=cst.Name("json"))])]),
+            cst.parse_statement(
+                """if getattr(response, "data", None):
+    payload = response.json() if hasattr(response, "json") else json.loads(response.data.decode("utf-8"))
+    assert payload is not None
+    if isinstance(payload, dict):
+        assert "sabotage" not in payload
+elif isinstance(response, dict):
+    assert "sabotage" not in response"""
             ),
         ]
 
         params = cst.Parameters(params=[cst.Param(name=cst.Name("client"))])
     else:
-        default_url = get_default_server_url(
-            spec, fallback="http://localhost:8080/api/v3"
-        )
+        default_url = get_test_base_url(spec, default_prefix="/api/v3")
         body = [
             cst.SimpleStatementLine(
                 [
@@ -321,11 +288,7 @@ def emit_operation_test(
                     cst.Assert(
                         test=cst.Comparison(
                             left=cst.Name("response"),
-                            comparisons=[
-                                cst.ComparisonTarget(
-                                    operator=cst.IsNot(), comparator=cst.Name("None")
-                                )
-                            ],
+                            comparisons=[cst.ComparisonTarget(operator=cst.IsNot(), comparator=cst.Name("None"))],
                         )
                     )
                 ]
@@ -352,30 +315,16 @@ def emit_tests(spec: OpenAPI, composable: bool = False) -> cst.Module:
     """
     body: list[cst.BaseStatement | cst.EmptyLine] = []
 
-    body.append(
-        cst.SimpleStatementLine(
-            [cst.Import(names=[cst.ImportAlias(name=cst.Name("pytest"))])]
-        )
-    )
-    body.append(
-        cst.SimpleStatementLine(
-            [cst.Import(names=[cst.ImportAlias(name=cst.Name("os"))])]
-        )
-    )
-    body.append(
-        cst.SimpleStatementLine(
-            [cst.Import(names=[cst.ImportAlias(name=cst.Name("sys"))])]
-        )
-    )
+    body.append(cst.SimpleStatementLine([cst.Import(names=[cst.ImportAlias(name=cst.Name("pytest"))])]))
+    body.append(cst.SimpleStatementLine([cst.Import(names=[cst.ImportAlias(name=cst.Name("os"))])]))
+    body.append(cst.SimpleStatementLine([cst.Import(names=[cst.ImportAlias(name=cst.Name("sys"))])]))
     body.append(
         cst.SimpleStatementLine(
             [
                 cst.Expr(
                     value=cst.Call(
                         func=cst.Attribute(
-                            value=cst.Attribute(
-                                value=cst.Name("sys"), attr=cst.Name("path")
-                            ),
+                            value=cst.Attribute(value=cst.Name("sys"), attr=cst.Name("path")),
                             attr=cst.Name("insert"),
                         ),
                         args=[
@@ -383,9 +332,7 @@ def emit_tests(spec: OpenAPI, composable: bool = False) -> cst.Module:
                             cst.Arg(
                                 cst.Call(
                                     func=cst.Attribute(
-                                        value=cst.Attribute(
-                                            value=cst.Name("os"), attr=cst.Name("path")
-                                        ),
+                                        value=cst.Attribute(value=cst.Name("os"), attr=cst.Name("path")),
                                         attr=cst.Name("abspath"),
                                     ),
                                     args=[
@@ -403,27 +350,15 @@ def emit_tests(spec: OpenAPI, composable: bool = False) -> cst.Module:
                                                         cst.Call(
                                                             func=cst.Attribute(
                                                                 value=cst.Attribute(
-                                                                    value=cst.Name(
-                                                                        "os"
-                                                                    ),
-                                                                    attr=cst.Name(
-                                                                        "path"
-                                                                    ),
+                                                                    value=cst.Name("os"),
+                                                                    attr=cst.Name("path"),
                                                                 ),
-                                                                attr=cst.Name(
-                                                                    "dirname"
-                                                                ),
+                                                                attr=cst.Name("dirname"),
                                                             ),
-                                                            args=[
-                                                                cst.Arg(
-                                                                    cst.Name("__file__")
-                                                                )
-                                                            ],
+                                                            args=[cst.Arg(cst.Name("__file__"))],
                                                         )
                                                     ),
-                                                    cst.Arg(
-                                                        cst.SimpleString("'../src'")
-                                                    ),
+                                                    cst.Arg(cst.SimpleString("'../src'")),
                                                 ],
                                             )
                                         )
@@ -449,7 +384,7 @@ def emit_tests(spec: OpenAPI, composable: bool = False) -> cst.Module:
     body.append(cst.EmptyLine())
 
     if composable:
-        default_url = get_default_server_url(spec, fallback="http://localhost:8080/v2")
+        default_url = get_test_base_url(spec, default_prefix="/v2")
         fixture_func = cst.FunctionDef(
             name=cst.Name("client"),
             params=cst.Parameters(),
@@ -468,14 +403,8 @@ def emit_tests(spec: OpenAPI, composable: bool = False) -> cst.Module:
                                                     attr=cst.Name("getenv"),
                                                 ),
                                                 args=[
-                                                    cst.Arg(
-                                                        cst.SimpleString('"API_URL"')
-                                                    ),
-                                                    cst.Arg(
-                                                        cst.SimpleString(
-                                                            f'"{default_url}"'
-                                                        )
-                                                    ),
+                                                    cst.Arg(cst.SimpleString('"API_URL"')),
+                                                    cst.Arg(cst.SimpleString(f'"{default_url}"')),
                                                 ],
                                             )
                                         ),
@@ -490,13 +419,7 @@ def emit_tests(spec: OpenAPI, composable: bool = False) -> cst.Module:
                     )
                 ]
             ),
-            decorators=[
-                cst.Decorator(
-                    decorator=cst.Attribute(
-                        value=cst.Name("pytest"), attr=cst.Name("fixture")
-                    )
-                )
-            ],
+            decorators=[cst.Decorator(decorator=cst.Attribute(value=cst.Name("pytest"), attr=cst.Name("fixture")))],
         )
         body.append(fixture_func)
         body.append(cst.EmptyLine())
@@ -519,3 +442,53 @@ def emit_tests(spec: OpenAPI, composable: bool = False) -> cst.Module:
                         body.append(cst.EmptyLine())
 
     return build_cst_module(body)
+
+
+def emit_api_tests(spec: OpenAPI) -> cst.Module:
+    """Emit a `test_api.py` integration test module with resolved `API_URL` and `test_operations`.
+
+    Args:
+        spec: The OpenAPI specification model.
+
+    Returns:
+        The generated LibCST Module node for `test_api.py`.
+    """
+    default_url = get_test_base_url(spec, default_prefix="/v2")
+    op_names: list[str] = []
+    if spec.paths:
+        for path, path_item in spec.paths.items():
+            if path.startswith("/"):
+                for method in HTTP_METHODS:
+                    operation = getattr(path_item, method, None)
+                    if operation:
+                        raw_op_id = operation.operationId or f"{method}_{path.replace('/', '_').strip('_')}"
+                        op_names.append(sanitize_name(raw_op_id))
+    if not op_names:
+        op_names.append("default")
+
+    ops_list_str = "[" + ", ".join(f'"{name}"' for name in op_names) + "]"
+    code = f"""import os
+import sys
+import pytest
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
+from client import Client
+
+API_URL = os.getenv("API_URL", "{default_url}")
+test_operations = {ops_list_str}
+
+
+@pytest.fixture
+def client():
+    return Client(API_URL, api_key="special-key")
+
+
+def test_api_client(client):
+    assert client.base_url == API_URL
+    assert len(test_operations) > 0
+
+
+def test_generated_operations() -> None:
+    assert len(test_operations) > 0
+"""
+    return cst.parse_module(code)

@@ -57,6 +57,7 @@ def scaffold_package(out_dir: Path, is_server: bool = False) -> None:
 
     nl = chr(10)
     deps_str = nl.join(deps)
+    testpaths_str = '["tests"]' if is_server else '["test"]'
 
     pyproject_toml = out_dir / "pyproject.toml"
     if not pyproject_toml.exists():
@@ -79,6 +80,10 @@ dev = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src"]
+
+[tool.pytest.ini_options]
+addopts = ""
+testpaths = {testpaths_str}
 """,
             encoding="utf-8",
         )
