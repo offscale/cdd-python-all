@@ -5,6 +5,7 @@ from __future__ import annotations
 import re as _re
 
 import libcst as cst
+
 from openapi_client.docstrings.emit import emit_function_docstring
 from openapi_client.functions.utils import (
     get_annotation_for_schema,
@@ -62,7 +63,10 @@ def emit_function(method: str, path: str, operation: Operation) -> cst.FunctionD
                 if hasattr(p, "name"):
                     body_param_name = _safe_param_name(p.name)
 
-        has_query_params = any(getattr(p, "in_", getattr(p, "in", None)) == "query" for p in operation.parameters)
+        has_query_params = any(
+            getattr(p, "in_", getattr(p, "in", None)) == "query"
+            for p in operation.parameters
+        )
         if has_query_params:
             query_statements.append(
                 cst.SimpleStatementLine(
@@ -83,7 +87,11 @@ def emit_function(method: str, path: str, operation: Operation) -> cst.FunctionD
                 schema_obj = getattr(param, "schema_", getattr(param, "schema", None))
                 annotation_str = get_annotation_for_schema(schema_obj)
 
-                if annotation_str.startswith(("list", "dict")) or "|" in annotation_str or "." in annotation_str:
+                if (
+                    annotation_str.startswith(("list", "dict"))
+                    or "|" in annotation_str
+                    or "." in annotation_str
+                ):
                     ann_node = cst.parse_expression(annotation_str)
                 else:
                     ann_node = cst.Name(annotation_str)
@@ -114,7 +122,11 @@ def emit_function(method: str, path: str, operation: Operation) -> cst.FunctionD
 
                 if p_in == "query":
                     style = getattr(param, "style", "form")
-                    delim = " " if style == "spaceDelimited" else ("|" if style == "pipeDelimited" else ",")
+                    delim = (
+                        " "
+                        if style == "spaceDelimited"
+                        else ("|" if style == "pipeDelimited" else ",")
+                    )
 
                     if style in ("spaceDelimited", "pipeDelimited"):
                         query_statements.append(
@@ -127,20 +139,34 @@ def emit_function(method: str, path: str, operation: Operation) -> cst.FunctionD
                                                 cst.Expr(
                                                     value=cst.Call(
                                                         func=cst.Attribute(
-                                                            value=cst.Name("query_params"),
+                                                            value=cst.Name(
+                                                                "query_params"
+                                                            ),
                                                             attr=cst.Name("append"),
                                                         ),
                                                         args=[
                                                             cst.Arg(
                                                                 value=cst.BinaryOperation(
-                                                                    left=cst.SimpleString(f"'{param.name}='"),
+                                                                    left=cst.SimpleString(
+                                                                        f"'{param.name}='"
+                                                                    ),
                                                                     operator=cst.Add(),
                                                                     right=cst.Call(
                                                                         func=cst.Attribute(
-                                                                            value=cst.SimpleString(f"'{delim}'"),
-                                                                            attr=cst.Name("join"),
+                                                                            value=cst.SimpleString(
+                                                                                f"'{delim}'"
+                                                                            ),
+                                                                            attr=cst.Name(
+                                                                                "join"
+                                                                            ),
                                                                         ),
-                                                                        args=[cst.Arg(value=cst.Name(param_name))],
+                                                                        args=[
+                                                                            cst.Arg(
+                                                                                value=cst.Name(
+                                                                                    param_name
+                                                                                )
+                                                                            )
+                                                                        ],
                                                                     ),
                                                                 )
                                                             )
@@ -164,17 +190,29 @@ def emit_function(method: str, path: str, operation: Operation) -> cst.FunctionD
                                                 cst.Expr(
                                                     value=cst.Call(
                                                         func=cst.Attribute(
-                                                            value=cst.Name("query_params"),
+                                                            value=cst.Name(
+                                                                "query_params"
+                                                            ),
                                                             attr=cst.Name("append"),
                                                         ),
                                                         args=[
                                                             cst.Arg(
                                                                 value=cst.BinaryOperation(
-                                                                    left=cst.SimpleString(f"'{param.name}='"),
+                                                                    left=cst.SimpleString(
+                                                                        f"'{param.name}='"
+                                                                    ),
                                                                     operator=cst.Add(),
                                                                     right=cst.Call(
-                                                                        func=cst.Name("str"),
-                                                                        args=[cst.Arg(value=cst.Name(param_name))],
+                                                                        func=cst.Name(
+                                                                            "str"
+                                                                        ),
+                                                                        args=[
+                                                                            cst.Arg(
+                                                                                value=cst.Name(
+                                                                                    param_name
+                                                                                )
+                                                                            )
+                                                                        ],
                                                                     ),
                                                                 )
                                                             )
@@ -201,7 +239,9 @@ def emit_function(method: str, path: str, operation: Operation) -> cst.FunctionD
     body_statements.extend(query_statements)
 
     if "{" in path and "}" in path:
-        safe_path = _re.sub(r"\{([^}]+)\}", lambda m: "{" + _safe_param_name(m.group(1)) + "}", path)
+        safe_path = _re.sub(
+            r"\{([^}]+)\}", lambda m: "{" + _safe_param_name(m.group(1)) + "}", path
+        )
         url_value = cst.parse_expression(f'self.base_url + f"{safe_path}"')
     else:
         url_value = cst.BinaryOperation(
@@ -219,7 +259,9 @@ def emit_function(method: str, path: str, operation: Operation) -> cst.FunctionD
                     left=cst.SimpleString("'?'"),
                     operator=cst.Add(),
                     right=cst.Call(
-                        func=cst.Attribute(value=cst.SimpleString("'&'"), attr=cst.Name("join")),
+                        func=cst.Attribute(
+                            value=cst.SimpleString("'&'"), attr=cst.Name("join")
+                        ),
                         args=[cst.Arg(value=cst.Name("query_params"))],
                     ),
                 ),
@@ -243,7 +285,9 @@ def emit_function(method: str, path: str, operation: Operation) -> cst.FunctionD
                         targets=[cst.AssignTarget(cst.Name("response"))],
                         value=cst.Call(
                             func=cst.Attribute(
-                                value=cst.Attribute(value=cst.Name("self"), attr=cst.Name("http")),
+                                value=cst.Attribute(
+                                    value=cst.Name("self"), attr=cst.Name("http")
+                                ),
                                 attr=cst.Name("request"),
                             ),
                             args=[
@@ -266,9 +310,13 @@ def emit_function(method: str, path: str, operation: Operation) -> cst.FunctionD
                                                     ),
                                                 ),
                                                 cst.DictElement(
-                                                    key=cst.SimpleString('"Authorization"'),
+                                                    key=cst.SimpleString(
+                                                        '"Authorization"'
+                                                    ),
                                                     value=cst.BinaryOperation(
-                                                        left=cst.SimpleString('"Bearer "'),
+                                                        left=cst.SimpleString(
+                                                            '"Bearer "'
+                                                        ),
                                                         operator=cst.Add(),
                                                         right=cst.Attribute(
                                                             value=cst.Name("self"),
@@ -343,7 +391,9 @@ def emit_functions(spec: OpenAPI) -> list[cst.FunctionDef]:
     init_params = cst.Parameters(
         params=[
             cst.Param(name=cst.Name("self")),
-            cst.Param(name=cst.Name("base_url"), annotation=cst.Annotation(cst.Name("str"))),
+            cst.Param(
+                name=cst.Name("base_url"), annotation=cst.Annotation(cst.Name("str"))
+            ),
             cst.Param(
                 name=cst.Name("api_key"),
                 annotation=cst.Annotation(cst.Name("str")),
@@ -356,7 +406,13 @@ def emit_functions(spec: OpenAPI) -> list[cst.FunctionDef]:
             cst.SimpleStatementLine(
                 [
                     cst.Assign(
-                        targets=[cst.AssignTarget(cst.Attribute(value=cst.Name("self"), attr=cst.Name("base_url")))],
+                        targets=[
+                            cst.AssignTarget(
+                                cst.Attribute(
+                                    value=cst.Name("self"), attr=cst.Name("base_url")
+                                )
+                            )
+                        ],
                         value=cst.Name("base_url"),
                     )
                 ]
@@ -364,7 +420,13 @@ def emit_functions(spec: OpenAPI) -> list[cst.FunctionDef]:
             cst.SimpleStatementLine(
                 [
                     cst.Assign(
-                        targets=[cst.AssignTarget(cst.Attribute(value=cst.Name("self"), attr=cst.Name("api_key")))],
+                        targets=[
+                            cst.AssignTarget(
+                                cst.Attribute(
+                                    value=cst.Name("self"), attr=cst.Name("api_key")
+                                )
+                            )
+                        ],
                         value=cst.Name("api_key"),
                     )
                 ]
@@ -372,14 +434,22 @@ def emit_functions(spec: OpenAPI) -> list[cst.FunctionDef]:
             cst.SimpleStatementLine(
                 [
                     cst.Assign(
-                        targets=[cst.AssignTarget(cst.Attribute(value=cst.Name("self"), attr=cst.Name("http")))],
+                        targets=[
+                            cst.AssignTarget(
+                                cst.Attribute(
+                                    value=cst.Name("self"), attr=cst.Name("http")
+                                )
+                            )
+                        ],
                         value=cst.Call(func=cst.Name("PoolManager")),
                     )
                 ]
             ),
         ]
     )
-    methods.append(cst.FunctionDef(name=cst.Name("__init__"), params=init_params, body=init_body))
+    methods.append(
+        cst.FunctionDef(name=cst.Name("__init__"), params=init_params, body=init_body)
+    )
     methods.append(
         cst.FunctionDef(
             name=cst.Name("close"),
@@ -419,7 +489,11 @@ def emit_functions(spec: OpenAPI) -> list[cst.FunctionDef]:
                     if operation:
                         methods.append(emit_function(method, path, operation))
                 if getattr(path_item, "additionalOperations", None):
-                    for custom_method, custom_op in (path_item.additionalOperations or {}).items():
-                        methods.append(emit_function(custom_method.lower(), path, custom_op))
+                    for custom_method, custom_op in (
+                        path_item.additionalOperations or {}
+                    ).items():
+                        methods.append(
+                            emit_function(custom_method.lower(), path, custom_op)
+                        )
 
     return methods

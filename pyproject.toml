@@ -38,6 +38,10 @@ packages = ["src/openapi_client"]
 [tool.pytest.ini_options]
 testpaths = ["tests", "test"]
 
+[tool.ruff]
+line-length = 88
+target-version = "py39"
+
 [tool.mypy]
 packages = ["openapi_client", "scripts", "tests", "test"]
 plugins = ["pydantic.mypy"]

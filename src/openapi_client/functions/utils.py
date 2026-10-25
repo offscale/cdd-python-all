@@ -107,7 +107,9 @@ def get_server_base_path(spec: OpenAPI | None, default_prefix: str = "/v2") -> s
     return default_prefix
 
 
-def get_default_server_url(spec: OpenAPI | None, fallback: str = "http://localhost:8080/v2") -> str:
+def get_default_server_url(
+    spec: OpenAPI | None, fallback: str = "http://localhost:8080/v2"
+) -> str:
     """Resolve the default base URL from an OpenAPI specification.
 
     Args:
@@ -183,7 +185,9 @@ def build_cst_module(
         if isinstance(item, cst.EmptyLine):
             pending_empty.append(item)
         else:
-            assert isinstance(item, (cst.SimpleStatementLine, cst.BaseCompoundStatement))
+            assert isinstance(
+                item, (cst.SimpleStatementLine, cst.BaseCompoundStatement)
+            )
             if pending_empty:
                 existing = list(item.leading_lines)
                 item = item.with_changes(leading_lines=[*existing, *pending_empty])

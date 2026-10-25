@@ -10,6 +10,7 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
 import libcst as cst
+
 from openapi_client.arazzo.emit import emit_arazzo_json
 from openapi_client.arazzo.parse import parse_arazzo_json, resolve_source_descriptions
 from openapi_client.arazzo_models import Arazzo
@@ -103,7 +104,9 @@ def get_version() -> str:
         return "0.0.4"
 
 
-def apply_env_vars_to_parser(parser: argparse.ArgumentParser, prefix: str = "CDD_") -> None:
+def apply_env_vars_to_parser(
+    parser: argparse.ArgumentParser, prefix: str = "CDD_"
+) -> None:
     """Recursively set argparse default values from environment variables.
 
     Args:
@@ -174,19 +177,31 @@ def generate_from_openapi(
             src_dir.mkdir(parents=True, exist_ok=True)
             (src_dir / "__init__.py").touch(exist_ok=True)
 
-            (src_dir / "client.py").write_text(generator.generate_code(), encoding="utf-8")
+            (src_dir / "client.py").write_text(
+                generator.generate_code(), encoding="utf-8"
+            )
             if spec.components and spec.components.schemas:
-                (src_dir / "models.py").write_text(emit_models_module(spec.components.schemas), encoding="utf-8")
+                (src_dir / "models.py").write_text(
+                    emit_models_module(spec.components.schemas), encoding="utf-8"
+                )
 
-            (src_dir / "openapi.snapshot.json").write_text(emit_openapi_json(spec, indent=2), encoding="utf-8")
+            (src_dir / "openapi.snapshot.json").write_text(
+                emit_openapi_json(spec, indent=2), encoding="utf-8"
+            )
 
             if tests:
                 test_dir = out_dir / "test"
                 test_dir.mkdir(parents=True, exist_ok=True)
                 (test_dir / "__init__.py").touch()
-                (test_dir / "test_client.py").write_text(emit_tests(spec, composable=True).code, encoding="utf-8")
-                (test_dir / "test_api.py").write_text(emit_api_tests(spec).code, encoding="utf-8")
-                (test_dir / "mock_server.py").write_text(emit_mock_server(spec).code, encoding="utf-8")
+                (test_dir / "test_client.py").write_text(
+                    emit_tests(spec, composable=True).code, encoding="utf-8"
+                )
+                (test_dir / "test_api.py").write_text(
+                    emit_api_tests(spec).code, encoding="utf-8"
+                )
+                (test_dir / "mock_server.py").write_text(
+                    emit_mock_server(spec).code, encoding="utf-8"
+                )
                 write_generated(emit_dao(spec), "dao.py", base_dir=test_dir)
         elif subcommand == "to_sdk_cli":
             generator = ClientGenerator(spec)
@@ -195,24 +210,42 @@ def generate_from_openapi(
             src_dir.mkdir(parents=True, exist_ok=True)
             (src_dir / "__init__.py").touch(exist_ok=True)
 
-            (src_dir / "client.py").write_text(generator.generate_code(), encoding="utf-8")
+            (src_dir / "client.py").write_text(
+                generator.generate_code(), encoding="utf-8"
+            )
 
             if spec.components and spec.components.schemas:
-                (src_dir / "models.py").write_text(emit_models_module(spec.components.schemas), encoding="utf-8")
+                (src_dir / "models.py").write_text(
+                    emit_models_module(spec.components.schemas), encoding="utf-8"
+                )
 
-            (src_dir / "cli_main.py").write_text(emit_cli_sdk_cdd(spec), encoding="utf-8")
+            (src_dir / "cli_main.py").write_text(
+                emit_cli_sdk_cdd(spec), encoding="utf-8"
+            )
             if mcp:
-                (src_dir / "mcp_server.py").write_text(emit_mcp_server(spec), encoding="utf-8")
-                (src_dir / "mcp_sse_server.py").write_text(emit_mcp_sse_server(spec), encoding="utf-8")
-                (src_dir / "mcp_adapter.py").write_text(emit_mcp_adapter(spec), encoding="utf-8")
+                (src_dir / "mcp_server.py").write_text(
+                    emit_mcp_server(spec), encoding="utf-8"
+                )
+                (src_dir / "mcp_sse_server.py").write_text(
+                    emit_mcp_sse_server(spec), encoding="utf-8"
+                )
+                (src_dir / "mcp_adapter.py").write_text(
+                    emit_mcp_adapter(spec), encoding="utf-8"
+                )
 
             if tests:
                 test_dir = out_dir / "test"
                 test_dir.mkdir(parents=True, exist_ok=True)
                 (test_dir / "__init__.py").touch()
-                (test_dir / "test_client.py").write_text(emit_tests(spec, composable=True).code, encoding="utf-8")
-                (test_dir / "test_api.py").write_text(emit_api_tests(spec).code, encoding="utf-8")
-                (test_dir / "mock_server.py").write_text(emit_mock_server(spec).code, encoding="utf-8")
+                (test_dir / "test_client.py").write_text(
+                    emit_tests(spec, composable=True).code, encoding="utf-8"
+                )
+                (test_dir / "test_api.py").write_text(
+                    emit_api_tests(spec).code, encoding="utf-8"
+                )
+                (test_dir / "mock_server.py").write_text(
+                    emit_mock_server(spec).code, encoding="utf-8"
+                )
                 write_generated(emit_dao(spec), "dao.py", base_dir=test_dir)
         elif subcommand == "to_server":
             (out_dir / "__init__.py").touch(exist_ok=True)
@@ -290,7 +323,9 @@ def generate_from_arazzo(
         specs.append(
             (
                 spec_path.parent,
-                parse_arazzo_json(spec_path.read_text(encoding="utf-8"), spec_path.parent),
+                parse_arazzo_json(
+                    spec_path.read_text(encoding="utf-8"), spec_path.parent
+                ),
             )
         )
     elif input_dir:
@@ -309,39 +344,59 @@ def generate_from_arazzo(
             src_dir = out_dir / "src"
             src_dir.mkdir(parents=True, exist_ok=True)
             (src_dir / "__init__.py").touch(exist_ok=True)
-            (src_dir / "workflows.py").write_text(emit_workflows_code(spec, sources), encoding="utf-8")
-            (src_dir / "arazzo.snapshot.json").write_text(emit_arazzo_json(spec, indent=2), encoding="utf-8")
+            (src_dir / "workflows.py").write_text(
+                emit_workflows_code(spec, sources), encoding="utf-8"
+            )
+            (src_dir / "arazzo.snapshot.json").write_text(
+                emit_arazzo_json(spec, indent=2), encoding="utf-8"
+            )
             if tests:
                 test_dir = out_dir / "test"
                 test_dir.mkdir(parents=True, exist_ok=True)
                 (test_dir / "__init__.py").touch(exist_ok=True)
-                (test_dir / "test_workflows.py").write_text(emit_arazzo_tests_code(spec), encoding="utf-8")
+                (test_dir / "test_workflows.py").write_text(
+                    emit_arazzo_tests_code(spec), encoding="utf-8"
+                )
         elif subcommand == "to_sdk_cli":
             src_dir = out_dir / "src"
             src_dir.mkdir(parents=True, exist_ok=True)
             (src_dir / "__init__.py").touch(exist_ok=True)
-            (src_dir / "workflows.py").write_text(emit_workflows_code(spec, sources), encoding="utf-8")
-            (src_dir / "cli_workflows.py").write_text(emit_arazzo_cli_code(spec), encoding="utf-8")
-            (src_dir / "arazzo.snapshot.json").write_text(emit_arazzo_json(spec, indent=2), encoding="utf-8")
+            (src_dir / "workflows.py").write_text(
+                emit_workflows_code(spec, sources), encoding="utf-8"
+            )
+            (src_dir / "cli_workflows.py").write_text(
+                emit_arazzo_cli_code(spec), encoding="utf-8"
+            )
+            (src_dir / "arazzo.snapshot.json").write_text(
+                emit_arazzo_json(spec, indent=2), encoding="utf-8"
+            )
             if tests:
                 test_dir = out_dir / "test"
                 test_dir.mkdir(parents=True, exist_ok=True)
                 (test_dir / "__init__.py").touch(exist_ok=True)
-                (test_dir / "test_workflows.py").write_text(emit_arazzo_tests_code(spec), encoding="utf-8")
+                (test_dir / "test_workflows.py").write_text(
+                    emit_arazzo_tests_code(spec), encoding="utf-8"
+                )
         elif subcommand == "to_tests":
             test_dir = out_dir / "test"
             test_dir.mkdir(parents=True, exist_ok=True)
             (test_dir / "__init__.py").touch(exist_ok=True)
-            (test_dir / "test_workflows.py").write_text(emit_arazzo_tests_code(spec), encoding="utf-8")
+            (test_dir / "test_workflows.py").write_text(
+                emit_arazzo_tests_code(spec), encoding="utf-8"
+            )
         else:
             routes_dir = out_dir / "routes"
             routes_dir.mkdir(parents=True, exist_ok=True)
             (routes_dir / "__init__.py").touch(exist_ok=True)
-            (routes_dir / "workflows.py").write_text(emit_fastapi_arazzo_routes(spec), encoding="utf-8")
+            (routes_dir / "workflows.py").write_text(
+                emit_fastapi_arazzo_routes(spec), encoding="utf-8"
+            )
             test_dir = out_dir / "tests"
             test_dir.mkdir(parents=True, exist_ok=True)
             (test_dir / "__init__.py").touch(exist_ok=True)
-            (test_dir / "test_workflows.py").write_text(emit_arazzo_tests_code(spec), encoding="utf-8")
+            (test_dir / "test_workflows.py").write_text(
+                emit_arazzo_tests_code(spec), encoding="utf-8"
+            )
 
     if not no_installable_package:
         scaffold_package(out_dir, is_server=(subcommand == "to_server"))
@@ -437,7 +492,11 @@ def generate_to_openapi(input_path: str | Path, output_path: str | Path) -> None
         if not models_py.exists():
             models_py = in_path / "models.py"
 
-        models_dir = in_path / "src" / "models" if (in_path / "src" / "models").is_dir() else in_path / "models"
+        models_dir = (
+            in_path / "src" / "models"
+            if (in_path / "src" / "models").is_dir()
+            else in_path / "models"
+        )
 
         mock_py = in_path / "test" / "mock_server.py"
         if not mock_py.exists():
@@ -503,7 +562,9 @@ def generate_to_openapi(input_path: str | Path, output_path: str | Path) -> None
 
 def main() -> None:
     """CLI entrypoint."""
-    parser = argparse.ArgumentParser(description="Compiler Driven Development (CDD) compiler and transpiler.")
+    parser = argparse.ArgumentParser(
+        description="Compiler Driven Development (CDD) compiler and transpiler."
+    )
     parser.add_argument(
         "--version",
         action="version",
@@ -511,13 +572,19 @@ def main() -> None:
     )
     subparsers = parser.add_subparsers(dest="command")
 
-    from_openapi_parser = subparsers.add_parser("from_openapi", help="Generate code from an OpenAPI specification.")
+    from_openapi_parser = subparsers.add_parser(
+        "from_openapi", help="Generate code from an OpenAPI specification."
+    )
 
-    from_openapi_subparsers = from_openapi_parser.add_subparsers(dest="from_openapi_command", required=True)
+    from_openapi_subparsers = from_openapi_parser.add_subparsers(
+        dest="from_openapi_command", required=True
+    )
 
     for subcmd in ["to_sdk", "to_sdk_cli", "to_server"]:
         if subcmd == "to_sdk_cli":
-            help_text = "Generate a client SDK with a CLI from an OpenAPI specification."
+            help_text = (
+                "Generate a client SDK with a CLI from an OpenAPI specification."
+            )
         elif subcmd == "to_sdk":
             help_text = "Generate a client SDK from an OpenAPI specification."
         else:
@@ -592,8 +659,12 @@ def main() -> None:
         help="Output file or directory path",
     )
 
-    from_arazzo_parser = subparsers.add_parser("from_arazzo", help="Generate code from an Arazzo 1.1.0 specification.")
-    from_arazzo_subparsers = from_arazzo_parser.add_subparsers(dest="from_arazzo_command", required=True)
+    from_arazzo_parser = subparsers.add_parser(
+        "from_arazzo", help="Generate code from an Arazzo 1.1.0 specification."
+    )
+    from_arazzo_subparsers = from_arazzo_parser.add_subparsers(
+        dest="from_arazzo_command", required=True
+    )
     for ar_subcmd in ["to_sdk", "to_sdk_cli", "to_server", "to_tests"]:
         ar_p = from_arazzo_subparsers.add_parser(
             ar_subcmd,
@@ -694,18 +765,30 @@ def main() -> None:
         required=True,
         help="Path or URL to the OpenAPI specification.",
     )
-    docs_parser.add_argument("--no-imports", action="store_true", help="Omit the imports field.")
-    docs_parser.add_argument("--no-wrapping", action="store_true", help="Omit the wrapper fields.")
-    docs_parser.add_argument("-o", "--output", type=str, help="Output file or directory path.")
+    docs_parser.add_argument(
+        "--no-imports", action="store_true", help="Omit the imports field."
+    )
+    docs_parser.add_argument(
+        "--no-wrapping", action="store_true", help="Omit the wrapper fields."
+    )
+    docs_parser.add_argument(
+        "-o", "--output", type=str, help="Output file or directory path."
+    )
 
     server_parser = subparsers.add_parser(
         "serve_json_rpc",
         help="Expose CLI interface as a JSON-RPC server.",
     )
-    server_parser.add_argument("-p", "--port", type=int, default=8080, help="Port to listen on")
-    server_parser.add_argument("-l", "--listen", type=str, default="127.0.0.1", help="Address to listen on")
+    server_parser.add_argument(
+        "-p", "--port", type=int, default=8080, help="Port to listen on"
+    )
+    server_parser.add_argument(
+        "-l", "--listen", type=str, default="127.0.0.1", help="Address to listen on"
+    )
 
-    subparsers.add_parser("mcp", help="Run the Model Context Protocol server via stdio.")
+    subparsers.add_parser(
+        "mcp", help="Run the Model Context Protocol server via stdio."
+    )
 
     apply_env_vars_to_parser(parser)
     args = parser.parse_args()
@@ -715,7 +798,9 @@ def main() -> None:
         sys.exit(0)
 
     if args.command == "sync":
-        sync_dir(args.input, getattr(args, "truth", None), getattr(args, "output", None))
+        sync_dir(
+            args.input, getattr(args, "truth", None), getattr(args, "output", None)
+        )
     elif args.command == "from_openapi":
         subcmd = args.from_openapi_command
         if not args.input and not getattr(args, "input_dir", None):
