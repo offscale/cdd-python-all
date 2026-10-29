@@ -25,7 +25,7 @@ jobs:
     steps:
     - uses: actions/checkout@v7
     - name: Set up Python
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v7
       with:
         python-version: '3.11'
     - name: Checkout Test Harness
@@ -67,44 +67,15 @@ jobs:
 
   release:
     needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
-    services:
-      petstore:
-        image: swaggerapi/petstore
-        ports:
-          - 8080:8080
-      petstore-oas3:
-        image: openapitools/openapi-petstore
-        ports:
-          - 8081:8080
     steps:
     - uses: actions/checkout@v7
     - uses: actions/download-artifact@v8
       with:
         name: python-build
         path: dist/
-    - name: Release version tag
+    - name: Release
       uses: softprops/action-gh-release@v3
       with:
         files: dist/**/*
-    - name: Update latest release
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        gh release delete latest --cleanup-tag -y || true
-        git config user.name "github-actions[bot]"
-        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-        git tag -fa latest -m "Update latest tag to ${{ github.ref_name }}"
-        git push origin latest --force
-
-        files=()
-        while IFS= read -r -d '' file; do
-          files+=("$file")
-        done < <(find dist -type f -print0)
-
-        if [ ${#files[@]} -gt 0 ]; then
-          gh release create latest "${files[@]}" --title "latest" --notes "Latest release mirrored from ${{ github.ref_name }}"
-        else
-          gh release create latest --title "latest" --notes "Latest release mirrored from ${{ github.ref_name }}"
-        fi

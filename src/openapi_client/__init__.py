@@ -14,9 +14,12 @@ from openapi_client.sdk import (
     serve_json_rpc,
 )
 
+__version__ = "0.0.4"
+
 __all__ = [
     "ClientGenerator",
     "OpenAPI",
+    "__version__",
     "extract_from_code",
     "generate_docs_json",
     "generate_from_openapi",
