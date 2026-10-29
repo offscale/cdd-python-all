@@ -1173,9 +1173,33 @@ def test_cli_sdk_mcp_integration(
     # generate_docs_json with Arazzo
     docs_out = tmp_path / "arazzo_docs.json"
     cli.generate_docs_json(str(arazzo_file), False, False, str(docs_out))
-    assert (
-        "onboard_user" in json.loads(docs_out.read_text(encoding="utf-8"))["workflows"]
-    )
+    arazzo_docs = json.loads(docs_out.read_text(encoding="utf-8"))["workflows"]
+    assert "onboard_user" in arazzo_docs
+    wf_entry = arazzo_docs["onboard_user"]
+    assert wf_entry["imports"] == "from workflows import Workflows"
+    assert wf_entry["wrapper_start"] == "def main():\n    runner = Workflows()"
+    assert wf_entry["snippet"] == "result = runner.onboard_user()\nprint(result)"
+    assert wf_entry["wrapper_end"] == 'if __name__ == "__main__":\n    main()'
+    assert "from workflows import Workflows" in wf_entry["code"]
+
+    docs_dir = tmp_path / "arazzo_docs_dir"
+    docs_dir.mkdir()
+    cli.generate_docs_json(str(arazzo_file), True, False, str(docs_dir))
+    wf_no_imp = json.loads((docs_dir / "docs.json").read_text(encoding="utf-8"))[
+        "workflows"
+    ]["onboard_user"]
+    assert "imports" not in wf_no_imp
+    assert "wrapper_start" in wf_no_imp
+    assert "wrapper_end" in wf_no_imp
+
+    cli.generate_docs_json(str(arazzo_file), False, True, str(docs_dir))
+    wf_no_wrap = json.loads((docs_dir / "docs.json").read_text(encoding="utf-8"))[
+        "workflows"
+    ]["onboard_user"]
+    assert "imports" in wf_no_wrap
+    assert "wrapper_start" not in wf_no_wrap
+    assert "wrapper_end" not in wf_no_wrap
+
     cli.generate_docs_json(str(arazzo_file), True, True, None)
 
     # sync_dir with arazzo

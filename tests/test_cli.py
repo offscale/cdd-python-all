@@ -301,6 +301,16 @@ def test_cli_to_docs_json(
                 }
             }
         },
+        "webhooks": {
+            "newPet": {
+                "post": {
+                    "operationId": "onNewPet",
+                    "requestBody": {
+                        "content": {"application/json": {"schema": {"type": "object"}}}
+                    },
+                }
+            }
+        },
     }
     spec_path = tmp_path / "openapi.json"
     spec_path.write_text(json.dumps(spec))
@@ -314,17 +324,44 @@ def test_cli_to_docs_json(
     captured = capsys.readouterr()
     output = json.loads(captured.out)
     assert "endpoints" in output
+    assert "webhooks" in output
     endpoints = output["endpoints"]
+    webhooks = output["webhooks"]
     assert "/pets" in endpoints
     assert "get" in endpoints["/pets"]
+    assert "newPet" in webhooks
+    assert "post" in webhooks["newPet"]
 
-    code = endpoints["/pets"]["get"]
+    code_obj = endpoints["/pets"]["get"]
+    assert code_obj["imports"] == "import json\nfrom generated_client import Client"
+    assert (
+        code_obj["wrapper_start"]
+        == 'def main():\n    client = Client(base_url="https://api.example.com")'
+    )
+    assert (
+        code_obj["snippet"]
+        == "limit = 'example'\nresponse = client.get_pets(limit=limit)\nprint(response)"
+    )
+    assert code_obj["wrapper_end"] == 'if __name__ == "__main__":\n    main()'
+    code = code_obj["code"]
     assert "import json" in code
     assert "def main():" in code
     assert "client = Client(" in code
     assert "limit = 'example'" in code
     assert "response = client.get_pets(limit=limit)" in code
     assert 'if __name__ == "__main__":' in code
+
+    wh_obj = webhooks["newPet"]["post"]
+    assert wh_obj["imports"] == "import json\nfrom generated_client import Client"
+    assert (
+        wh_obj["wrapper_start"]
+        == 'def main():\n    client = Client(base_url="https://api.example.com")'
+    )
+    assert (
+        wh_obj["snippet"]
+        == "body = {}\nresponse = client.on_new_pet(body=body)\nprint(response)"
+    )
+    assert wh_obj["wrapper_end"] == 'if __name__ == "__main__":\n    main()'
 
     # Test --no-imports
     monkeypatch.setattr(
@@ -333,7 +370,13 @@ def test_cli_to_docs_json(
     main()
     captured = capsys.readouterr()
     output = json.loads(captured.out)
-    code = output["endpoints"]["/pets"]["get"]
+    code_obj = output["endpoints"]["/pets"]["get"]
+    wh_obj = output["webhooks"]["newPet"]["post"]
+    assert "imports" not in code_obj
+    assert "imports" not in wh_obj
+    assert "wrapper_start" in code_obj
+    assert "wrapper_end" in code_obj
+    code = code_obj["code"]
     assert "import json" not in code
     assert "def main():" in code
 
@@ -345,7 +388,14 @@ def test_cli_to_docs_json(
     main()
     captured = capsys.readouterr()
     output = json.loads(captured.out)
-    code = output["endpoints"]["/pets"]["get"]
+    code_obj = output["endpoints"]["/pets"]["get"]
+    wh_obj = output["webhooks"]["newPet"]["post"]
+    assert "imports" in code_obj
+    assert "wrapper_start" not in code_obj
+    assert "wrapper_end" not in code_obj
+    assert "wrapper_start" not in wh_obj
+    assert "wrapper_end" not in wh_obj
+    code = code_obj["code"]
     assert "import json" in code
     assert "def main():" not in code
     assert 'if __name__ == "__main__":' not in code
@@ -367,10 +417,19 @@ def test_cli_to_docs_json(
     main()
     captured = capsys.readouterr()
     output = json.loads(captured.out)
-    code = output["endpoints"]["/pets"]["get"]
+    code_obj = output["endpoints"]["/pets"]["get"]
+    wh_obj = output["webhooks"]["newPet"]["post"]
+    assert "imports" not in code_obj
+    assert "wrapper_start" not in code_obj
+    assert "wrapper_end" not in code_obj
+    assert "imports" not in wh_obj
+    assert "wrapper_start" not in wh_obj
+    assert "wrapper_end" not in wh_obj
+    code = code_obj["code"]
     assert "import json" not in code
     assert "def main():" not in code
     assert "response = client.get_pets(limit=limit)" in code
+    assert code == code_obj["snippet"]
 
 
 def test_cli_to_docs_json_no_operation_id(
@@ -408,8 +467,9 @@ def test_cli_to_docs_json_no_operation_id(
     assert "/dogs" in endpoints
     assert "post" in endpoints["/dogs"]
 
-    code = endpoints["/dogs"]["post"]
-    assert "post_dogs(" in code
+    code_obj = endpoints["/dogs"]["post"]
+    assert "post_dogs(" in code_obj["snippet"]
+    assert "post_dogs(" in code_obj["code"]
 
 
 def test_generate_from_openapi_input_dir(tmp_path: Path) -> None:
@@ -596,9 +656,11 @@ def test_cli_to_docs_json_url(
 
     captured = capsys.readouterr()
     output = json.loads(captured.out)
-    code = output["endpoints"]["/pets"]["post"]
-    assert "body = {}" in code
-    assert "body=body" in code
+    code_obj = output["endpoints"]["/pets"]["post"]
+    assert "body = {}" in code_obj["snippet"]
+    assert "body=body" in code_obj["snippet"]
+    assert "body = {}" in code_obj["code"]
+    assert "body=body" in code_obj["code"]
 
 
 def test_generate_from_openapi_tests_flag(tmp_path: Path) -> None:
@@ -941,6 +1003,15 @@ def test_to_docs_json_output_file(
     )
     main()
     assert out_file.exists()
+
+    out_dir = tmp_path / "work_out"
+    out_dir.mkdir()
+    monkeypatch.setattr(
+        "sys.argv",
+        ["cdd-python", "to_docs_json", "-i", str(input_file), "-o", str(out_dir)],
+    )
+    main()
+    assert (out_dir / "docs.json").exists()
 
 
 def test_cli_missing_coverage(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
