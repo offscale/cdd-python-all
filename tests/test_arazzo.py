@@ -1173,7 +1173,11 @@ def test_cli_sdk_mcp_integration(
     # generate_docs_json with Arazzo
     docs_out = tmp_path / "arazzo_docs.json"
     cli.generate_docs_json(str(arazzo_file), False, False, str(docs_out))
-    arazzo_docs = json.loads(docs_out.read_text(encoding="utf-8"))["workflows"]
+    arazzo_payload = json.loads(docs_out.read_text(encoding="utf-8"))
+    assert set(arazzo_payload.keys()) == {"endpoints", "webhooks", "workflows"}
+    assert arazzo_payload["endpoints"] == {}
+    assert arazzo_payload["webhooks"] == {}
+    arazzo_docs = arazzo_payload["workflows"]
     assert "onboard_user" in arazzo_docs
     wf_entry = arazzo_docs["onboard_user"]
     assert wf_entry["imports"] == "from workflows import Workflows"

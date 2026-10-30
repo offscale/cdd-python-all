@@ -323,8 +323,8 @@ def test_cli_to_docs_json(
 
     captured = capsys.readouterr()
     output = json.loads(captured.out)
-    assert "endpoints" in output
-    assert "webhooks" in output
+    assert set(output.keys()) == {"endpoints", "webhooks", "workflows"}
+    assert output["workflows"] == {}
     endpoints = output["endpoints"]
     webhooks = output["webhooks"]
     assert "/pets" in endpoints
@@ -332,7 +332,16 @@ def test_cli_to_docs_json(
     assert "newPet" in webhooks
     assert "post" in webhooks["newPet"]
 
+    import textwrap
+
     code_obj = endpoints["/pets"]["get"]
+    assert set(code_obj.keys()) == {
+        "imports",
+        "wrapper_start",
+        "snippet",
+        "wrapper_end",
+        "code",
+    }
     assert code_obj["imports"] == "import json\nfrom generated_client import Client"
     assert (
         code_obj["wrapper_start"]
@@ -341,6 +350,11 @@ def test_cli_to_docs_json(
     assert (
         code_obj["snippet"]
         == "limit = 'example'\nresponse = client.get_pets(limit=limit)\nprint(response)"
+    )
+    assert textwrap.dedent(code_obj["snippet"]) == code_obj["snippet"]
+    assert all(
+        not line.startswith(" ")
+        for line in textwrap.dedent(code_obj["snippet"]).splitlines()
     )
     assert code_obj["wrapper_end"] == 'if __name__ == "__main__":\n    main()'
     code = code_obj["code"]

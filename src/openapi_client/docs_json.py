@@ -191,7 +191,11 @@ def generate_docs_json(
                 no_imports=no_imports,
                 no_wrapping=no_wrapping,
             )
-        arazzo_result = {"workflows": workflows_docs}
+        arazzo_result: dict[str, Any] = {
+            "endpoints": {},
+            "webhooks": {},
+            "workflows": workflows_docs,
+        }
         _write_or_print_docs(arazzo_result, output_file)
         return
 
@@ -202,5 +206,6 @@ def generate_docs_json(
     result: dict[str, Any] = {
         "endpoints": endpoints,
         "webhooks": webhooks,
+        "workflows": {},
     }
     _write_or_print_docs(result, output_file)
