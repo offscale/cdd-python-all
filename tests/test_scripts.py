@@ -139,6 +139,7 @@ def test_run_petstore_test(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> N
 
     with (
         mock.patch("subprocess.run") as m_run,
+        mock.patch("urllib.request.urlopen", side_effect=OSError("down")),
         mock.patch("shutil.rmtree"),
         mock.patch("time.sleep"),
     ):
@@ -272,7 +273,11 @@ def test_run_petstore_test_no_tmp(
     monkeypatch.setattr(
         "sys.argv", ["run_petstore_test.py", str(f), str(tmp_path / "notexist")]
     )
-    with mock.patch("subprocess.run") as m_run, mock.patch("time.sleep"):
+    with (
+        mock.patch("subprocess.run") as m_run,
+        mock.patch("urllib.request.urlopen", side_effect=OSError("down")),
+        mock.patch("time.sleep"),
+    ):
         rp.main()
         assert m_run.called
 
@@ -408,6 +413,15 @@ def test_run_petstore_test_all_branches(
     with (
         mock.patch("subprocess.run", side_effect=side_effect_both_fail),
         mock.patch("urllib.request.urlopen", side_effect=OSError("down")),
+        mock.patch("shutil.rmtree"),
+    ):
+        rp.main()
+
+    # 5. Primary docker run succeeds, but server never becomes ready across all 15 retries
+    with (
+        mock.patch("subprocess.run", return_value=mock.MagicMock(returncode=0)),
+        mock.patch("urllib.request.urlopen", side_effect=OSError("down")),
+        mock.patch("time.sleep"),
         mock.patch("shutil.rmtree"),
     ):
         rp.main()

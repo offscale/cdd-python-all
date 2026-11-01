@@ -58,7 +58,7 @@ def main() -> None:
         sys.exit(test_result.returncode)
 
     test_cov = 100
-    m = re.search(r"TOTAL\s+\d+\s+\d+\s+(\d+)%", test_result.stdout)
+    m = re.search(r"TOTAL\s+\d+\s+\d+\s+(?:\d+\s+\d+\s+)?(\d+)%", test_result.stdout)
     if m:
         test_cov = int(m.group(1))
 
