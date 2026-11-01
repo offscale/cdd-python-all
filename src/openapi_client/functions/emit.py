@@ -46,8 +46,7 @@ def emit_function(method: str, path: str, operation: Operation) -> cst.FunctionD
     docstring = emit_function_docstring(operation)
 
     body_statements: list[cst.BaseStatement] = []
-    if docstring:
-        body_statements.append(docstring)
+    arg_docs: list[str] = []
 
     query_statements: list[cst.BaseStatement] = []
     has_query = False
@@ -83,6 +82,10 @@ def emit_function(method: str, path: str, operation: Operation) -> cst.FunctionD
         for param in operation.parameters:
             if hasattr(param, "name"):
                 param_name = _safe_param_name(param.name)
+                p_desc = (
+                    getattr(param, "description", None) or f"Parameter {param_name}."
+                )
+                arg_docs.append(f"        {param_name}: {p_desc}")
 
                 schema_obj = getattr(param, "schema_", getattr(param, "schema", None))
                 annotation_str = get_annotation_for_schema(schema_obj)
@@ -227,6 +230,11 @@ def emit_function(method: str, path: str, operation: Operation) -> cst.FunctionD
                         )
 
     if operation.requestBody and not has_body_param:
+        b_desc = (
+            getattr(operation.requestBody, "description", None)
+            or "Request body payload."
+        )
+        arg_docs.append(f"        body: {b_desc}")
         optional_params.append(
             cst.Param(
                 name=cst.Name("body"),
@@ -236,6 +244,26 @@ def emit_function(method: str, path: str, operation: Operation) -> cst.FunctionD
         )
     params_list.extend(required_params)
     params_list.extend(optional_params)
+
+    if docstring is not None and not arg_docs:
+        body_statements.append(docstring)
+    else:
+        doc_parts: list[str] = []
+        if getattr(operation, "summary", None):
+            doc_parts.append(str(operation.summary))
+        if getattr(operation, "description", None):
+            doc_parts.append(str(operation.description))
+        if not doc_parts:
+            doc_parts.append(f"Call {method.upper()} {path}.")
+        if arg_docs:
+            doc_parts.append("    Args:\\n" + "\\n".join(arg_docs))
+        doc_str = "\\n\\n".join(doc_parts).replace('"""', '\\"\\"\\"')
+        body_statements.append(
+            cst.SimpleStatementLine(
+                [cst.Expr(value=cst.SimpleString(f'"""{doc_str}"""'))]
+            )
+        )
+
     body_statements.extend(query_statements)
 
     if "{" in path and "}" in path:
@@ -405,6 +433,15 @@ def emit_functions(spec: OpenAPI) -> list[cst.FunctionDef]:
         body=[
             cst.SimpleStatementLine(
                 [
+                    cst.Expr(
+                        value=cst.SimpleString(
+                            '"""Initialize the HTTP client.\n\n        Args:\n            base_url: Base URL of the API server.\n            api_key: Optional API key or bearer token.\n        """'
+                        )
+                    )
+                ]
+            ),
+            cst.SimpleStatementLine(
+                [
                     cst.Assign(
                         targets=[
                             cst.AssignTarget(
@@ -455,7 +492,20 @@ def emit_functions(spec: OpenAPI) -> list[cst.FunctionDef]:
             name=cst.Name("close"),
             params=cst.Parameters(params=[cst.Param(name=cst.Name("self"))]),
             returns=cst.Annotation(annotation=cst.Name("None")),
-            body=cst.IndentedBlock(body=[cst.parse_statement("self.http.clear()")]),
+            body=cst.IndentedBlock(
+                body=[
+                    cst.SimpleStatementLine(
+                        [
+                            cst.Expr(
+                                value=cst.SimpleString(
+                                    '"""Close the underlying HTTP connection pool."""'
+                                )
+                            )
+                        ]
+                    ),
+                    cst.parse_statement("self.http.clear()"),
+                ]
+            ),
         )
     )
     methods.append(
@@ -463,7 +513,20 @@ def emit_functions(spec: OpenAPI) -> list[cst.FunctionDef]:
             name=cst.Name("__enter__"),
             params=cst.Parameters(params=[cst.Param(name=cst.Name("self"))]),
             returns=cst.Annotation(annotation=cst.Name("Client")),
-            body=cst.IndentedBlock(body=[cst.parse_statement("return self")]),
+            body=cst.IndentedBlock(
+                body=[
+                    cst.SimpleStatementLine(
+                        [
+                            cst.Expr(
+                                value=cst.SimpleString(
+                                    '"""Enter the client context manager."""'
+                                )
+                            )
+                        ]
+                    ),
+                    cst.parse_statement("return self"),
+                ]
+            ),
         )
     )
     methods.append(
@@ -477,7 +540,20 @@ def emit_functions(spec: OpenAPI) -> list[cst.FunctionDef]:
                 ),
             ),
             returns=cst.Annotation(annotation=cst.Name("None")),
-            body=cst.IndentedBlock(body=[cst.parse_statement("self.close()")]),
+            body=cst.IndentedBlock(
+                body=[
+                    cst.SimpleStatementLine(
+                        [
+                            cst.Expr(
+                                value=cst.SimpleString(
+                                    '"""Exit the client context manager and close connections.\n\n        Args:\n            *args: Exception details if raised within the context.\n        """'
+                                )
+                            )
+                        ]
+                    ),
+                    cst.parse_statement("self.close()"),
+                ]
+            ),
         )
     )
 

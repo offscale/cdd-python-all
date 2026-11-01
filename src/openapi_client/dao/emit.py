@@ -68,7 +68,9 @@ def _emit_abstract_dao_module(name: str, class_name: str) -> cst.Module:
             decorators=[abs_decorator],
             body=cst.IndentedBlock(
                 body=[
-                    _doc_stmt(f"Get {name} by ID."),
+                    _doc_stmt(
+                        f"Get {name} by ID.\n\n    Args:\n        id: Primary key identifier."
+                    ),
                     cst.SimpleStatementLine([cst.Pass()]),
                 ]
             ),
@@ -88,7 +90,9 @@ def _emit_abstract_dao_module(name: str, class_name: str) -> cst.Module:
             decorators=[abs_decorator],
             body=cst.IndentedBlock(
                 body=[
-                    _doc_stmt(f"Create a new {name}."),
+                    _doc_stmt(
+                        f"Create a new {name}.\n\n    Args:\n        data: Entity payload to persist."
+                    ),
                     cst.SimpleStatementLine([cst.Pass()]),
                 ]
             ),
@@ -108,7 +112,9 @@ def _emit_abstract_dao_module(name: str, class_name: str) -> cst.Module:
             decorators=[abs_decorator],
             body=cst.IndentedBlock(
                 body=[
-                    _doc_stmt(f"Delete a {name} by ID."),
+                    _doc_stmt(
+                        f"Delete a {name} by ID.\n\n    Args:\n        id: Primary key identifier."
+                    ),
                     cst.SimpleStatementLine([cst.Pass()]),
                 ]
             ),
@@ -170,7 +176,12 @@ def _emit_stub_dao_module(name: str, class_name: str, lower_name: str) -> cst.Mo
             ),
             returns=cst.Annotation(annotation=cst.parse_expression("Optional[Any]")),
             body=cst.IndentedBlock(
-                body=[_doc_stmt(f"Get {name} by ID."), raise_not_impl]
+                body=[
+                    _doc_stmt(
+                        f"Get {name} by ID.\n\n    Args:\n        id: Primary key identifier."
+                    ),
+                    raise_not_impl,
+                ]
             ),
         ),
         cst.FunctionDef(
@@ -186,7 +197,12 @@ def _emit_stub_dao_module(name: str, class_name: str, lower_name: str) -> cst.Mo
             ),
             returns=cst.Annotation(annotation=cst.Name("Any")),
             body=cst.IndentedBlock(
-                body=[_doc_stmt(f"Create a new {name}."), raise_not_impl]
+                body=[
+                    _doc_stmt(
+                        f"Create a new {name}.\n\n    Args:\n        data: Entity payload to persist."
+                    ),
+                    raise_not_impl,
+                ]
             ),
         ),
         cst.FunctionDef(
@@ -202,7 +218,12 @@ def _emit_stub_dao_module(name: str, class_name: str, lower_name: str) -> cst.Mo
             ),
             returns=cst.Annotation(annotation=cst.Name("bool")),
             body=cst.IndentedBlock(
-                body=[_doc_stmt(f"Delete a {name} by ID."), raise_not_impl]
+                body=[
+                    _doc_stmt(
+                        f"Delete a {name} by ID.\n\n    Args:\n        id: Primary key identifier."
+                    ),
+                    raise_not_impl,
+                ]
             ),
         ),
     ]
@@ -253,7 +274,9 @@ def _emit_concrete_dao_module(
             ),
             body=cst.IndentedBlock(
                 body=[
-                    _doc_stmt(f"Initialize the concrete {name} DAO."),
+                    _doc_stmt(
+                        f"Initialize the concrete {name} DAO.\n\n    Args:\n        session: Active SQLAlchemy database session."
+                    ),
                     cst.parse_statement("self.session = session"),
                 ]
             ),
@@ -285,7 +308,9 @@ def _emit_concrete_dao_module(
             returns=cst.Annotation(annotation=cst.parse_expression("Optional[Any]")),
             body=cst.IndentedBlock(
                 body=[
-                    _doc_stmt(f"Get {name} by ID."),
+                    _doc_stmt(
+                        f"Get {name} by ID.\n\n    Args:\n        id: Primary key identifier."
+                    ),
                     cst.parse_statement(f"return self.session.get({class_name}, id)"),
                 ]
             ),
@@ -304,7 +329,9 @@ def _emit_concrete_dao_module(
             returns=cst.Annotation(annotation=cst.Name("Any")),
             body=cst.IndentedBlock(
                 body=[
-                    _doc_stmt(f"Create a new {name}."),
+                    _doc_stmt(
+                        f"Create a new {name}.\n\n    Args:\n        data: Entity payload to persist."
+                    ),
                     cst.parse_statement("self.session.add(data)"),
                     cst.parse_statement("self.session.commit()"),
                     cst.parse_statement("self.session.refresh(data)"),
@@ -326,7 +353,9 @@ def _emit_concrete_dao_module(
             returns=cst.Annotation(annotation=cst.Name("bool")),
             body=cst.IndentedBlock(
                 body=[
-                    _doc_stmt(f"Delete a {name} by ID."),
+                    _doc_stmt(
+                        f"Delete a {name} by ID.\n\n    Args:\n        id: Primary key identifier."
+                    ),
                     cst.parse_statement("obj = self.get_by_id(id)"),
                     cst.If(
                         test=cst.Name("obj"),
@@ -490,7 +519,12 @@ def emit_dao(spec: OpenAPI) -> dict[str, str]:
                 _doc_stmt(
                     """Factory routine to resolve the correct DAO.
     Fallback: If no DATABASE_URL and no --ephemeral, return Stub DAOs.
-    Active: Otherwise, return Concrete DAOs."""
+    Active: Otherwise, return Concrete DAOs.
+
+    Args:
+        model_name: Name of the target entity model.
+        session: Optional SQLAlchemy database session.
+        ephemeral: If True, use Concrete DAOs against ephemeral storage."""
                 ),
                 cst.parse_statement(
                     "has_db = bool(os.environ.get('DATABASE_URL')) or ephemeral"

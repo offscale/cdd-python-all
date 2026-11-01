@@ -36,12 +36,12 @@ def _pkg_version() -> str:
     """Resolve the installed package version string.
 
     Returns:
-        The installed version or fallback `'0.0.4'`.
+        The installed version or fallback `'0.0.5'`.
     """
     try:
         return version("openapi-python-client")
     except PackageNotFoundError:  # pragma: no cover
-        return "0.0.4"
+        return "0.0.5"
 
 
 def get_tools() -> list[MCPToolDefinition]:
@@ -90,6 +90,9 @@ def get_tools() -> list[MCPToolDefinition]:
                     "no_github_actions": {"type": "boolean"},
                     "no_installable_package": {"type": "boolean"},
                     "tests": {"type": "boolean"},
+                    "github_org": {"type": "string"},
+                    "repo_name": {"type": "string"},
+                    "doc_host": {"type": "string"},
                 },
                 "required": ["input_path", "output_dir"],
             },
@@ -144,6 +147,9 @@ def get_tools() -> list[MCPToolDefinition]:
                         "type": "string",
                         "description": "Target generation strategy: to_sdk, to_sdk_cli, to_server, to_tests",
                     },
+                    "github_org": {"type": "string"},
+                    "repo_name": {"type": "string"},
+                    "doc_host": {"type": "string"},
                 },
                 "required": ["input_path", "output_dir"],
             },

@@ -263,7 +263,7 @@ class WorkflowExtractor(cst.CSTVisitor):
             The extracted `WorkflowObject`.
         """
         wf_id = node.name.value
-        summary, description = parse_docstring(node)
+        summary, description = parse_docstring(node, preserve_sections=True)
         param_docs: dict[str, str] = {}
         if description and "Args:" in description:
             args_part = description.split("Args:", 1)[1].split("Returns:", 1)[0]

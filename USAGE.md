@@ -6,8 +6,8 @@ The `cdd-python-all` (also installed as `cdd-python`) CLI and `openapi_client` P
 
 1. **`from_openapi`**: Generate a Python Client SDK (`to_sdk`), Client CLI (`to_sdk_cli`), or FastAPI + SQLAlchemy Server (`to_server`) from an OpenAPI JSON file (`-i`) or directory (`-d`).
 ```bash
-cdd-python-all from_openapi to_sdk -i openapi.json -o my_client --tests
-cdd-python-all from_openapi to_sdk_cli -i openapi.json -o my_cli --tests --mcp
+cdd-python-all from_openapi to_sdk -i openapi.json -o my_client --tests --github-org offscale --repo-name my-sdk --doc-host readthedocs
+cdd-python-all from_openapi to_sdk_cli -i openapi.json -o my_cli --tests --mcp --doc-host github_pages
 cdd-python-all from_openapi to_server -i openapi.json -o my_server --tests --arazzo arazzo.json
 ```
 

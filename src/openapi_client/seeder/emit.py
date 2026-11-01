@@ -137,7 +137,13 @@ def _emit_pool_module() -> cst.Module:
                     returns=cst.Annotation(cst.Name("None")),
                     body=cst.IndentedBlock(
                         body=[
-                            _doc_stmt("Add an entity ID to the pool."),
+                            _doc_stmt(
+                                """Add an entity ID to the pool.
+
+    Args:
+        model_name: Name of the entity model.
+        entity_id: Primary key identifier to store."""
+                            ),
                             cst.If(
                                 test=cst.parse_expression(
                                     "model_name not in self.pools"
@@ -170,7 +176,12 @@ def _emit_pool_module() -> cst.Module:
                     returns=cst.Annotation(cst.Name("Any")),
                     body=cst.IndentedBlock(
                         body=[
-                            _doc_stmt("Get a random entity ID from the pool."),
+                            _doc_stmt(
+                                """Get a random entity ID from the pool.
+
+    Args:
+        model_name: Name of the entity model."""
+                            ),
                             cst.If(
                                 test=cst.parse_expression(
                                     "model_name not in self.pools or not self.pools[model_name]"
@@ -191,6 +202,8 @@ def _emit_pool_module() -> cst.Module:
     )
     return build_cst_module(
         [
+            _doc_stmt("Entity pool for tracking generated mock record IDs."),
+            cst.EmptyLine(),
             cst.parse_statement("from typing import Any, Dict, List"),
             cst.EmptyLine(),
             cls_def,
@@ -232,6 +245,8 @@ def emit_seeder(spec: OpenAPI) -> dict[str, str]:
     ordered_models = _topological_sort_models(schemas)
 
     factories_body: list[cst.BaseStatement | cst.EmptyLine] = [
+        _doc_stmt("Faker factories for generating mock model instances."),
+        cst.EmptyLine(),
         cst.parse_statement("import random"),
         cst.parse_statement("from faker import Faker"),
         cst.parse_statement("from .pool import EntityPool"),
@@ -246,7 +261,10 @@ def emit_seeder(spec: OpenAPI) -> dict[str, str]:
         fn_stmts: list[cst.BaseStatement] = [
             _doc_stmt(
                 f"""Create a mapping dictionary for {name} using Faker.
-    Uses pool to randomly select valid foreign keys if needed."""
+    Uses pool to randomly select valid foreign keys if needed.
+
+    Args:
+        pool: Entity pool containing parent record IDs."""
             ),
             cst.parse_statement(f"obj = {class_name}()"),
         ]
@@ -315,7 +333,10 @@ def emit_seeder(spec: OpenAPI) -> dict[str, str]:
     seed_stmts: list[cst.BaseStatement] = [
         _doc_stmt(
             """Batch insertion function to seed the database.
-    Maintains topological order and generation ratios."""
+    Maintains topological order and generation ratios.
+
+    Args:
+        session: Active SQLAlchemy database session."""
         ),
         cst.parse_statement("pool = EntityPool()"),
     ]
@@ -344,6 +365,8 @@ def emit_seeder(spec: OpenAPI) -> dict[str, str]:
 
     seeder_mod = build_cst_module(
         [
+            _doc_stmt("Database seeder orchestration module."),
+            cst.EmptyLine(),
             cst.parse_statement("from sqlalchemy.orm import Session"),
             cst.parse_statement("from .pool import EntityPool"),
             cst.parse_statement("from .factories import *"),
@@ -367,12 +390,14 @@ def emit_seeder(spec: OpenAPI) -> dict[str, str]:
 
     files["mocks/__init__.py"] = cst.Module(
         body=[
+            _doc_stmt("Generated mock seeder package."),
             cst.parse_statement("from .pool import EntityPool"),
             cst.parse_statement("from .seeder import seed_database"),
         ]
     ).code
     files["seeder.py"] = cst.Module(
         body=[
+            _doc_stmt("Database seeder entrypoint module."),
             cst.parse_statement("from mocks.pool import EntityPool"),
             cst.parse_statement("from mocks.seeder import seed_database"),
         ]

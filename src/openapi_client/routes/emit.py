@@ -30,7 +30,18 @@ class ClientGenerator:
         Returns:
             The constructed Python syntax tree representing the client.
         """
-        body: list[cst.BaseStatement | cst.EmptyLine] = []
+        body: list[cst.BaseStatement | cst.EmptyLine] = [
+            cst.SimpleStatementLine(
+                [
+                    cst.Expr(
+                        value=cst.SimpleString(
+                            '"""Generated OpenAPI HTTP client module."""'
+                        )
+                    )
+                ]
+            ),
+            cst.EmptyLine(),
+        ]
 
         body.append(
             cst.SimpleStatementLine(
@@ -82,9 +93,19 @@ class ClientGenerator:
             body.append(cst.EmptyLine())
 
         methods = emit_functions(self.spec)
+        client_doc = cst.SimpleStatementLine(
+            [
+                cst.Expr(
+                    value=cst.SimpleString(
+                        '"""HTTP API client for the OpenAPI service."""'
+                    )
+                )
+            ]
+        )
 
         client_class = cst.ClassDef(
-            name=cst.Name("Client"), body=cst.IndentedBlock(body=methods)
+            name=cst.Name("Client"),
+            body=cst.IndentedBlock(body=[client_doc, *methods]),
         )
 
         body.append(client_class)

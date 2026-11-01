@@ -30,6 +30,18 @@ from openapi_client.workflows.emit import emit_workflows_code
 from openapi_client.workflows.parse import extract_arazzo_from_code
 
 
+def _ensure_init_py(pkg_dir: Path, doc: str = '"""Generated package."""\n') -> None:
+    """Create `__init__.py` with a module docstring if absent or empty.
+
+    Args:
+        pkg_dir: Directory where `__init__.py` should exist.
+        doc: Default module docstring to write when creating or populating `__init__.py`.
+    """
+    init_file = pkg_dir / "__init__.py"
+    if not init_file.exists() or not init_file.read_text(encoding="utf-8").strip():
+        init_file.write_text(doc, encoding="utf-8")
+
+
 def sync_dir(
     project_dir: str,
     truth: str | None = None,
@@ -74,7 +86,7 @@ def sync_dir(
 
     spec = OpenAPI(
         openapi="3.2.0",
-        info=Info(title="Extracted API", version="0.0.4"),
+        info=Info(title="Extracted API", version="0.0.5"),
         paths={},
         components=Components(schemas={}),
     )
@@ -127,25 +139,25 @@ def sync_dir(
     generator = ClientGenerator(spec)
     out_client_py = out_d / client_py.relative_to(d)
     out_client_py.parent.mkdir(parents=True, exist_ok=True)
-    (out_client_py.parent / "__init__.py").touch(exist_ok=True)
+    _ensure_init_py(out_client_py.parent)
     out_client_py.write_text(generator.generate_code(), encoding="utf-8")
 
     if spec.components and spec.components.schemas:
         out_models_py = out_d / models_py.relative_to(d)
         out_models_py.parent.mkdir(parents=True, exist_ok=True)
-        (out_models_py.parent / "__init__.py").touch(exist_ok=True)
+        _ensure_init_py(out_models_py.parent)
         out_models_py.write_text(
             emit_models_module(spec.components.schemas), encoding="utf-8"
         )
 
     out_test_py = out_d / test_py.relative_to(d)
     out_test_py.parent.mkdir(parents=True, exist_ok=True)
-    (out_test_py.parent / "__init__.py").touch(exist_ok=True)
+    _ensure_init_py(out_test_py.parent, '"""Generated test package."""\n')
     out_test_py.write_text(emit_tests(spec).code, encoding="utf-8")
 
     out_mock_py = out_d / mock_py.relative_to(d)
     out_mock_py.parent.mkdir(parents=True, exist_ok=True)
-    (out_mock_py.parent / "__init__.py").touch(exist_ok=True)
+    _ensure_init_py(out_mock_py.parent, '"""Generated test package."""\n')
     out_mock_py.write_text(emit_mock_server(spec).code, encoding="utf-8")
 
     dao_fn = getattr(_cli, "emit_dao", emit_dao)
@@ -165,7 +177,7 @@ def sync_dir(
     if cli_py.exists():
         out_cli_py = out_d / cli_py.relative_to(d)
         out_cli_py.parent.mkdir(parents=True, exist_ok=True)
-        (out_cli_py.parent / "__init__.py").touch(exist_ok=True)
+        _ensure_init_py(out_cli_py.parent)
         out_cli_py.write_text(emit_cli_sdk(spec), encoding="utf-8")
 
     arazzo_json = d / "arazzo.json"

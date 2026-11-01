@@ -2269,3 +2269,143 @@ def test_write_generated_local_str(tmp_path: Path) -> None:
         sync_dir(str(tmp_path))
 
     assert (tmp_path / "seeder.py").read_text(encoding="utf-8") == "string_code"
+    # Second sync when __init__.py already has a docstring
+    sync_dir(str(tmp_path))
+
+
+def test_scaffold_package_and_github_actions_variants(tmp_path: Path) -> None:
+    """Test scaffold_package and scaffold_github_actions with all doc_host, cli, and server variants.
+
+    Args:
+        tmp_path: Temporary directory path fixture.
+    """
+    from openapi_client.scaffolding import (
+        _sanitize_slug,
+        scaffold_github_actions,
+        scaffold_package,
+    )
+    from scripts.doc_coverage import calculate_doc_coverage
+
+    assert _sanitize_slug("My Cool-SDK!") == "my_cool_sdk"
+    assert _sanitize_slug("123-sdk") == "pkg_123_sdk"
+    assert _sanitize_slug("!!!") == "generated_sdk"
+
+    # 1. Read the Docs + CLI + MCP
+    rtd_dir = tmp_path / "rtd_pkg"
+    rtd_dir.mkdir()
+    scaffold_package(
+        rtd_dir,
+        cli=True,
+        mcp=True,
+        github_org="acme",
+        repo_name="acme-cli",
+        doc_host="readthedocs",
+        package_name="acme_cli",
+        version="1.2.3",
+        description='Acme CLI "tool"\nextra line',
+        license_id="MIT",
+    )
+    scaffold_github_actions(rtd_dir, tests=True, doc_host="readthedocs")
+    pyproject_rtd = (rtd_dir / "pyproject.toml").read_text(encoding="utf-8")
+    assert 'name = "acme_cli"' in pyproject_rtd
+    assert "https://acme-cli.readthedocs.io/" in pyproject_rtd
+    assert 'acme-cli = "cli_main:main"' in pyproject_rtd
+    assert 'acme-cli-mcp = "mcp_server:start_mcp_server"' in pyproject_rtd
+    assert (rtd_dir / ".readthedocs.yaml").exists()
+    assert (rtd_dir / "docs" / "conf.py").exists()
+    assert (rtd_dir / "docs" / "index.rst").exists()
+    # Calling again when files already exist should be a no-op
+    scaffold_package(rtd_dir, doc_host="readthedocs")
+    scaffold_github_actions(rtd_dir, doc_host="readthedocs")
+
+    # 2. Server + doc_host="none" + empty description fallback
+    srv_dir = tmp_path / "srv_pkg"
+    srv_dir.mkdir()
+    scaffold_package(
+        srv_dir,
+        server=True,
+        doc_host="none",
+        description="",
+    )
+    scaffold_github_actions(srv_dir, tests=False, doc_host="none")
+    pyproject_srv = (srv_dir / "pyproject.toml").read_text(encoding="utf-8")
+    assert '-server = "main:main"' in pyproject_srv
+    assert "#readme" in pyproject_srv
+    assert not (srv_dir / "docs").exists()
+    assert not (srv_dir / ".readthedocs.yaml").exists()
+    assert "sphinx-build" not in (
+        srv_dir / ".github" / "workflows" / "ci.yml"
+    ).read_text(encoding="utf-8")
+
+    # 3. Verify 100% doc coverage on generated SDK, SDK CLI (+ MCP), and Server packages
+    spec_file = tmp_path / "full_spec.json"
+    spec_file.write_text(
+        json.dumps(
+            {
+                "openapi": "3.2.0",
+                "info": {
+                    "title": "Petstore Pro",
+                    "version": "2.0.0",
+                    "summary": "Petstore summary",
+                    "license": {"name": "Apache-2.0", "identifier": "Apache-2.0"},
+                },
+                "components": {
+                    "schemas": {
+                        "Pet": {
+                            "type": "object",
+                            "required": ["id"],
+                            "properties": {
+                                "id": {"type": "integer", "description": "Pet ID"},
+                                "name": {"type": "string"},
+                            },
+                        }
+                    }
+                },
+                "paths": {
+                    "/pets": {
+                        "get": {
+                            "operationId": "list_pets",
+                            "tags": ["pet"],
+                            "parameters": [
+                                {
+                                    "name": "limit",
+                                    "in": "query",
+                                    "schema": {"type": "integer"},
+                                }
+                            ],
+                            "responses": {"200": {"description": "ok"}},
+                        },
+                        "post": {
+                            "operationId": "create_pet",
+                            "tags": ["pet"],
+                            "requestBody": {
+                                "content": {
+                                    "application/json": {
+                                        "schema": {"$ref": "#/components/schemas/Pet"}
+                                    }
+                                }
+                            },
+                            "responses": {"201": {"description": "created"}},
+                        },
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    for mode in ("to_sdk", "to_sdk_cli", "to_server"):
+        mode_dir = tmp_path / f"gen_{mode}"
+        generate_from_openapi(
+            mode,
+            str(spec_file),
+            None,
+            str(mode_dir),
+            tests=True,
+            mcp=(mode == "to_sdk_cli"),
+            github_org="myorg",
+            repo_name=f"repo-{mode}",
+            doc_host="github-pages",
+        )
+        pct, w, t = calculate_doc_coverage(str(mode_dir))
+        assert pct == 100.0, f"Generated {mode} doc coverage was {pct}% ({w}/{t})"

@@ -26,6 +26,8 @@ def emit_sqlalchemy(spec: OpenAPI) -> dict[str, str]:
 
     files: dict[str, str] = {}
     init_body = [
+        '"""Generated SQLAlchemy ORM models package."""',
+        "",
         "from sqlalchemy.orm import declarative_base",
         "",
         "Base = declarative_base()",
@@ -38,7 +40,8 @@ def emit_sqlalchemy(spec: OpenAPI) -> dict[str, str]:
             ir: dict[str, Any] = {
                 "name": class_name,
                 "type": "static",
-                "doc": getattr(schema, "description", "") or "",
+                "doc": getattr(schema, "description", "")
+                or f"SQLAlchemy model for {class_name}.",
                 "params": params,
                 "returns": None,
             }
@@ -70,6 +73,8 @@ def emit_sqlalchemy(spec: OpenAPI) -> dict[str, str]:
 
             code = ast.unparse(sa_ast)
             model_code = [
+                f'"""SQLAlchemy model module for {class_name}."""',
+                "",
                 "from sqlalchemy import Column, Integer, String, Float, Boolean, JSON, Identity",
                 "from . import Base",
                 "",

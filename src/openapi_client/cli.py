@@ -101,7 +101,7 @@ def get_version() -> str:
     try:
         return version("openapi-python-client")
     except PackageNotFoundError:  # pragma: no cover
-        return "0.0.4"
+        return "0.0.5"
 
 
 def apply_env_vars_to_parser(
@@ -141,6 +141,9 @@ def generate_from_openapi(
     tests: bool = False,
     mcp: bool = False,
     arazzo_path: str | None = None,
+    github_org: str | None = None,
+    repo_name: str | None = None,
+    doc_host: str = "readthedocs",
 ) -> None:
     """Process `from_openapi` subcommands (`to_sdk`, `to_sdk_cli`, `to_server`).
 
@@ -154,6 +157,9 @@ def generate_from_openapi(
         tests: If True, generate unit tests and mock servers.
         mcp: If True, generate MCP server, SSE server, and adapter modules.
         arazzo_path: Optional path to a companion Arazzo 1.1.0 specification to bundle.
+        github_org: Optional GitHub organization or user name for scaffolding URLs.
+        repo_name: Optional repository name for scaffolding URLs.
+        doc_host: Documentation hosting target (`'readthedocs'`, `'github-pages'`, or `'none'`).
     """
     out_dir = _resolve_output_dir(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -175,7 +181,9 @@ def generate_from_openapi(
 
             src_dir = out_dir / "src"
             src_dir.mkdir(parents=True, exist_ok=True)
-            (src_dir / "__init__.py").touch(exist_ok=True)
+            (src_dir / "__init__.py").write_text(
+                '"""Generated SDK package."""\n', encoding="utf-8"
+            )
 
             (src_dir / "client.py").write_text(
                 generator.generate_code(), encoding="utf-8"
@@ -192,7 +200,9 @@ def generate_from_openapi(
             if tests:
                 test_dir = out_dir / "test"
                 test_dir.mkdir(parents=True, exist_ok=True)
-                (test_dir / "__init__.py").touch()
+                (test_dir / "__init__.py").write_text(
+                    '"""Generated test package."""\n', encoding="utf-8"
+                )
                 (test_dir / "test_client.py").write_text(
                     emit_tests(spec, composable=True).code, encoding="utf-8"
                 )
@@ -208,7 +218,9 @@ def generate_from_openapi(
 
             src_dir = out_dir / "src"
             src_dir.mkdir(parents=True, exist_ok=True)
-            (src_dir / "__init__.py").touch(exist_ok=True)
+            (src_dir / "__init__.py").write_text(
+                '"""Generated SDK CLI package."""\n', encoding="utf-8"
+            )
 
             (src_dir / "client.py").write_text(
                 generator.generate_code(), encoding="utf-8"
@@ -236,7 +248,9 @@ def generate_from_openapi(
             if tests:
                 test_dir = out_dir / "test"
                 test_dir.mkdir(parents=True, exist_ok=True)
-                (test_dir / "__init__.py").touch()
+                (test_dir / "__init__.py").write_text(
+                    '"""Generated test package."""\n', encoding="utf-8"
+                )
                 (test_dir / "test_client.py").write_text(
                     emit_tests(spec, composable=True).code, encoding="utf-8"
                 )
@@ -248,7 +262,9 @@ def generate_from_openapi(
                 )
                 write_generated(emit_dao(spec), "dao.py", base_dir=test_dir)
         elif subcommand == "to_server":
-            (out_dir / "__init__.py").touch(exist_ok=True)
+            (out_dir / "__init__.py").write_text(
+                '"""Generated server package."""\n', encoding="utf-8"
+            )
 
             fastapi_code = emit_fastapi(spec)
             write_generated(fastapi_code, "main.py", base_dir=out_dir)
@@ -267,7 +283,9 @@ def generate_from_openapi(
 
             test_dir = out_dir / "tests"
             test_dir.mkdir(parents=True, exist_ok=True)
-            (test_dir / "__init__.py").touch(exist_ok=True)
+            (test_dir / "__init__.py").write_text(
+                '"""Generated server test package."""\n', encoding="utf-8"
+            )
             test_code = emit_server_tests(spec)
             write_generated(test_code, "test_server.py", base_dir=test_dir)
 
@@ -283,13 +301,44 @@ def generate_from_openapi(
             no_github_actions=True,
             no_installable_package=True,
             tests=tests,
+            github_org=github_org,
+            repo_name=repo_name,
+            doc_host=doc_host,
         )
 
     if not no_installable_package:
-        scaffold_package(out_dir, is_server=(subcommand == "to_server"))
+        first_spec = specs[0] if specs else None
+        pkg_ver = first_spec.info.version if first_spec else "0.1.0"
+        pkg_desc = (
+            (
+                first_spec.info.summary
+                or first_spec.info.description
+                or first_spec.info.title
+            )
+            if first_spec
+            else "Generated Python SDK"
+        )
+        pkg_lic = (
+            (first_spec.info.license.identifier or first_spec.info.license.name)
+            if (first_spec and first_spec.info.license)
+            else "Apache-2.0 OR MIT"
+        )
+        scaffold_package(
+            out_dir,
+            server=(subcommand == "to_server"),
+            cli=(subcommand == "to_sdk_cli"),
+            mcp=mcp,
+            github_org=github_org,
+            repo_name=repo_name,
+            doc_host=doc_host,
+            package_name=repo_name or (first_spec.info.title if first_spec else None),
+            version=pkg_ver,
+            description=pkg_desc,
+            license_id=pkg_lic,
+        )
 
     if not no_github_actions:
-        scaffold_github_actions(out_dir, tests=tests)
+        scaffold_github_actions(out_dir, tests=tests, doc_host=doc_host)
 
     print(f"Successfully generated {subcommand} in {out_dir}")
 
@@ -302,6 +351,9 @@ def generate_from_arazzo(
     no_github_actions: bool = False,
     no_installable_package: bool = False,
     tests: bool = False,
+    github_org: str | None = None,
+    repo_name: str | None = None,
+    doc_host: str = "readthedocs",
 ) -> None:
     """Process `from_arazzo` subcommands (`to_sdk`, `to_sdk_cli`, `to_server`, `to_tests`).
 
@@ -313,6 +365,9 @@ def generate_from_arazzo(
         no_github_actions: If True, skip `.github/workflows/ci.yml` generation.
         no_installable_package: If True, skip `pyproject.toml` generation.
         tests: If True, generate end-to-end workflow pytest suites.
+        github_org: Optional GitHub organization or user name for scaffolding URLs.
+        repo_name: Optional repository name for scaffolding URLs.
+        doc_host: Documentation hosting target (`'readthedocs'`, `'github-pages'`, or `'none'`).
     """
     out_dir = _resolve_output_dir(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -343,7 +398,9 @@ def generate_from_arazzo(
         if subcommand == "to_sdk":
             src_dir = out_dir / "src"
             src_dir.mkdir(parents=True, exist_ok=True)
-            (src_dir / "__init__.py").touch(exist_ok=True)
+            (src_dir / "__init__.py").write_text(
+                '"""Generated SDK package."""\n', encoding="utf-8"
+            )
             (src_dir / "workflows.py").write_text(
                 emit_workflows_code(spec, sources), encoding="utf-8"
             )
@@ -353,14 +410,18 @@ def generate_from_arazzo(
             if tests:
                 test_dir = out_dir / "test"
                 test_dir.mkdir(parents=True, exist_ok=True)
-                (test_dir / "__init__.py").touch(exist_ok=True)
+                (test_dir / "__init__.py").write_text(
+                    '"""Generated test package."""\n', encoding="utf-8"
+                )
                 (test_dir / "test_workflows.py").write_text(
                     emit_arazzo_tests_code(spec), encoding="utf-8"
                 )
         elif subcommand == "to_sdk_cli":
             src_dir = out_dir / "src"
             src_dir.mkdir(parents=True, exist_ok=True)
-            (src_dir / "__init__.py").touch(exist_ok=True)
+            (src_dir / "__init__.py").write_text(
+                '"""Generated SDK CLI package."""\n', encoding="utf-8"
+            )
             (src_dir / "workflows.py").write_text(
                 emit_workflows_code(spec, sources), encoding="utf-8"
             )
@@ -373,36 +434,61 @@ def generate_from_arazzo(
             if tests:
                 test_dir = out_dir / "test"
                 test_dir.mkdir(parents=True, exist_ok=True)
-                (test_dir / "__init__.py").touch(exist_ok=True)
+                (test_dir / "__init__.py").write_text(
+                    '"""Generated test package."""\n', encoding="utf-8"
+                )
                 (test_dir / "test_workflows.py").write_text(
                     emit_arazzo_tests_code(spec), encoding="utf-8"
                 )
         elif subcommand == "to_tests":
             test_dir = out_dir / "test"
             test_dir.mkdir(parents=True, exist_ok=True)
-            (test_dir / "__init__.py").touch(exist_ok=True)
+            (test_dir / "__init__.py").write_text(
+                '"""Generated test package."""\n', encoding="utf-8"
+            )
             (test_dir / "test_workflows.py").write_text(
                 emit_arazzo_tests_code(spec), encoding="utf-8"
             )
         else:
             routes_dir = out_dir / "routes"
             routes_dir.mkdir(parents=True, exist_ok=True)
-            (routes_dir / "__init__.py").touch(exist_ok=True)
+            (routes_dir / "__init__.py").write_text(
+                '"""Generated routes package."""\n', encoding="utf-8"
+            )
             (routes_dir / "workflows.py").write_text(
                 emit_fastapi_arazzo_routes(spec), encoding="utf-8"
             )
             test_dir = out_dir / "tests"
             test_dir.mkdir(parents=True, exist_ok=True)
-            (test_dir / "__init__.py").touch(exist_ok=True)
+            (test_dir / "__init__.py").write_text(
+                '"""Generated server test package."""\n', encoding="utf-8"
+            )
             (test_dir / "test_workflows.py").write_text(
                 emit_arazzo_tests_code(spec), encoding="utf-8"
             )
 
     if not no_installable_package:
-        scaffold_package(out_dir, is_server=(subcommand == "to_server"))
+        first_ar = specs[0][1] if specs else None
+        ar_ver = first_ar.info.version if first_ar else "0.1.0"
+        ar_desc = (
+            (first_ar.info.summary or first_ar.info.description or first_ar.info.title)
+            if first_ar
+            else "Generated Arazzo SDK"
+        )
+        scaffold_package(
+            out_dir,
+            server=(subcommand == "to_server"),
+            cli=(subcommand == "to_sdk_cli"),
+            github_org=github_org,
+            repo_name=repo_name,
+            doc_host=doc_host,
+            package_name=repo_name or (first_ar.info.title if first_ar else None),
+            version=ar_ver,
+            description=ar_desc,
+        )
 
     if not no_github_actions:
-        scaffold_github_actions(out_dir, tests=tests)
+        scaffold_github_actions(out_dir, tests=tests, doc_host=doc_host)
 
     print(f"Successfully generated Arazzo {subcommand} in {out_dir}")
 
@@ -479,7 +565,7 @@ def generate_to_openapi(input_path: str | Path, output_path: str | Path) -> None
         else:
             spec = OpenAPI(
                 openapi="3.2.0",
-                info=Info(title="Extracted API", version="0.0.4"),
+                info=Info(title="Extracted API", version="0.0.5"),
                 paths={},
                 components=Components(schemas={}),
             )
@@ -546,7 +632,7 @@ def generate_to_openapi(input_path: str | Path, output_path: str | Path) -> None
     if "argparse" in code and "add_parser" in code:
         spec = OpenAPI(
             openapi="3.2.0",
-            info=Info(title="Extracted API", version="0.0.4"),
+            info=Info(title="Extracted API", version="0.0.5"),
             paths={},
             components=Components(schemas={}),
         )
@@ -638,6 +724,25 @@ def main() -> None:
             default=None,
             help="Optional companion Arazzo 1.1.0 specification to bundle.",
         )
+        p.add_argument(
+            "--github-org",
+            type=str,
+            default=None,
+            help="GitHub organization or user name for generated package URLs.",
+        )
+        p.add_argument(
+            "--repo-name",
+            type=str,
+            default=None,
+            help="GitHub repository name for generated package URLs.",
+        )
+        p.add_argument(
+            "--doc-host",
+            type=str,
+            choices=["official", "readthedocs", "github_pages", "github-pages", "none"],
+            default="readthedocs",
+            help="Documentation hosting provider ('official', 'readthedocs', 'github_pages', or 'none').",
+        )
 
     to_openapi_parser = subparsers.add_parser(
         "to_openapi",
@@ -705,6 +810,25 @@ def main() -> None:
             "--tests",
             action="store_true",
             help="Generate workflow end-to-end tests.",
+        )
+        ar_p.add_argument(
+            "--github-org",
+            type=str,
+            default=None,
+            help="GitHub organization or user name for generated package URLs.",
+        )
+        ar_p.add_argument(
+            "--repo-name",
+            type=str,
+            default=None,
+            help="GitHub repository name for generated package URLs.",
+        )
+        ar_p.add_argument(
+            "--doc-host",
+            type=str,
+            choices=["official", "readthedocs", "github_pages", "github-pages", "none"],
+            default="readthedocs",
+            help="Documentation hosting provider ('official', 'readthedocs', 'github_pages', or 'none').",
         )
 
     to_arazzo_parser = subparsers.add_parser(
@@ -816,6 +940,9 @@ def main() -> None:
             getattr(args, "tests", False),
             getattr(args, "mcp", False),
             getattr(args, "arazzo", None),
+            getattr(args, "github_org", None),
+            getattr(args, "repo_name", None),
+            getattr(args, "doc_host", "readthedocs"),
         )
     elif args.command == "to_openapi":
         in_path = args.input
@@ -833,6 +960,9 @@ def main() -> None:
             args.no_github_actions,
             args.no_installable_package,
             getattr(args, "tests", False),
+            getattr(args, "github_org", None),
+            getattr(args, "repo_name", None),
+            getattr(args, "doc_host", "readthedocs"),
         )
     elif args.command == "to_arazzo":
         generate_to_arazzo(args.input, args.output)

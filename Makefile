@@ -56,7 +56,10 @@ build_wasm:
 	@echo "Building WASM to bin/"
 	uv run python scripts/build_wasm.py
 test:
-	uv run pytest tests/
+	uv run pytest --cov --cov-branch --cov-fail-under=100
+	uv run mypy --strict
+	uv run python scripts/doc_coverage.py
+	uv run interrogate -v --fail-under 100 src scripts tests test
 run: build
 	python3 -m openapi_client.cli $(RUN_ARGS) || cdd-python $(RUN_ARGS)
 

@@ -27,6 +27,8 @@ def emit_server_tests(spec: OpenAPI) -> dict[str, str]:
     first_model_cls = sanitize_class_name(first_model)
 
     conftest_lines = [
+        '"""Pytest fixtures for generated server test suite."""',
+        "",
         "import os",
         "import pytest",
         "from fastapi.testclient import TestClient",
@@ -41,6 +43,7 @@ def emit_server_tests(spec: OpenAPI) -> dict[str, str]:
         "",
         "@pytest.fixture",
         "def client():",
+        '    """Fixture providing a FastAPI TestClient."""',
         "    return TestClient(app)",
         "",
         "@pytest.fixture",
@@ -74,6 +77,8 @@ def emit_server_tests(spec: OpenAPI) -> dict[str, str]:
     files["conftest.py"] = "\n".join(conftest_lines)
 
     unit_lines = [
+        '"""Unit tests for generated server database, DAO, and seeder layers."""',
+        "",
         "import os",
         "from unittest.mock import patch",
         "from db import setup_database, get_db_session",
@@ -114,6 +119,8 @@ def emit_server_tests(spec: OpenAPI) -> dict[str, str]:
     files["test_unit.py"] = "\n".join(unit_lines)
 
     stub_lines = [
+        '"""Stub mode endpoint tests for generated server."""',
+        "",
         "import os",
         "from unittest.mock import patch",
         "from fastapi.testclient import TestClient",
@@ -145,11 +152,13 @@ def emit_server_tests(spec: OpenAPI) -> dict[str, str]:
     files["test_stub.py"] = "\n".join(stub_lines)
 
     ephemeral_lines = [
+        '"""Ephemeral database tests for generated server."""',
+        "",
         "from dao import get_dao",
         "from db import get_db_session",
         "",
         "def test_ephemeral_clean_state(ephemeral_client):",
-        '    """Test that the ephemeral DB is clean initially."""',
+        '    """Test that the ephemeral DB is clean initially.\n\n    Args:\n        ephemeral_client: Ephemeral TestClient fixture.\n    """',
         "    gen = get_db_session()",
         "    db = next(gen)",
         f"    dao = get_dao({first_model!r}, session=db, ephemeral=True)",
@@ -161,11 +170,13 @@ def emit_server_tests(spec: OpenAPI) -> dict[str, str]:
     files["test_ephemeral.py"] = "\n".join(ephemeral_lines)
 
     seeded_lines = [
+        '"""Seeded database tests for generated server."""',
+        "",
         "from dao import get_dao",
         "from db import get_db_session",
         "",
         "def test_seeded_state(seeded_client):",
-        '    """Test that the seeded DB contains generated relational data."""',
+        '    """Test that the seeded DB contains generated relational data.\n\n    Args:\n        seeded_client: Seeded TestClient fixture.\n    """',
         "    gen = get_db_session()",
         "    db = next(gen)",
         f"    dao = get_dao({first_model!r}, session=db, ephemeral=True)",
@@ -177,6 +188,8 @@ def emit_server_tests(spec: OpenAPI) -> dict[str, str]:
     files["test_seeded.py"] = "\n".join(seeded_lines)
 
     advanced_lines = [
+        '"""Advanced middleware, CORS, webhook, and auth tests for generated server."""',
+        "",
         "from fastapi.testclient import TestClient",
         "from main import app",
         "",

@@ -102,7 +102,10 @@ def emit_db(spec: OpenAPI) -> str:
             body=[
                 _doc_stmt(
                     """Implement the connection factory.
-    Reads the configuration and yields the appropriate SQLAlchemy engine."""
+    Reads the configuration and yields the appropriate SQLAlchemy engine.
+
+    Args:
+        config: Database configuration instance."""
                 ),
                 cst.If(
                     test=cst.parse_expression("not config.database_url"),
@@ -146,7 +149,10 @@ def emit_db(spec: OpenAPI) -> str:
         body=cst.IndentedBlock(
             body=[
                 _doc_stmt(
-                    """Implement an initialization routine that programmatically executes DB schema migrations."""
+                    """Implement an initialization routine that programmatically executes DB schema migrations.
+
+    Args:
+        engine: SQLAlchemy database engine."""
                 ),
                 cst.parse_statement("Base.metadata.create_all(bind=engine)"),
             ]
@@ -175,7 +181,11 @@ def emit_db(spec: OpenAPI) -> str:
         body=cst.IndentedBlock(
             body=[
                 _doc_stmt(
-                    "Set up the global database connection and run migrations if needed."
+                    """Set up the global database connection and run migrations if needed.
+
+    Args:
+        database_url: Optional database connection URL.
+        ephemeral: If True, configure an in-memory SQLite database."""
                 ),
                 cst.parse_statement("global engine, SessionLocal"),
                 cst.parse_statement(

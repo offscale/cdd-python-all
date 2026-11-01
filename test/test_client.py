@@ -10,6 +10,12 @@ from openapi_client.models import Info, MediaType, OpenAPI, Response
 
 def test_client() -> None:
     """Verify the mock server module parses into an OpenAPI specification with routes and SSE."""
+    import openapi_client
+    import src
+
+    assert src.__version__ == "0.0.5"
+    assert openapi_client.__version__ == "0.0.5"
+
     with open("test/mock_server.py", encoding="utf-8") as f:
         code = f.read()
     spec = OpenAPI(openapi="3.2.0", info=Info(title="Mock", version="1.0.0"), paths={})

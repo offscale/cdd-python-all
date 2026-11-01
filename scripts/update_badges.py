@@ -39,7 +39,14 @@ def main() -> None:
 
     print("Running tests and calculating coverage...")
     test_result = subprocess.run(
-        ["pytest", "tests/", "--cov=src/openapi_client", "--cov-report=term"],
+        [
+            "pytest",
+            "tests/",
+            "--cov=src",
+            "--cov=scripts",
+            "--cov-branch",
+            "--cov-report=term",
+        ],
         check=False,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,

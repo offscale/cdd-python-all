@@ -87,6 +87,12 @@ def emit_class(name: str, schema: Schema) -> cst.ClassDef:
     docstring = emit_class_docstring(schema)
     if docstring:
         class_body.append(docstring)
+    else:
+        class_body.append(
+            cst.SimpleStatementLine(
+                [cst.Expr(value=cst.SimpleString(f'"""Pydantic model for {name}."""'))]
+            )
+        )
 
     required_fields = set(getattr(schema, "required", None) or [])
 
@@ -118,9 +124,6 @@ def emit_class(name: str, schema: Schema) -> cst.ClassDef:
                     ]
                 )
             )
-
-    if not class_body:
-        class_body.append(cst.SimpleStatementLine([cst.Pass()]))
 
     return cst.ClassDef(
         name=cst.Name(name),
@@ -158,7 +161,16 @@ def emit_models_module(schemas: Mapping[str, SchemaOrReference]) -> str:
     Returns:
         The generated Python source code string for `models.py`.
     """
-    body: list[cst.BaseStatement | cst.EmptyLine] = []
+    body: list[cst.BaseStatement | cst.EmptyLine] = [
+        cst.SimpleStatementLine(
+            [
+                cst.Expr(
+                    value=cst.SimpleString('"""Generated Pydantic schema models."""')
+                )
+            ]
+        ),
+        cst.EmptyLine(),
+    ]
 
     body.append(
         cst.SimpleStatementLine(

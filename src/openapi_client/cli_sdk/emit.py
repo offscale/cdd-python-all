@@ -92,7 +92,12 @@ def emit_cli(spec: OpenAPI) -> cst.Module:
     Returns:
         The generated LibCST Module node for the CLI script.
     """
-    body: list[cst.BaseStatement | cst.EmptyLine] = []
+    body: list[cst.BaseStatement | cst.EmptyLine] = [
+        cst.SimpleStatementLine(
+            [cst.Expr(value=cst.SimpleString('"""Generated Client SDK CLI."""'))]
+        ),
+        cst.EmptyLine(),
+    ]
 
     for mod_name in ("argparse", "json", "os", "sys"):
         body.append(
@@ -112,7 +117,15 @@ def emit_cli(spec: OpenAPI) -> cst.Module:
     )
     body.append(cst.EmptyLine())
 
-    main_body: list[cst.BaseStatement] = []
+    main_body: list[cst.BaseStatement] = [
+        cst.SimpleStatementLine(
+            [
+                cst.Expr(
+                    value=cst.SimpleString('"""Run the generated CLI application."""')
+                )
+            ]
+        )
+    ]
 
     main_body.append(
         cst.SimpleStatementLine(
@@ -580,6 +593,7 @@ def emit_cli(spec: OpenAPI) -> cst.Module:
     main_func = cst.FunctionDef(
         name=cst.Name("main"),
         params=cst.Parameters(),
+        returns=cst.Annotation(annotation=cst.Name("None")),
         body=cst.IndentedBlock(body=main_body),
     )
     body.append(main_func)

@@ -174,15 +174,21 @@ def something():
     return other()
     return EventSourceResponse
     return app.EventSourceResponse()
+
+@app.post("/undocumented")
+def undoc():
+    pass
 """
     module = cst.parse_module(code)
     spec = OpenAPI(openapi="3.2.0", info={"title": "Test", "version": "1.0"}, paths={})
     extract_mocks_from_ast(module, spec)
-    assert spec.paths == {}
+    assert spec.paths is not None
+    assert "/undocumented" in spec.paths
 
     spec.paths = None
     extract_mocks_from_ast(module, spec)
-    assert spec.paths == {}
+    assert spec.paths is not None
+    assert "/undocumented" in spec.paths
 
 
 def test_cli_edge_cases(monkeypatch: pytest.MonkeyPatch) -> None:

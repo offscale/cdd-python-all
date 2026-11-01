@@ -18,7 +18,12 @@ def emit_mock_server(spec: OpenAPI) -> cst.Module:
     Returns:
         The generated LibCST Module node for the mock server.
     """
-    body: list[cst.BaseStatement | cst.EmptyLine] = []
+    body: list[cst.BaseStatement | cst.EmptyLine] = [
+        cst.SimpleStatementLine(
+            [cst.Expr(value=cst.SimpleString('"""Generated FastAPI mock server."""'))]
+        ),
+        cst.EmptyLine(),
+    ]
 
     body.append(
         cst.SimpleStatementLine(
@@ -53,6 +58,9 @@ def emit_mock_server(spec: OpenAPI) -> cst.Module:
                             or f"{method}_{path.replace('/', '_').strip('_')}"
                         )
                         route_name = sanitize_name(raw_route_name)
+                        doc_str = (
+                            operation.summary or f"Mock {method.upper()} {path}."
+                        ).replace('"""', '\\"\\"\\"')
                         decorator = cst.Decorator(
                             decorator=cst.Call(
                                 func=cst.Attribute(
@@ -65,7 +73,18 @@ def emit_mock_server(spec: OpenAPI) -> cst.Module:
                             name=cst.Name(route_name),
                             params=cst.Parameters(),
                             body=cst.IndentedBlock(
-                                [cst.SimpleStatementLine([cst.Pass()])]
+                                [
+                                    cst.SimpleStatementLine(
+                                        [
+                                            cst.Expr(
+                                                value=cst.SimpleString(
+                                                    f'"""{doc_str}"""'
+                                                )
+                                            )
+                                        ]
+                                    ),
+                                    cst.SimpleStatementLine([cst.Pass()]),
+                                ]
                             ),
                             decorators=[decorator],
                         )

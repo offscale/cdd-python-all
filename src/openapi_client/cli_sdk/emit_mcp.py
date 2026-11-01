@@ -85,115 +85,132 @@ def emit_mcp_server(spec: OpenAPI) -> str:
     tools = extract_mcp_tools_from_spec(spec)
     tools_json = json.dumps(tools, indent=4)
 
-    code = f'''"""Model Context Protocol (MCP) server integration."""
-
-import sys
-import json
-
-def start_mcp_server(client):
-    """Run the MCP server reading from stdin and writing to stdout."""
-    tools = json.loads({tools_json!r})
-
-    def send_response(id, result=None, error=None):
-        resp = {{"jsonrpc": "2.0", "id": id}}
-        if error:
-            resp["error"] = error
-        else:
-            resp["result"] = result
-        sys.stdout.write(json.dumps(resp) + "\\n")
-        sys.stdout.flush()
-
-    for line in sys.stdin:
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            req = json.loads(line)
-            method = req.get("method")
-            params = req.get("params", {{}})
-            req_id = req.get("id")
-
-            if method == "initialize":
-                send_response(req_id, result={{
-                    "protocolVersion": "2024-11-05",
-                    "capabilities": {{"tools": {{}}, "resources": {{}}, "prompts": {{}}, "logging": {{}}}},
-                    "serverInfo": {{"name": {title!r}, "version": {version!r}}}
-                }})
-            elif method == "notifications/initialized":
-                pass
-            elif method == "notifications/cancelled":
-                pass
-            elif method == "notifications/progress":
-                pass
-            elif method == "close":
-                send_response(req_id, result={{}})
-                break
-            elif method == "ping":
-                send_response(req_id, result={{}})
-            elif method == "logging/setLevel":
-                send_response(req_id, result={{}})
-            elif method == "resources/list":
-                cursor = params.get("cursor")
-                send_response(req_id, result={{
-                    "resources": [],
-                    "nextCursor": None
-                }})
-            elif method == "resources/read":
-                uri = params.get("uri")
-                send_response(req_id, result={{
-                    "contents": [
-                        {{
-                            "uri": uri,
-                            "mimeType": "application/json",
-                            "text": '{{"error": "Resource not found"}}'
-                        }}
-                    ]
-                }})
-            elif method == "prompts/list":
-                cursor = params.get("cursor")
-                send_response(req_id, result={{
-                    "prompts": [],
-                    "nextCursor": None
-                }})
-            elif method == "prompts/get":
-                name = params.get("name")
-                send_response(req_id, result={{
-                    "description": "Fallback prompt",
-                    "messages": [
-                        {{
-                            "role": "user",
-                            "content": {{
-                                "type": "text",
-                                "text": "Prompt not found"
-                            }}
-                        }}
-                    ]
-                }})
-            elif method == "tools/list":
-                cursor = params.get("cursor")
-                send_response(req_id, result={{"tools": tools, "nextCursor": None}})
-            elif method == "tools/call":
-                tool_name = params.get("name")
-                tool_args = params.get("arguments", {{}})
-                if hasattr(client, tool_name):
-                    func = getattr(client, tool_name)
-                    try:
-                        res = func(**tool_args)
-                        send_response(req_id, result={{
-                            "content": [{{"type": "text", "text": str(res)}}]
-                        }})
-                    except Exception as e:
-                        send_response(req_id, result={{
-                            "content": [{{"type": "text", "text": str(e)}}],
-                            "isError": True
-                        }})
-                else:
-                    send_response(req_id, error={{"code": -32601, "message": "Tool not found"}})
-            else:
-                if req_id is not None:
-                    send_response(req_id, error={{"code": -32601, "message": "Method not found"}})
-        except Exception as e:
-            if "req_id" in locals() and req_id is not None:
-                send_response(req_id, error={{"code": -32603, "message": str(e)}})
-'''
-    return cst.parse_module(code).code
+    lines = [
+        '"""Model Context Protocol (MCP) server integration."""',
+        "",
+        "from __future__ import annotations",
+        "",
+        "import json",
+        "import sys",
+        "from typing import Any",
+        "",
+        "",
+        "def start_mcp_server(client: Any) -> None:",
+        '    """Run the MCP server reading from stdin and writing to stdout.',
+        "",
+        "    Args:",
+        "        client: The generated SDK `Client` instance.",
+        '    """',
+        f"    tools = json.loads({tools_json!r})",
+        "",
+        "    def send_response(id: Any, result: Any = None, error: Any = None) -> None:",
+        '        """Write a JSON-RPC 2.0 response line to stdout.',
+        "",
+        "        Args:",
+        "            id: Request identifier.",
+        "            result: Optional result payload.",
+        "            error: Optional error payload.",
+        '        """',
+        '        resp: dict[str, Any] = {"jsonrpc": "2.0", "id": id}',
+        "        if error:",
+        '            resp["error"] = error',
+        "        else:",
+        '            resp["result"] = result',
+        "        sys.stdout.write(json.dumps(resp) + chr(10))",
+        "        sys.stdout.flush()",
+        "",
+        "    for line in sys.stdin:",
+        "        line = line.strip()",
+        "        if not line:",
+        "            continue",
+        "        try:",
+        "            req = json.loads(line)",
+        '            method = req.get("method")',
+        '            params = req.get("params", {})',
+        '            req_id = req.get("id")',
+        "",
+        '            if method == "initialize":',
+        "                send_response(req_id, result={",
+        '                    "protocolVersion": "2024-11-05",',
+        '                    "capabilities": {"tools": {}, "resources": {}, "prompts": {}, "logging": {}},',
+        f'                    "serverInfo": {{"name": {title!r}, "version": {version!r}}}',
+        "                })",
+        '            elif method == "notifications/initialized":',
+        "                pass",
+        '            elif method == "notifications/cancelled":',
+        "                pass",
+        '            elif method == "notifications/progress":',
+        "                pass",
+        '            elif method == "close":',
+        "                send_response(req_id, result={})",
+        "                break",
+        '            elif method == "ping":',
+        "                send_response(req_id, result={})",
+        '            elif method == "logging/setLevel":',
+        "                send_response(req_id, result={})",
+        '            elif method == "resources/list":',
+        '                cursor = params.get("cursor")',
+        "                send_response(req_id, result={",
+        '                    "resources": [],',
+        '                    "nextCursor": None',
+        "                })",
+        '            elif method == "resources/read":',
+        '                uri = params.get("uri")',
+        "                send_response(req_id, result={",
+        '                    "contents": [',
+        "                        {",
+        '                            "uri": uri,',
+        '                            "mimeType": "application/json",',
+        """                            "text": '{"error": "Resource not found"}'""",
+        "                        }",
+        "                    ]",
+        "                })",
+        '            elif method == "prompts/list":',
+        '                cursor = params.get("cursor")',
+        "                send_response(req_id, result={",
+        '                    "prompts": [],',
+        '                    "nextCursor": None',
+        "                })",
+        '            elif method == "prompts/get":',
+        '                name = params.get("name")',
+        "                send_response(req_id, result={",
+        '                    "description": "Fallback prompt",',
+        '                    "messages": [',
+        "                        {",
+        '                            "role": "user",',
+        '                            "content": {',
+        '                                "type": "text",',
+        '                                "text": "Prompt not found"',
+        "                            }",
+        "                        }",
+        "                    ]",
+        "                })",
+        '            elif method == "tools/list":',
+        '                cursor = params.get("cursor")',
+        '                send_response(req_id, result={"tools": tools, "nextCursor": None})',
+        '            elif method == "tools/call":',
+        '                tool_name = params.get("name")',
+        '                tool_args = params.get("arguments", {})',
+        "                if hasattr(client, tool_name):",
+        "                    func = getattr(client, tool_name)",
+        "                    try:",
+        "                        res = func(**tool_args)",
+        "                        send_response(req_id, result={",
+        '                            "content": [{"type": "text", "text": str(res)}]',
+        "                        })",
+        "                    except Exception as e:",
+        "                        send_response(req_id, result={",
+        '                            "content": [{"type": "text", "text": str(e)}],',
+        '                            "isError": True',
+        "                        })",
+        "                else:",
+        '                    send_response(req_id, error={"code": -32601, "message": "Tool not found"})',
+        "            else:",
+        "                if req_id is not None:",
+        '                    send_response(req_id, error={"code": -32601, "message": "Method not found"})',
+        "        except Exception as e:",
+        '            if "req_id" in locals() and req_id is not None:',
+        '                send_response(req_id, error={"code": -32603, "message": str(e)})',
+        "",
+    ]
+    return cst.parse_module(chr(10).join(lines)).code

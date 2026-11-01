@@ -358,7 +358,17 @@ elif isinstance(response, dict):
 elif isinstance(response, dict):
     assert "sabotage" not in response"""
 
+        doc_stmt = cst.SimpleStatementLine(
+            [
+                cst.Expr(
+                    value=cst.SimpleString(
+                        f'"""Test {op_id} operation.\n\n    Args:\n        client: The generated SDK `Client` fixture.\n    """'
+                    )
+                )
+            ]
+        )
         body: list[cst.BaseStatement] = [
+            doc_stmt,
             cst.SimpleStatementLine(
                 [
                     cst.Assign(
@@ -378,6 +388,9 @@ elif isinstance(response, dict):
     else:
         default_url = get_test_base_url(spec, default_prefix="/api/v3")
         body = [
+            cst.SimpleStatementLine(
+                [cst.Expr(value=cst.SimpleString(f'"""Test {op_id} operation."""'))]
+            ),
             cst.SimpleStatementLine(
                 [
                     cst.Assign(
@@ -437,7 +450,12 @@ def emit_tests(spec: OpenAPI, composable: bool = False) -> cst.Module:
     Returns:
         The generated LibCST Module node for the test file.
     """
-    body: list[cst.BaseStatement | cst.EmptyLine] = []
+    body: list[cst.BaseStatement | cst.EmptyLine] = [
+        cst.SimpleStatementLine(
+            [cst.Expr(value=cst.SimpleString('"""Generated SDK client tests."""'))]
+        ),
+        cst.EmptyLine(),
+    ]
 
     body.append(
         cst.SimpleStatementLine(
@@ -555,6 +573,15 @@ def emit_tests(spec: OpenAPI, composable: bool = False) -> cst.Module:
                 body=[
                     cst.SimpleStatementLine(
                         [
+                            cst.Expr(
+                                value=cst.SimpleString(
+                                    '"""Provide a configured SDK Client instance."""'
+                                )
+                            )
+                        ]
+                    ),
+                    cst.SimpleStatementLine(
+                        [
                             cst.Return(
                                 value=cst.Call(
                                     func=cst.Name("Client"),
@@ -585,7 +612,7 @@ def emit_tests(spec: OpenAPI, composable: bool = False) -> cst.Module:
                                 )
                             )
                         ]
-                    )
+                    ),
                 ]
             ),
             decorators=[
@@ -645,7 +672,9 @@ def emit_api_tests(spec: OpenAPI) -> cst.Module:
         op_names.append("default")
 
     ops_list_str = "[" + ", ".join(f'"{name}"' for name in op_names) + "]"
-    code = f"""import os
+    code = f'''"""Generated API client metadata and smoke tests."""
+
+import os
 import sys
 import pytest
 
@@ -658,15 +687,22 @@ test_operations = {ops_list_str}
 
 @pytest.fixture
 def client():
+    """Provide a configured SDK Client instance."""
     return Client(API_URL, api_key="special-key")
 
 
 def test_api_client(client):
+    """Verify the client base URL and generated operation registry.
+
+    Args:
+        client: The generated SDK `Client` fixture.
+    """
     assert client.base_url == API_URL
     assert len(test_operations) > 0
 
 
 def test_generated_operations() -> None:
+    """Verify that the generated operation registry is non-empty."""
     assert len(test_operations) > 0
-"""
+'''
     return cst.parse_module(code)

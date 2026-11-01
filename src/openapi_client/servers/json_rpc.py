@@ -53,6 +53,11 @@ class JSONRPCRequestHandler(http.server.BaseHTTPRequestHandler):
                     params.get("no_github_actions", False),
                     params.get("no_installable_package", False),
                     params.get("tests", False),
+                    params.get("mcp", False),
+                    params.get("arazzo"),
+                    params.get("github_org"),
+                    params.get("repo_name"),
+                    params.get("doc_host", "readthedocs"),
                 )
                 result = "Success"
             elif method == "to_arazzo":
@@ -73,6 +78,9 @@ class JSONRPCRequestHandler(http.server.BaseHTTPRequestHandler):
                     params.get("no_github_actions", False),
                     params.get("no_installable_package", False),
                     params.get("tests", False),
+                    params.get("github_org"),
+                    params.get("repo_name"),
+                    params.get("doc_host", "readthedocs"),
                 )
                 result = "Success"
             elif method == "to_docs_json":

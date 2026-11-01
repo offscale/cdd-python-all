@@ -24,6 +24,8 @@ def emit_cli_sdk(spec: OpenAPI) -> str:
         The generated CLI application Python source code.
     """
     body = [
+        '"""Generated Client SDK CLI."""',
+        "",
         "import argparse",
         "import json",
         "from json import loads",
@@ -65,7 +67,8 @@ def emit_cli_sdk(spec: OpenAPI) -> str:
         body.append("")
         operations.append((op_id, desc))
 
-    body.append("def main():")
+    body.append("def main() -> None:")
+    body.append('    """Run the generated CLI application."""')
     body.append(
         '    parser = argparse.ArgumentParser(description="Generated Client SDK CLI")'
     )

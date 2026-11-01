@@ -128,10 +128,10 @@ def _build_route_function(
     raw_op_id = operation.operationId or f"{method}_{path.replace('/', '_').strip('_')}"
     op_id = sanitize_name(raw_op_id)
     nl = chr(10)
-    doc_text = f"{operation.summary or ''}{nl}    {operation.description or ''}"
 
     params: list[cst.Param] = []
     seen_params: set[str] = set()
+    arg_docs: list[str] = []
 
     path_vars = re.findall(r"\{([^}]+)\}", path)
     if operation.parameters:
@@ -139,6 +139,8 @@ def _build_route_function(
             safe_p = _safe_param_name(getattr(param, "name", "") or "")
             if safe_p and safe_p not in seen_params:
                 seen_params.add(safe_p)
+                p_desc = getattr(param, "description", "") or f"Parameter {safe_p}."
+                arg_docs.append(f"        {safe_p}: {p_desc}")
                 schema_obj = getattr(param, "schema_", getattr(param, "schema", None))
                 ann_str = _to_fastapi_type(get_annotation_for_schema(schema_obj))
                 params.append(
@@ -155,6 +157,7 @@ def _build_route_function(
         safe_var = _safe_param_name(p_var)
         if safe_var not in seen_params:
             seen_params.add(safe_var)
+            arg_docs.append(f"        {safe_var}: Path parameter {safe_var}.")
             params.append(
                 cst.Param(
                     name=cst.Name(safe_var),
@@ -168,6 +171,10 @@ def _build_route_function(
     )
     if operation.requestBody is not None and "body" not in seen_params:
         seen_params.add("body")
+        b_desc = (
+            getattr(operation.requestBody, "description", "") or "Request body payload."
+        )
+        arg_docs.append(f"        body: {b_desc}")
         body_type = _extract_request_body_type(operation)
         params.append(
             cst.Param(
@@ -176,6 +183,14 @@ def _build_route_function(
                 default=cst.Name("None"),
             )
         )
+
+    summary_line = operation.summary or f"Handle {method.upper()} {path}."
+    doc_parts = [summary_line]
+    if operation.description:
+        doc_parts.append(f"    {operation.description}")
+    if arg_docs:
+        doc_parts.append("    Args:\n" + "\n".join(arg_docs))
+    doc_text = f"{nl}{nl}".join(doc_parts)
 
     body_stmts: list[cst.BaseStatement] = [_doc_stmt(doc_text)]
 
@@ -304,6 +319,8 @@ def _build_main_module(spec: OpenAPI, router_tags: list[str]) -> cst.Module:
         A LibCST Module representing `main.py`.
     """
     body: list[cst.BaseStatement | cst.EmptyLine] = [
+        _doc_stmt("Generated FastAPI server application."),
+        cst.EmptyLine(),
         cst.parse_statement("from __future__ import annotations"),
         cst.parse_statement("import argparse"),
         cst.parse_statement("import os"),
@@ -375,7 +392,13 @@ def _build_main_module(spec: OpenAPI, router_tags: list[str]) -> cst.Module:
         ],
         body=cst.IndentedBlock(
             body=[
-                _doc_stmt("Advanced mock capabilities middleware."),
+                _doc_stmt(
+                    """Advanced mock capabilities middleware.
+
+    Args:
+        request: Incoming FastAPI request.
+        call_next: Next middleware or route handler callable."""
+                ),
                 cst.If(
                     test=cst.parse_expression("config_flags['strict_validation']"),
                     body=cst.IndentedBlock(
@@ -452,7 +475,12 @@ def _build_main_module(spec: OpenAPI, router_tags: list[str]) -> cst.Module:
         ],
         body=cst.IndentedBlock(
             body=[
-                _doc_stmt("Administrative trigger for outgoing webhooks."),
+                _doc_stmt(
+                    """Administrative trigger for outgoing webhooks.
+
+    Args:
+        webhook_name: Name of the webhook to trigger."""
+                ),
                 cst.parse_statement(
                     "return {'status': 'webhook triggered', 'webhook_name': webhook_name}"
                 ),
@@ -615,6 +643,8 @@ def emit_fastapi(spec: OpenAPI) -> dict[str, str]:
 
             if tag not in router_modules:
                 router_modules[tag] = [
+                    _doc_stmt(f"FastAPI route handlers for {raw_tag}."),
+                    cst.EmptyLine(),
                     cst.parse_statement("from __future__ import annotations"),
                     cst.parse_statement("import os"),
                     cst.parse_statement("from typing import Any"),
@@ -627,12 +657,12 @@ def emit_fastapi(spec: OpenAPI) -> dict[str, str]:
 
             if matched_model is not None and not router_has_dao[tag]:
                 router_modules[tag].insert(
-                    4, cst.parse_statement("from dao import get_dao")
+                    6, cst.parse_statement("from dao import get_dao")
                 )
                 router_modules[tag].insert(
-                    5, cst.parse_statement("from db import get_db_session")
+                    7, cst.parse_statement("from db import get_db_session")
                 )
-                router_modules[tag].insert(6, cst.parse_statement("import models"))
+                router_modules[tag].insert(8, cst.parse_statement("import models"))
                 router_has_dao[tag] = True
 
             for method in HTTP_METHODS:
@@ -647,7 +677,7 @@ def emit_fastapi(spec: OpenAPI) -> dict[str, str]:
     for tag, stmts in router_modules.items():
         files[f"routes/{tag}.py"] = build_cst_module(stmts).code
 
-    files["routes/__init__.py"] = ""
+    files["routes/__init__.py"] = '"""Generated FastAPI route modules."""\n'
     files["main.py"] = _build_main_module(spec, list(router_modules.keys())).code
 
     return files

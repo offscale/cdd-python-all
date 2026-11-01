@@ -48,7 +48,7 @@ def _has_structured_arg_doc(doc: str | None, arg_name: str) -> bool:
 
 def calculate_doc_coverage(
     directory: str | tuple[str, ...] = (
-        "src/openapi_client",
+        "src",
         "scripts",
         "tests",
         "test",

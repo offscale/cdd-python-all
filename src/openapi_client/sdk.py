@@ -103,6 +103,9 @@ def generate_from_openapi(
     no_installable_package: bool = False,
     tests: bool = False,
     subcommand: str = "to_sdk",
+    github_org: str | None = None,
+    repo_name: str | None = None,
+    doc_host: str = "readthedocs",
 ) -> None:
     """Generate code from an OpenAPI specification.
 
@@ -113,6 +116,9 @@ def generate_from_openapi(
         no_installable_package: If True, skip `pyproject.toml` scaffolding.
         tests: If True, generate unit tests and mock server.
         subcommand: Generation target (`'to_sdk'`, `'to_sdk_cli'`, or `'to_server'`).
+        github_org: Optional GitHub organization or user name for scaffolding URLs.
+        repo_name: Optional repository name for scaffolding URLs.
+        doc_host: Documentation hosting target (`'official'`, `'readthedocs'`, `'github_pages'`, `'github-pages'`, or `'none'`).
     """
     cli_generate_from_openapi(
         subcommand=subcommand,
@@ -122,6 +128,9 @@ def generate_from_openapi(
         no_github_actions=no_github_actions,
         no_installable_package=no_installable_package,
         tests=tests,
+        github_org=github_org,
+        repo_name=repo_name,
+        doc_host=doc_host,
     )
 
 
@@ -142,6 +151,9 @@ def generate_from_arazzo(
     no_installable_package: bool = False,
     tests: bool = False,
     subcommand: str = "to_sdk",
+    github_org: str | None = None,
+    repo_name: str | None = None,
+    doc_host: str = "readthedocs",
 ) -> None:
     """Generate Python workflows, CLI, server routes, or tests from an Arazzo 1.1.0 specification.
 
@@ -152,6 +164,9 @@ def generate_from_arazzo(
         no_installable_package: If True, skip `pyproject.toml` scaffolding.
         tests: If True, generate end-to-end workflow test suites.
         subcommand: Generation target (`'to_sdk'`, `'to_sdk_cli'`, `'to_server'`, or `'to_tests'`).
+        github_org: Optional GitHub organization or user name for scaffolding URLs.
+        repo_name: Optional repository name for scaffolding URLs.
+        doc_host: Documentation hosting target (`'official'`, `'readthedocs'`, `'github_pages'`, `'github-pages'`, or `'none'`).
     """
     cli_generate_from_arazzo(
         subcommand=subcommand,
@@ -161,6 +176,9 @@ def generate_from_arazzo(
         no_github_actions=no_github_actions,
         no_installable_package=no_installable_package,
         tests=tests,
+        github_org=github_org,
+        repo_name=repo_name,
+        doc_host=doc_host,
     )
 
 
