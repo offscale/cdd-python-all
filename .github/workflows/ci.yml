@@ -52,7 +52,9 @@ jobs:
       run: sudo apt-get update && sudo apt-get install -y binaryen
     - name: Build WASM
       run: |
-        make build_wasm
+        if [ ! -f bin/cdd-python-all.wasm ]; then
+          make build_wasm
+        fi
         for f in bin/*.wasm; do
           if [ -f "$f" ]; then
             wasm-opt -O3 "$f" -o "$f" || true

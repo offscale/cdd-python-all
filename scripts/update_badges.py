@@ -42,9 +42,11 @@ def main() -> None:
         [
             "pytest",
             "tests/",
+            "test/",
             "--cov=src",
             "--cov=scripts",
             "--cov-branch",
+            "--cov-fail-under=100",
             "--cov-report=term",
         ],
         check=False,
@@ -67,7 +69,7 @@ def main() -> None:
         [
             "interrogate",
             "--fail-under=0",
-            "src/openapi_client",
+            "src",
             "scripts",
             "tests",
             "test",
